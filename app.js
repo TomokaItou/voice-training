@@ -1,7 +1,5 @@
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
-const exportCsvButton = document.getElementById('exportCsvButton');
-const exportPngButton = document.getElementById('exportPngButton');
 const statusEl = document.getElementById('status');
 const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
@@ -15,10 +13,6 @@ let sourceNode;
 let animationId;
 let pitchHistory = [];
 const maxHistorySeconds = 12;
-const displayUpdateIntervalMs = 150;
-let lastDisplayUpdate = 0;
-let currentPitch = null;
-let sessionStartTime = 0;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -107,7 +101,6 @@ function drawPitchHistory() {
   }
   const minPitch = Math.min(...pitches);
   const maxPitch = Math.max(...pitches);
-  const pitchRange = Math.max(maxPitch - minPitch, 1);
   const padding = 20;
 
   ctx.strokeStyle = '#3a6ff7';
@@ -119,7 +112,7 @@ function drawPitchHistory() {
       return;
     }
     const x = ((point.time - minTime) / (maxHistorySeconds * 1000)) * canvas.width;
-    const normalized = (point.pitch - minPitch) / pitchRange;
+    const normalized = (point.pitch - minPitch) / Math.max(maxPitch - minPitch, 1);
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
     if (index === 0) {
       ctx.moveTo(x, y);
@@ -128,116 +121,21 @@ function drawPitchHistory() {
     }
   });
   ctx.stroke();
-
-  if (currentPitch) {
-    const normalized = (currentPitch - minPitch) / pitchRange;
-    const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
-    ctx.strokeStyle = '#ff7a59';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
-    ctx.stroke();
-
-    ctx.fillStyle = '#ff7a59';
-    ctx.font = '14px sans-serif';
-    ctx.textBaseline = 'middle';
-    const label = `${Math.round(currentPitch)} Hz`;
-    ctx.fillText(label, 8, y);
-  }
-}
-
-function hasRecentPitchData() {
-  const now = performance.now();
-  const minTime = now - maxHistorySeconds * 1000;
-  return pitchHistory.some((point) => point.time >= minTime && point.pitch);
-}
-
-function updateExportButtons() {
-  const hasData = hasRecentPitchData();
-  exportCsvButton.disabled = !audioContext || !hasData;
-  exportPngButton.disabled = !audioContext || !hasData;
-}
-
-function formatTimestamp(date) {
-  const pad = (value) => String(value).padStart(2, '0');
-  return [
-    date.getFullYear(),
-    pad(date.getMonth() + 1),
-    pad(date.getDate()),
-    '_',
-    pad(date.getHours()),
-    pad(date.getMinutes()),
-    pad(date.getSeconds()),
-  ].join('');
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function exportCsv() {
-  if (!pitchHistory.length) {
-    return;
-  }
-  const now = performance.now();
-  const minTime = now - maxHistorySeconds * 1000;
-  const rows = pitchHistory
-    .filter((point) => point.time >= minTime && point.pitch)
-    .map((point) => {
-      const timestampMs = Math.max(0, Math.round(point.time - sessionStartTime));
-      const frequencyHz = Number(point.pitch.toFixed(1));
-      const note = frequencyToNote(point.pitch);
-      return [timestampMs, frequencyHz, note].join(',');
-    });
-
-  if (!rows.length) {
-    return;
-  }
-
-  const header = 'timestampMs,frequencyHz,note';
-  const csvContent = [header, ...rows].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-  const filename = `voice-training_${formatTimestamp(new Date())}.csv`;
-  downloadBlob(blob, filename);
-}
-
-function exportPng() {
-  canvas.toBlob((blob) => {
-    if (!blob) {
-      return;
-    }
-    const filename = `voice-training_${formatTimestamp(new Date())}.png`;
-    downloadBlob(blob, filename);
-  });
 }
 
 function update() {
   analyser.getFloatTimeDomainData(dataArray);
   const pitch = autoCorrelate(dataArray, audioContext.sampleRate);
-  currentPitch = pitch;
 
   pitchHistory.push({ time: performance.now(), pitch });
   drawPitchHistory();
 
-  const now = performance.now();
-  if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
-    lastDisplayUpdate = now;
-    if (pitch) {
-      pitchValueEl.textContent = `${pitch.toFixed(1)} Hz`;
-      noteValueEl.textContent = frequencyToNote(pitch);
-    } else {
-      pitchValueEl.textContent = '-- Hz';
-      noteValueEl.textContent = '--';
-    }
-    updateExportButtons();
+  if (pitch) {
+    pitchValueEl.textContent = `${pitch.toFixed(1)} Hz`;
+    noteValueEl.textContent = frequencyToNote(pitch);
+  } else {
+    pitchValueEl.textContent = '-- Hz';
+    noteValueEl.textContent = '--';
   }
 
   animationId = requestAnimationFrame(update);
@@ -255,13 +153,10 @@ async function start() {
     sourceNode.connect(analyser);
 
     pitchHistory = [];
-    lastDisplayUpdate = 0;
-    sessionStartTime = performance.now();
     setStatus('正在监听麦克风', 'active');
 
     startButton.disabled = true;
     stopButton.disabled = false;
-    updateExportButtons();
 
     update();
   } catch (error) {
@@ -286,12 +181,9 @@ function stop() {
   setStatus('已停止');
   startButton.disabled = false;
   stopButton.disabled = true;
-  updateExportButtons();
 }
 
 startButton.addEventListener('click', start);
 stopButton.addEventListener('click', stop);
-exportCsvButton.addEventListener('click', exportCsv);
-exportPngButton.addEventListener('click', exportPng);
 
 window.addEventListener('beforeunload', stop);

@@ -54,12 +54,6 @@ button {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-button.secondary {
-  background: #f2f5ff;
-  color: #2f4fdd;
-  border: 1px solid #d7def7;
-}
-
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -69,10 +63,6 @@ button:disabled {
 button:not(:disabled):hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 20px rgba(58, 111, 247, 0.25);
-}
-
-button.secondary:not(:disabled):hover {
-  box-shadow: 0 10px 20px rgba(47, 79, 221, 0.15);
 }
 
 .status {
