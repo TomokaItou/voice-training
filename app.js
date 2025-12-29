@@ -13,9 +13,6 @@ let sourceNode;
 let animationId;
 let pitchHistory = [];
 const maxHistorySeconds = 12;
-const displayUpdateIntervalMs = 150;
-let lastDisplayUpdate = 0;
-let currentPitch = null;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -104,7 +101,6 @@ function drawPitchHistory() {
   }
   const minPitch = Math.min(...pitches);
   const maxPitch = Math.max(...pitches);
-  const pitchRange = Math.max(maxPitch - minPitch, 1);
   const padding = 20;
 
   ctx.strokeStyle = '#3a6ff7';
@@ -116,7 +112,7 @@ function drawPitchHistory() {
       return;
     }
     const x = ((point.time - minTime) / (maxHistorySeconds * 1000)) * canvas.width;
-    const normalized = (point.pitch - minPitch) / pitchRange;
+    const normalized = (point.pitch - minPitch) / Math.max(maxPitch - minPitch, 1);
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
     if (index === 0) {
       ctx.moveTo(x, y);
@@ -125,43 +121,21 @@ function drawPitchHistory() {
     }
   });
   ctx.stroke();
-
-  if (currentPitch) {
-    const normalized = (currentPitch - minPitch) / pitchRange;
-    const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
-    ctx.strokeStyle = '#ff7a59';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
-    ctx.stroke();
-
-    ctx.fillStyle = '#ff7a59';
-    ctx.font = '14px sans-serif';
-    ctx.textBaseline = 'middle';
-    const label = `${Math.round(currentPitch)} Hz`;
-    ctx.fillText(label, 8, y);
-  }
 }
 
 function update() {
   analyser.getFloatTimeDomainData(dataArray);
   const pitch = autoCorrelate(dataArray, audioContext.sampleRate);
-  currentPitch = pitch;
 
   pitchHistory.push({ time: performance.now(), pitch });
   drawPitchHistory();
 
-  const now = performance.now();
-  if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
-    lastDisplayUpdate = now;
-    if (pitch) {
-      pitchValueEl.textContent = `${pitch.toFixed(1)} Hz`;
-      noteValueEl.textContent = frequencyToNote(pitch);
-    } else {
-      pitchValueEl.textContent = '-- Hz';
-      noteValueEl.textContent = '--';
-    }
+  if (pitch) {
+    pitchValueEl.textContent = `${pitch.toFixed(1)} Hz`;
+    noteValueEl.textContent = frequencyToNote(pitch);
+  } else {
+    pitchValueEl.textContent = '-- Hz';
+    noteValueEl.textContent = '--';
   }
 
   animationId = requestAnimationFrame(update);
@@ -179,7 +153,6 @@ async function start() {
     sourceNode.connect(analyser);
 
     pitchHistory = [];
-    lastDisplayUpdate = 0;
     setStatus('正在监听麦克风', 'active');
 
     startButton.disabled = true;
