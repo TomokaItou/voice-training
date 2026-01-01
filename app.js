@@ -295,6 +295,3 @@
 +exportPngButton.addEventListener('click', exportPng);
 +
 +window.addEventListener('beforeunload', stop);
- 
-EOF
-)
