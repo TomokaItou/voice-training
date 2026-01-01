@@ -1,10 +1,3 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/app.js b/app.js
-new file mode 100644
-index 0000000000000000000000000000000000000000..3451e2caee2202fe17cba58dfcd51ac26c789ee6
---- /dev/null
-+++ b/app.js
-@@ -0,0 +1,297 @@
 +const startButton = document.getElementById('startButton');
 +const stopButton = document.getElementById('stopButton');
 +const exportCsvButton = document.getElementById('exportCsvButton');
