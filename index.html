@@ -1,46 +1,46 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>声乐练习音高检测</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main class="app">
-      <header>
-        <h1>实时音高曲线</h1>
-        <p>允许麦克风权限后，对着手机唱歌即可看到音高变化。</p>
-      </header>
-
-      <section class="controls">
-        <button id="startButton">开始检测</button>
-        <button id="stopButton" disabled>停止</button>
-        <button id="exportCsvButton" class="secondary" disabled>保存本次（CSV）</button>
-        <button id="exportPngButton" class="secondary" disabled>导出截图（PNG）</button>
-        <div class="status" id="status">未开始</div>
-      </section>
-
-      <section class="readout">
-        <div>
-          <span class="label">当前音高</span>
-          <span class="value" id="pitchValue">-- Hz</span>
-        </div>
-        <div>
-          <span class="label">音名</span>
-          <span class="value" id="noteValue">--</span>
-        </div>
-      </section>
-
-      <section class="chart">
-        <canvas id="pitchCanvas" width="720" height="360"></canvas>
-        <div class="chart-legend">
-          <span>低音</span>
-          <span>高音</span>
-        </div>
-      </section>
-    </main>
-
-    <script src="app.js"></script>
-  </body>
-</html>
++<!DOCTYPE html>
++<html lang="zh-CN">
++  <head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>声乐练习音高检测</title>
++    <link rel="stylesheet" href="styles.css" />
++  </head>
++  <body>
++    <main class="app">
++      <header>
++        <h1>实时音高曲线</h1>
++        <p>允许麦克风权限后，对着手机唱歌即可看到音高变化。</p>
++      </header>
++
++      <section class="controls">
++        <button id="startButton">开始检测</button>
++        <button id="stopButton" disabled>停止</button>
++        <button id="exportCsvButton" class="secondary" disabled>保存本次（CSV）</button>
++        <button id="exportPngButton" class="secondary" disabled>导出截图（PNG）</button>
++        <div class="status" id="status">未开始</div>
++      </section>
++
++      <section class="readout">
++        <div>
++          <span class="label">当前音高</span>
++          <span class="value" id="pitchValue">-- Hz</span>
++        </div>
++        <div>
++          <span class="label">音名</span>
++          <span class="value" id="noteValue">--</span>
++        </div>
++      </section>
++
++      <section class="chart">
++        <canvas id="pitchCanvas" width="720" height="360"></canvas>
++        <div class="chart-legend">
++          <span>低音</span>
++          <span>高音</span>
++        </div>
++      </section>
++    </main>
++
++    <script src="app.js"></script>
++  </body>
++</html>
