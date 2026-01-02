@@ -16,6 +16,7 @@ const ctx = canvas.getContext('2d');
 let audioContext;
 let analyser;
 let dataArray;
+let frequencyData;
 let sourceNode;
 let animationId;
 let pitchHistory = [];
@@ -24,7 +25,7 @@ const displayUpdateIntervalMs = 150;
 let lastDisplayUpdate = 0;
 let currentPitch = null;
 let sessionStartTime = 0;
-const formantUpdateIntervalMs = 100;
+const formantUpdateIntervalMs = 120;
 let lastFormantUpdate = 0;
 let smoothedFormants = { f1: null, f2: null };
 
@@ -176,7 +177,54 @@ function smoothFormantValue(previous, next, alpha = 0.3) {
 }
 
 function estimateFormants() {
-  return { f1: null, f2: null };
+  if (!analyser || !frequencyData) {
+    return { f1: null, f2: null };
+  }
+
+  analyser.getFloatFrequencyData(frequencyData);
+  const binCount = frequencyData.length;
+  const sampleRate = audioContext.sampleRate;
+  const binResolution = sampleRate / analyser.fftSize;
+  const smoothingHz = 120;
+  const windowBins = Math.max(1, Math.round(smoothingHz / binResolution));
+  const smoothed = new Float32Array(binCount);
+
+  let windowSum = 0;
+  for (let i = 0; i < binCount; i += 1) {
+    windowSum += frequencyData[i];
+    if (i >= windowBins) {
+      windowSum -= frequencyData[i - windowBins];
+    }
+    const denom = Math.min(i + 1, windowBins);
+    smoothed[i] = windowSum / denom;
+  }
+
+  const findPeak = (minHz, maxHz, minimumHz) => {
+    const startBin = Math.max(0, Math.floor(minHz / binResolution));
+    const endBin = Math.min(binCount - 1, Math.ceil(maxHz / binResolution));
+    let bestBin = -1;
+    let bestValue = -Infinity;
+    for (let i = startBin; i <= endBin; i += 1) {
+      const freq = i * binResolution;
+      if (minimumHz && freq < minimumHz) {
+        continue;
+      }
+      const value = smoothed[i];
+      if (value > bestValue) {
+        bestValue = value;
+        bestBin = i;
+      }
+    }
+    if (bestBin === -1) {
+      return null;
+    }
+    return bestBin * binResolution;
+  };
+
+  const f1 = findPeak(200, 1000);
+  const f2 = findPeak(700, 3000, f1 ? f1 + 150 : null);
+
+  return { f1, f2 };
 }
 
 function hasRecentPitchData() {
@@ -277,8 +325,8 @@ function update() {
       lastFormantUpdate = now;
       const { f1, f2 } = estimateFormants();
       smoothedFormants = {
-        f1: smoothFormantValue(smoothedFormants.f1, f1),
-        f2: smoothFormantValue(smoothedFormants.f2, f2),
+        f1: smoothFormantValue(smoothedFormants.f1, f1, 0.2),
+        f2: smoothFormantValue(smoothedFormants.f2, f2, 0.2),
       };
       setFormantDisplay(smoothedFormants.f1, smoothedFormants.f2);
     }
@@ -292,8 +340,9 @@ async function start() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
+    analyser.fftSize = 4096;
     dataArray = new Float32Array(analyser.fftSize);
+    frequencyData = new Float32Array(analyser.frequencyBinCount);
 
     sourceNode = audioContext.createMediaStreamSource(stream);
     sourceNode.connect(analyser);
