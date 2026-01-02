@@ -2,6 +2,11 @@ const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
 const exportCsvButton = document.getElementById('exportCsvButton');
 const exportPngButton = document.getElementById('exportPngButton');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebar = document.getElementById('sidebar');
+const formantToggle = document.getElementById('formantToggle');
+const formantF1El = document.getElementById('formantF1');
+const formantF2El = document.getElementById('formantF2');
 const statusEl = document.getElementById('status');
 const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
@@ -19,6 +24,9 @@ const displayUpdateIntervalMs = 150;
 let lastDisplayUpdate = 0;
 let currentPitch = null;
 let sessionStartTime = 0;
+const formantUpdateIntervalMs = 100;
+let lastFormantUpdate = 0;
+let smoothedFormants = { f1: null, f2: null };
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -147,6 +155,30 @@ function drawPitchHistory() {
   }
 }
 
+function setFormantDisplay(f1, f2) {
+  formantF1El.textContent = f1 ? `${Math.round(f1)} Hz` : '— Hz';
+  formantF2El.textContent = f2 ? `${Math.round(f2)} Hz` : '— Hz';
+}
+
+function resetFormants() {
+  smoothedFormants = { f1: null, f2: null };
+  setFormantDisplay(null, null);
+}
+
+function smoothFormantValue(previous, next, alpha = 0.3) {
+  if (!next) {
+    return previous;
+  }
+  if (!previous) {
+    return next;
+  }
+  return previous + alpha * (next - previous);
+}
+
+function estimateFormants() {
+  return { f1: null, f2: null };
+}
+
 function hasRecentPitchData() {
   const now = performance.now();
   const minTime = now - maxHistorySeconds * 1000;
@@ -240,6 +272,18 @@ function update() {
     updateExportButtons();
   }
 
+  if (formantToggle.checked) {
+    if (now - lastFormantUpdate >= formantUpdateIntervalMs) {
+      lastFormantUpdate = now;
+      const { f1, f2 } = estimateFormants();
+      smoothedFormants = {
+        f1: smoothFormantValue(smoothedFormants.f1, f1),
+        f2: smoothFormantValue(smoothedFormants.f2, f2),
+      };
+      setFormantDisplay(smoothedFormants.f1, smoothedFormants.f2);
+    }
+  }
+
   animationId = requestAnimationFrame(update);
 }
 
@@ -257,6 +301,8 @@ async function start() {
     pitchHistory = [];
     lastDisplayUpdate = 0;
     sessionStartTime = performance.now();
+    lastFormantUpdate = 0;
+    resetFormants();
     setStatus('正在监听麦克风', 'active');
 
     startButton.disabled = true;
@@ -287,11 +333,22 @@ function stop() {
   startButton.disabled = false;
   stopButton.disabled = true;
   updateExportButtons();
+  resetFormants();
 }
 
 startButton.addEventListener('click', start);
 stopButton.addEventListener('click', stop);
 exportCsvButton.addEventListener('click', exportCsv);
 exportPngButton.addEventListener('click', exportPng);
+formantToggle.addEventListener('change', () => {
+  if (!formantToggle.checked) {
+    resetFormants();
+  }
+});
+sidebarToggle.addEventListener('click', () => {
+  const isOpen = sidebar.classList.toggle('open');
+  sidebarToggle.setAttribute('aria-expanded', isOpen);
+  sidebar.setAttribute('aria-hidden', !isOpen);
+});
 
 window.addEventListener('beforeunload', stop);

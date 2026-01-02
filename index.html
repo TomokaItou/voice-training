@@ -14,11 +14,14 @@
       </header>
 
       <section class="controls">
-        <button id="startButton">开始检测</button>
-        <button id="stopButton" disabled>停止</button>
-        <button id="exportCsvButton" class="secondary" disabled>保存本次（CSV）</button>
-        <button id="exportPngButton" class="secondary" disabled>导出截图（PNG）</button>
-        <div class="status" id="status">未开始</div>
+        <div class="controls-main">
+          <button id="startButton">开始检测</button>
+          <button id="stopButton" disabled>停止</button>
+          <button id="exportCsvButton" class="secondary" disabled>保存本次（CSV）</button>
+          <button id="exportPngButton" class="secondary" disabled>导出截图（PNG）</button>
+          <div class="status" id="status">未开始</div>
+        </div>
+        <button id="sidebarToggle" class="secondary sidebar-toggle" aria-expanded="false">⚙️ 更多</button>
       </section>
 
       <section class="readout">
@@ -40,6 +43,27 @@
         </div>
       </section>
     </main>
+
+    <aside class="sidebar" id="sidebar" aria-hidden="true">
+      <div class="sidebar-card">
+        <h2>共振峰 (Formants)</h2>
+        <label class="toggle">
+          <input type="checkbox" id="formantToggle" />
+          <span class="toggle-pill"></span>
+          <span class="toggle-text">启用检测</span>
+        </label>
+        <div class="formant-values">
+          <div>
+            <span class="label">F1</span>
+            <span class="value" id="formantF1">— Hz</span>
+          </div>
+          <div>
+            <span class="label">F2</span>
+            <span class="value" id="formantF2">— Hz</span>
+          </div>
+        </div>
+      </div>
+    </aside>
 
     <script src="app.js"></script>
   </body>
