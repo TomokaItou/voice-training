@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>声乐练习音高检测</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>实时音高曲线</h1>
+        <p>允许麦克风权限后，对着手机唱歌即可看到音高变化。</p>
+      </header>
+
+      <section class="controls">
+        <div class="controls-main">
+          <button id="startButton">开始检测</button>
+          <button id="stopButton" disabled>停止</button>
+          <button id="exportCsvButton" class="secondary" disabled>保存本次（CSV）</button>
+          <button id="exportPngButton" class="secondary" disabled>导出截图（PNG）</button>
+          <div class="status" id="status">未开始</div>
+        </div>
+        <button id="sidebarToggle" class="secondary sidebar-toggle" aria-expanded="false">⚙️ 更多</button>
+      </section>
+
+      <section class="readout">
+        <div>
+          <span class="label">当前音高</span>
+          <span class="value" id="pitchValue">-- Hz</span>
+        </div>
+        <div>
+          <span class="label">音名</span>
+          <span class="value" id="noteValue">--</span>
+        </div>
+      </section>
+
+      <section class="chart">
+        <canvas id="pitchCanvas" width="720" height="360"></canvas>
+        <div class="chart-legend">
+          <span>低音</span>
+          <span>高音</span>
+        </div>
+      </section>
+    </main>
+
+    <aside class="sidebar" id="sidebar" aria-hidden="true">
+      <div class="sidebar-card">
+        <h2>共振峰 (Formants)</h2>
+        <label class="toggle">
+          <input type="checkbox" id="formantToggle" />
+          <span class="toggle-pill"></span>
+          <span class="toggle-text">启用检测</span>
+        </label>
+        <div class="formant-values">
+          <div>
+            <span class="label">F1</span>
+            <span class="value" id="formantF1">— Hz</span>
+          </div>
+          <div>
+            <span class="label">F2</span>
+            <span class="value" id="formantF2">— Hz</span>
+          </div>
+        </div>
+        <div class="formant-status" id="formantStatus"></div>
+      </div>
+    </aside>
+
+    <script src="app.js"></script>
+  </body>
+</html>
