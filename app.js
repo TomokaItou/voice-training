@@ -7,6 +7,7 @@ const sidebar = document.getElementById('sidebar');
 const formantToggle = document.getElementById('formantToggle');
 const formantF1El = document.getElementById('formantF1');
 const formantF2El = document.getElementById('formantF2');
+const formantStatusEl = document.getElementById('formantStatus');
 const statusEl = document.getElementById('status');
 const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
@@ -22,12 +23,24 @@ let animationId;
 let pitchHistory = [];
 const maxHistorySeconds = 12;
 const displayUpdateIntervalMs = 150;
+const formantUpdateIntervalMs = 150;
+const formantWindowSize = 5;
+const formantTauMs = 450;
+const formantSmoothingHz = 120;
+const formantMaxJumpHz = { f1: 90, f2: 160 };
+const formantValidRanges = {
+  f1: { min: 200, max: 1000 },
+  f2: { min: 700, max: 3000 },
+  minSeparation: 150,
+};
 let lastDisplayUpdate = 0;
 let currentPitch = null;
 let sessionStartTime = 0;
-const formantUpdateIntervalMs = 120;
 let lastFormantUpdate = 0;
+let lastFormantTimestamp = 0;
 let smoothedFormants = { f1: null, f2: null };
+let stableFormants = { f1: null, f2: null };
+let formantHistory = { f1: [], f2: [] };
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -161,19 +174,54 @@ function setFormantDisplay(f1, f2) {
   formantF2El.textContent = f2 ? `${Math.round(f2)} Hz` : '— Hz';
 }
 
-function resetFormants() {
-  smoothedFormants = { f1: null, f2: null };
-  setFormantDisplay(null, null);
+function setFormantStatus(message) {
+  formantStatusEl.textContent = message || '';
 }
 
-function smoothFormantValue(previous, next, alpha = 0.3) {
-  if (!next) {
+function resetFormants() {
+  smoothedFormants = { f1: null, f2: null };
+  stableFormants = { f1: null, f2: null };
+  formantHistory = { f1: [], f2: [] };
+  setFormantDisplay(null, null);
+  setFormantStatus('');
+}
+
+function smoothFormantValue(previous, next, alpha) {
+  if (next === null || next === undefined) {
     return previous;
   }
-  if (!previous) {
+  if (previous === null || previous === undefined) {
     return next;
   }
   return previous + alpha * (next - previous);
+}
+
+function pushFormantSample(buffer, value) {
+  const nextBuffer = [...buffer, value].slice(-formantWindowSize);
+  return nextBuffer;
+}
+
+function median(values) {
+  if (!values.length) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+}
+
+function limitJump(previous, next, maxJump) {
+  if (previous === null || previous === undefined) {
+    return next;
+  }
+  const delta = next - previous;
+  if (Math.abs(delta) <= maxJump) {
+    return next;
+  }
+  return previous + Math.sign(delta) * maxJump;
 }
 
 function estimateFormants() {
@@ -185,8 +233,7 @@ function estimateFormants() {
   const binCount = frequencyData.length;
   const sampleRate = audioContext.sampleRate;
   const binResolution = sampleRate / analyser.fftSize;
-  const smoothingHz = 120;
-  const windowBins = Math.max(1, Math.round(smoothingHz / binResolution));
+  const windowBins = Math.max(1, Math.round(formantSmoothingHz / binResolution));
   const smoothed = new Float32Array(binCount);
 
   let windowSum = 0;
@@ -221,10 +268,56 @@ function estimateFormants() {
     return bestBin * binResolution;
   };
 
-  const f1 = findPeak(200, 1000);
-  const f2 = findPeak(700, 3000, f1 ? f1 + 150 : null);
+  const f1 = findPeak(formantValidRanges.f1.min, formantValidRanges.f1.max);
+  const f2 = findPeak(
+    formantValidRanges.f2.min,
+    formantValidRanges.f2.max,
+    f1 ? f1 + formantValidRanges.minSeparation : null
+  );
 
   return { f1, f2 };
+}
+
+function isValidFormantPair(f1, f2) {
+  if (!f1 || !f2) {
+    return false;
+  }
+  if (f1 < formantValidRanges.f1.min || f1 > formantValidRanges.f1.max) {
+    return false;
+  }
+  if (f2 < formantValidRanges.f2.min || f2 > formantValidRanges.f2.max) {
+    return false;
+  }
+  if (f2 <= f1 + formantValidRanges.minSeparation) {
+    return false;
+  }
+  return true;
+}
+
+function stabilizeFormants(rawF1, rawF2, now) {
+  if (!isValidFormantPair(rawF1, rawF2)) {
+    setFormantStatus('信号不稳定/无声');
+    return stableFormants;
+  }
+
+  setFormantStatus('');
+  formantHistory = {
+    f1: pushFormantSample(formantHistory.f1, rawF1),
+    f2: pushFormantSample(formantHistory.f2, rawF2),
+  };
+  const medianF1 = median(formantHistory.f1);
+  const medianF2 = median(formantHistory.f2);
+  const limitedF1 = limitJump(smoothedFormants.f1, medianF1, formantMaxJumpHz.f1);
+  const limitedF2 = limitJump(smoothedFormants.f2, medianF2, formantMaxJumpHz.f2);
+
+  const dt = Math.max(now - lastFormantTimestamp, formantUpdateIntervalMs);
+  const alpha = 1 - Math.exp(-dt / formantTauMs);
+  smoothedFormants = {
+    f1: smoothFormantValue(smoothedFormants.f1, limitedF1, alpha),
+    f2: smoothFormantValue(smoothedFormants.f2, limitedF2, alpha),
+  };
+  stableFormants = { ...smoothedFormants };
+  return stableFormants;
 }
 
 function hasRecentPitchData() {
@@ -324,12 +417,12 @@ function update() {
     if (now - lastFormantUpdate >= formantUpdateIntervalMs) {
       lastFormantUpdate = now;
       const { f1, f2 } = estimateFormants();
-      smoothedFormants = {
-        f1: smoothFormantValue(smoothedFormants.f1, f1, 0.2),
-        f2: smoothFormantValue(smoothedFormants.f2, f2, 0.2),
-      };
-      setFormantDisplay(smoothedFormants.f1, smoothedFormants.f2);
+      const stabilized = stabilizeFormants(f1, f2, now);
+      setFormantDisplay(stabilized.f1, stabilized.f2);
+      lastFormantTimestamp = now;
     }
+  } else {
+    setFormantStatus('');
   }
 
   animationId = requestAnimationFrame(update);
@@ -351,6 +444,7 @@ async function start() {
     lastDisplayUpdate = 0;
     sessionStartTime = performance.now();
     lastFormantUpdate = 0;
+    lastFormantTimestamp = 0;
     resetFormants();
     setStatus('正在监听麦克风', 'active');
 
@@ -392,6 +486,7 @@ exportPngButton.addEventListener('click', exportPng);
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {
     resetFormants();
+    setFormantStatus('');
   }
 });
 sidebarToggle.addEventListener('click', () => {
