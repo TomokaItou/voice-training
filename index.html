@@ -64,6 +64,19 @@
         </div>
         <div class="formant-status" id="formantStatus"></div>
       </div>
+      <div class="sidebar-card">
+        <h2>离线分析</h2>
+        <input type="file" id="audioFileInput" accept="audio/*" class="file-input" />
+        <button id="clearFileButton" class="secondary" disabled>清除文件/返回实时</button>
+        <div class="file-status">
+          <span class="label">数据源</span>
+          <span class="value" id="dataSourceValue">实时麦克风</span>
+        </div>
+        <div class="file-status">
+          <span class="label">分析进度</span>
+          <span class="value" id="analysisStatus">未开始</span>
+        </div>
+      </div>
     </aside>
 
     <script src="app.js"></script>

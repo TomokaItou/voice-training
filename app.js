@@ -8,6 +8,10 @@ const formantToggle = document.getElementById('formantToggle');
 const formantF1El = document.getElementById('formantF1');
 const formantF2El = document.getElementById('formantF2');
 const formantStatusEl = document.getElementById('formantStatus');
+const audioFileInput = document.getElementById('audioFileInput');
+const clearFileButton = document.getElementById('clearFileButton');
+const dataSourceValue = document.getElementById('dataSourceValue');
+const analysisStatus = document.getElementById('analysisStatus');
 const statusEl = document.getElementById('status');
 const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
@@ -33,6 +37,10 @@ const formantValidRanges = {
   f2: { min: 700, max: 3000 },
   minSeparation: 150,
 };
+const offlineFrameDurationMs = 20;
+const offlineHopDurationMs = 10;
+const offlineMaxDurationSeconds = 300;
+const offlineProgressUpdateMs = 200;
 let lastDisplayUpdate = 0;
 let currentPitch = null;
 let sessionStartTime = 0;
@@ -41,6 +49,11 @@ let lastFormantTimestamp = 0;
 let smoothedFormants = { f1: null, f2: null };
 let stableFormants = { f1: null, f2: null };
 let formantHistory = { f1: [], f2: [] };
+let offlineMode = false;
+let offlineAbort = false;
+let offlineFormantHistory = [];
+let offlineSourceSampleRate = null;
+let offlineAnalysisInProgress = false;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -48,6 +61,14 @@ function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
   statusEl.style.background = tone === 'active' ? '#e8f0ff' : '#eef1f7';
   statusEl.style.color = tone === 'active' ? '#2f4fdd' : '#49506b';
+}
+
+function setDataSourceLabel(source) {
+  dataSourceValue.textContent = source;
+}
+
+function setAnalysisStatus(text) {
+  analysisStatus.textContent = text;
 }
 
 function frequencyToNote(freq) {
@@ -118,10 +139,21 @@ function drawPitchHistory() {
     return;
   }
 
-  const now = performance.now();
-  const minTime = now - maxHistorySeconds * 1000;
-  const visibleHistory = pitchHistory.filter((point) => point.time >= minTime);
-  pitchHistory = visibleHistory;
+  let visibleHistory = pitchHistory;
+  let minTime = 0;
+  let durationMs = 0;
+
+  if (offlineMode) {
+    minTime = pitchHistory[0].time;
+    const maxTime = pitchHistory[pitchHistory.length - 1].time;
+    durationMs = Math.max(maxTime - minTime, 1);
+  } else {
+    const now = performance.now();
+    minTime = now - maxHistorySeconds * 1000;
+    visibleHistory = pitchHistory.filter((point) => point.time >= minTime);
+    pitchHistory = visibleHistory;
+    durationMs = maxHistorySeconds * 1000;
+  }
 
   const pitches = visibleHistory.map((point) => point.pitch).filter(Boolean);
   if (pitches.length === 0) {
@@ -140,7 +172,7 @@ function drawPitchHistory() {
     if (!point.pitch) {
       return;
     }
-    const x = ((point.time - minTime) / (maxHistorySeconds * 1000)) * canvas.width;
+    const x = ((point.time - minTime) / durationMs) * canvas.width;
     const normalized = (point.pitch - minPitch) / pitchRange;
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
     if (index === 0) {
@@ -151,7 +183,7 @@ function drawPitchHistory() {
   });
   ctx.stroke();
 
-  if (currentPitch) {
+  if (!offlineMode && currentPitch) {
     const normalized = (currentPitch - minPitch) / pitchRange;
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
     ctx.strokeStyle = '#ff7a59';
@@ -224,23 +256,17 @@ function limitJump(previous, next, maxJump) {
   return previous + Math.sign(delta) * maxJump;
 }
 
-function estimateFormants() {
-  if (!analyser || !frequencyData) {
-    return { f1: null, f2: null };
-  }
-
-  analyser.getFloatFrequencyData(frequencyData);
-  const binCount = frequencyData.length;
-  const sampleRate = audioContext.sampleRate;
-  const binResolution = sampleRate / analyser.fftSize;
+function estimateFormantsFromSpectrum(spectrum, sampleRate, fftSize) {
+  const binCount = spectrum.length;
+  const binResolution = sampleRate / fftSize;
   const windowBins = Math.max(1, Math.round(formantSmoothingHz / binResolution));
   const smoothed = new Float32Array(binCount);
 
   let windowSum = 0;
   for (let i = 0; i < binCount; i += 1) {
-    windowSum += frequencyData[i];
+    windowSum += spectrum[i];
     if (i >= windowBins) {
-      windowSum -= frequencyData[i - windowBins];
+      windowSum -= spectrum[i - windowBins];
     }
     const denom = Math.min(i + 1, windowBins);
     smoothed[i] = windowSum / denom;
@@ -276,6 +302,19 @@ function estimateFormants() {
   );
 
   return { f1, f2 };
+}
+
+function estimateFormants() {
+  if (!analyser || !frequencyData) {
+    return { f1: null, f2: null };
+  }
+
+  analyser.getFloatFrequencyData(frequencyData);
+  return estimateFormantsFromSpectrum(
+    frequencyData,
+    audioContext.sampleRate,
+    analyser.fftSize
+  );
 }
 
 function isValidFormantPair(f1, f2) {
@@ -321,6 +360,9 @@ function stabilizeFormants(rawF1, rawF2, now) {
 }
 
 function hasRecentPitchData() {
+  if (offlineMode) {
+    return pitchHistory.some((point) => point.pitch);
+  }
   const now = performance.now();
   const minTime = now - maxHistorySeconds * 1000;
   return pitchHistory.some((point) => point.time >= minTime && point.pitch);
@@ -328,8 +370,9 @@ function hasRecentPitchData() {
 
 function updateExportButtons() {
   const hasData = hasRecentPitchData();
-  exportCsvButton.disabled = !audioContext || !hasData;
-  exportPngButton.disabled = !audioContext || !hasData;
+  const hasSession = Boolean(audioContext) || offlineMode;
+  exportCsvButton.disabled = !hasSession || !hasData;
+  exportPngButton.disabled = !hasSession || !hasData;
 }
 
 function formatTimestamp(date) {
@@ -392,6 +435,197 @@ function exportPng() {
   });
 }
 
+function setOfflineMode(enabled) {
+  offlineMode = enabled;
+  clearFileButton.disabled = !offlineMode;
+  audioFileInput.disabled = offlineMode && offlineAnalysisInProgress;
+  startButton.disabled = offlineMode || offlineAnalysisInProgress;
+  stopButton.disabled = offlineMode || offlineAnalysisInProgress;
+  setDataSourceLabel(offlineMode ? '音频文件' : '实时麦克风');
+  updateExportButtons();
+}
+
+function resetOfflineState() {
+  offlineAbort = false;
+  offlineAnalysisInProgress = false;
+  offlineFormantHistory = [];
+  offlineSourceSampleRate = null;
+  audioFileInput.value = '';
+  setAnalysisStatus('未开始');
+}
+
+async function decodeAudioFile(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const decodeContext = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    return await decodeContext.decodeAudioData(arrayBuffer);
+  } finally {
+    decodeContext.close();
+  }
+}
+
+function formatPercent(value) {
+  return `${Math.min(100, Math.max(0, value)).toFixed(0)}%`;
+}
+
+async function analyzeAudioFile(file) {
+  if (!file) {
+    return;
+  }
+  if (offlineAnalysisInProgress) {
+    return;
+  }
+
+  stop();
+  offlineAnalysisInProgress = true;
+  setOfflineMode(true);
+  offlineAbort = false;
+  setAnalysisStatus('解码中...');
+
+  let audioBuffer;
+  try {
+    audioBuffer = await decodeAudioFile(file);
+  } catch (error) {
+    console.error(error);
+    setAnalysisStatus('解码失败，请尝试 wav/mp3');
+    offlineAnalysisInProgress = false;
+    setOfflineMode(true);
+    return;
+  }
+
+  const durationSeconds = audioBuffer.duration;
+  if (durationSeconds > offlineMaxDurationSeconds) {
+    const proceed = window.confirm(
+      `音频时长为 ${Math.round(durationSeconds)} 秒，超过默认限制 ${offlineMaxDurationSeconds} 秒，继续分析全片吗？`
+    );
+    if (!proceed) {
+      setAnalysisStatus('已取消');
+      offlineAnalysisInProgress = false;
+      return;
+    }
+  }
+
+  setAnalysisStatus('分析中... 0%');
+  sessionStartTime = 0;
+  pitchHistory = [];
+  formantHistory = { f1: [], f2: [] };
+  smoothedFormants = { f1: null, f2: null };
+  stableFormants = { f1: null, f2: null };
+  currentPitch = null;
+  lastFormantTimestamp = 0;
+  lastFormantUpdate = 0;
+  offlineSourceSampleRate = audioBuffer.sampleRate;
+
+  const offlineContext = new OfflineAudioContext(
+    1,
+    audioBuffer.length,
+    audioBuffer.sampleRate
+  );
+  const source = offlineContext.createBufferSource();
+  source.buffer = audioBuffer;
+  const offlineAnalyser = offlineContext.createAnalyser();
+  offlineAnalyser.fftSize = 4096;
+  const offlineFrequencyData = new Float32Array(offlineAnalyser.frequencyBinCount);
+  const scriptNode = offlineContext.createScriptProcessor(2048, 1, 1);
+
+  const frameLength = Math.round(
+    (audioBuffer.sampleRate * offlineFrameDurationMs) / 1000
+  );
+  const hopLength = Math.round(
+    (audioBuffer.sampleRate * offlineHopDurationMs) / 1000
+  );
+  let buffer = new Float32Array(frameLength * 2);
+  let bufferLength = 0;
+  let frameOffsetSamples = 0;
+  let lastProgressUpdate = 0;
+
+  const appendSamples = (input) => {
+    if (bufferLength + input.length > buffer.length) {
+      const next = new Float32Array(bufferLength + input.length);
+      next.set(buffer.subarray(0, bufferLength));
+      buffer = next;
+    }
+    buffer.set(input, bufferLength);
+    bufferLength += input.length;
+  };
+
+  const readFrame = () => {
+    if (bufferLength < frameLength) {
+      return null;
+    }
+    const frame = new Float32Array(frameLength);
+    frame.set(buffer.subarray(0, frameLength));
+    buffer.copyWithin(0, hopLength, bufferLength);
+    bufferLength -= hopLength;
+    return frame;
+  };
+
+  scriptNode.onaudioprocess = (event) => {
+    if (offlineAbort) {
+      return;
+    }
+    const input = event.inputBuffer.getChannelData(0);
+    appendSamples(input);
+
+    let frame = readFrame();
+    while (frame) {
+      const pitch = autoCorrelate(frame, audioBuffer.sampleRate);
+      const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
+      pitchHistory.push({ time: timeMs, pitch });
+      frameOffsetSamples += hopLength;
+      frame = readFrame();
+    }
+
+    const nowMs = event.playbackTime * 1000;
+    const percent = (event.playbackTime / durationSeconds) * 100;
+    if (nowMs - lastProgressUpdate >= offlineProgressUpdateMs) {
+      lastProgressUpdate = nowMs;
+      setAnalysisStatus(`分析中... ${formatPercent(percent)}`);
+    }
+
+    if (formantToggle.checked && nowMs - lastFormantUpdate >= formantUpdateIntervalMs) {
+      lastFormantUpdate = nowMs;
+      offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
+      const { f1, f2 } = estimateFormantsFromSpectrum(
+        offlineFrequencyData,
+        audioBuffer.sampleRate,
+        offlineAnalyser.fftSize
+      );
+      const stabilized = stabilizeFormants(f1, f2, nowMs);
+      offlineFormantHistory.push({ time: nowMs, f1: stabilized.f1, f2: stabilized.f2 });
+      setFormantDisplay(stabilized.f1, stabilized.f2);
+      lastFormantTimestamp = nowMs;
+    }
+  };
+
+  source.connect(offlineAnalyser);
+  offlineAnalyser.connect(scriptNode);
+  scriptNode.connect(offlineContext.destination);
+  source.start();
+
+  try {
+    await offlineContext.startRendering();
+  } catch (error) {
+    console.error(error);
+    setAnalysisStatus('分析失败，请重试');
+    offlineAnalysisInProgress = false;
+    return;
+  }
+
+  if (offlineAbort) {
+    setAnalysisStatus('已取消');
+    offlineAnalysisInProgress = false;
+    setOfflineMode(false);
+    resetOfflineState();
+    return;
+  }
+
+  setAnalysisStatus('完成');
+  offlineAnalysisInProgress = false;
+  updateExportButtons();
+  drawPitchHistory();
+}
+
 function update() {
   analyser.getFloatTimeDomainData(dataArray);
   const pitch = autoCorrelate(dataArray, audioContext.sampleRate);
@@ -430,6 +664,8 @@ function update() {
 
 async function start() {
   try {
+    setOfflineMode(false);
+    resetOfflineState();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     analyser = audioContext.createAnalyser();
@@ -446,6 +682,7 @@ async function start() {
     lastFormantUpdate = 0;
     lastFormantTimestamp = 0;
     resetFormants();
+    setAnalysisStatus('未开始');
     setStatus('正在监听麦克风', 'active');
 
     startButton.disabled = true;
@@ -493,6 +730,24 @@ sidebarToggle.addEventListener('click', () => {
   const isOpen = sidebar.classList.toggle('open');
   sidebarToggle.setAttribute('aria-expanded', isOpen);
   sidebar.setAttribute('aria-hidden', !isOpen);
+});
+audioFileInput.addEventListener('change', (event) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    analyzeAudioFile(file);
+  }
+});
+clearFileButton.addEventListener('click', () => {
+  if (offlineAnalysisInProgress) {
+    offlineAbort = true;
+    setAnalysisStatus('取消中...');
+    return;
+  }
+  setOfflineMode(false);
+  resetOfflineState();
+  pitchHistory = [];
+  drawPitchHistory();
+  updateExportButtons();
 });
 
 window.addEventListener('beforeunload', stop);
