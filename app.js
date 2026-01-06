@@ -118,24 +118,35 @@ function autoCorrelate(buffer, sampleRate) {
   return null;
 }
 
-function drawAxes() {
+function drawAxes(minPitch = null, maxPitch = null) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = '#e5e9f3';
   ctx.lineWidth = 1;
 
   const horizontalLines = 5;
+  const labelFont = '12px sans-serif';
+  ctx.font = labelFont;
+  ctx.fillStyle = '#94a3b8';
+  ctx.textBaseline = 'middle';
   for (let i = 0; i <= horizontalLines; i += 1) {
     const y = (canvas.height / horizontalLines) * i;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(canvas.width, y);
     ctx.stroke();
+
+    if (minPitch !== null && maxPitch !== null) {
+      const ratio = 1 - i / horizontalLines;
+      const labelValue = minPitch + (maxPitch - minPitch) * ratio;
+      const label = `${Math.round(labelValue)} Hz`;
+      ctx.fillText(label, 8, y);
+    }
   }
 }
 
 function drawPitchHistory() {
-  drawAxes();
   if (pitchHistory.length < 2) {
+    drawAxes();
     return;
   }
 
@@ -157,12 +168,15 @@ function drawPitchHistory() {
 
   const pitches = visibleHistory.map((point) => point.pitch).filter(Boolean);
   if (pitches.length === 0) {
+    drawAxes();
     return;
   }
   const minPitch = Math.min(...pitches);
   const maxPitch = Math.max(...pitches);
   const pitchRange = Math.max(maxPitch - minPitch, 1);
   const padding = 20;
+
+  drawAxes(minPitch, maxPitch);
 
   ctx.strokeStyle = '#3a6ff7';
   ctx.lineWidth = 3;
