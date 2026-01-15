@@ -27,6 +27,14 @@ let animationId;
 let pitchHistory = [];
 const maxHistorySeconds = 12;
 const displayUpdateIntervalMs = 150;
+const pitchMinHz = 60;
+const pitchMaxHz = 1000;
+const pitchEnergyThreshold = 0.015;
+const pitchEnergyRef = 0.05;
+const pitchConfidenceThreshold = 0.6;
+const pitchMedianWindowSize = 5;
+const pitchMaxJumpHz = 30;
+const pitchMaxJumpCents = 50;
 const formantUpdateIntervalMs = 150;
 const formantWindowSize = 5;
 const formantTauMs = 450;
@@ -43,6 +51,8 @@ const offlineMaxDurationSeconds = 300;
 const offlineProgressUpdateMs = 200;
 let lastDisplayUpdate = 0;
 let currentPitch = null;
+let lastStablePitch = null;
+let recentPitchWindow = [];
 let sessionStartTime = 0;
 let lastFormantUpdate = 0;
 let lastFormantTimestamp = 0;
@@ -82,15 +92,50 @@ function frequencyToNote(freq) {
   return `${noteNames[noteIndex]}${octave}`;
 }
 
+function computeRms(buffer) {
+  let sum = 0;
+  for (let i = 0; i < buffer.length; i += 1) {
+    const value = buffer[i];
+    sum += value * value;
+  }
+  return Math.sqrt(sum / buffer.length);
+}
+
+function autoCorrelateWithConfidence(buffer, sampleRate) {
+  const size = buffer.length;
+  const rms = computeRms(buffer);
+  if (rms < pitchEnergyThreshold) {
+    return { pitch: null, confidence: 0, rms };
+  }
+
+  let bestOffset = -1;
+  let bestCorrelation = 0;
+  const maxOffset = Math.floor(size / 2);
+
+  for (let offset = 32; offset < maxOffset; offset += 1) {
+    let correlation = 0;
+    for (let i = 0; i < maxOffset; i += 1) {
+      correlation += Math.abs(buffer[i] - buffer[i + offset]);
+    }
+    correlation = 1 - correlation / maxOffset;
+
+    if (correlation > bestCorrelation) {
+      bestCorrelation = correlation;
+      bestOffset = offset;
+    }
+  }
+
+  const pitch = bestOffset !== -1 ? sampleRate / bestOffset : null;
+  const energyScore = Math.min(1, rms / pitchEnergyRef);
+  const confidence = Math.max(0, Math.min(1, bestCorrelation * energyScore));
+
+  return { pitch, confidence, rms };
+}
+
 function autoCorrelate(buffer, sampleRate) {
   const size = buffer.length;
-  let rms = 0;
-  for (let i = 0; i < size; i += 1) {
-    const value = buffer[i];
-    rms += value * value;
-  }
-  rms = Math.sqrt(rms / size);
-  if (rms < 0.015) {
+  const rms = computeRms(buffer);
+  if (rms < pitchEnergyThreshold) {
     return null;
   }
 
@@ -181,21 +226,33 @@ function drawPitchHistory() {
   ctx.strokeStyle = '#3a6ff7';
   ctx.lineWidth = 3;
   ctx.beginPath();
+  let hasActivePath = false;
 
-  visibleHistory.forEach((point, index) => {
+  visibleHistory.forEach((point) => {
+    if (point.pitch === null) {
+      if (hasActivePath) {
+        ctx.stroke();
+        ctx.beginPath();
+        hasActivePath = false;
+      }
+      return;
+    }
     if (!point.pitch) {
       return;
     }
     const x = ((point.time - minTime) / durationMs) * canvas.width;
     const normalized = (point.pitch - minPitch) / pitchRange;
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
-    if (index === 0) {
+    if (!hasActivePath) {
       ctx.moveTo(x, y);
+      hasActivePath = true;
     } else {
       ctx.lineTo(x, y);
     }
   });
-  ctx.stroke();
+  if (hasActivePath) {
+    ctx.stroke();
+  }
 
   if (!offlineMode && currentPitch) {
     const normalized = (currentPitch - minPitch) / pitchRange;
@@ -257,6 +314,45 @@ function median(values) {
     return (sorted[mid - 1] + sorted[mid]) / 2;
   }
   return sorted[mid];
+}
+
+function pushPitchSample(buffer, value) {
+  const nextBuffer = [...buffer, value].slice(-pitchMedianWindowSize);
+  return nextBuffer;
+}
+
+function getMaxJumpThresholdHz(reference) {
+  if (!reference) {
+    return pitchMaxJumpHz;
+  }
+  const centsFactor = Math.pow(2, pitchMaxJumpCents / 1200) - 1;
+  const centsJump = reference * centsFactor;
+  return Math.min(pitchMaxJumpHz, centsJump);
+}
+
+function selectPitchCandidate(pitch, reference) {
+  if (!reference) {
+    return pitch;
+  }
+  const candidates = [pitch / 2, pitch, pitch * 2].filter(
+    (value) => value >= pitchMinHz && value <= pitchMaxHz
+  );
+  let best = null;
+  let bestDiff = Infinity;
+  candidates.forEach((value) => {
+    const diff = Math.abs(value - reference);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = value;
+    }
+  });
+  return best;
+}
+
+function appendPitchBreak(time) {
+  if (!pitchHistory.length || pitchHistory[pitchHistory.length - 1].pitch !== null) {
+    pitchHistory.push({ time, pitch: null });
+  }
 }
 
 function limitJump(previous, next, maxJump) {
@@ -641,19 +737,42 @@ async function analyzeAudioFile(file) {
 }
 
 function update() {
-  analyser.getFloatTimeDomainData(dataArray);
-  const pitch = autoCorrelate(dataArray, audioContext.sampleRate);
-  currentPitch = pitch;
-
-  pitchHistory.push({ time: performance.now(), pitch });
-  drawPitchHistory();
-
   const now = performance.now();
+  analyser.getFloatTimeDomainData(dataArray);
+
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
-    if (pitch) {
-      pitchValueEl.textContent = `${pitch.toFixed(1)} Hz`;
-      noteValueEl.textContent = frequencyToNote(pitch);
+    const { pitch, confidence } = autoCorrelateWithConfidence(
+      dataArray,
+      audioContext.sampleRate
+    );
+    const isInRange = pitch && pitch >= pitchMinHz && pitch <= pitchMaxHz;
+    const isReliable = Boolean(pitch) && isInRange && confidence >= pitchConfidenceThreshold;
+
+    if (!isReliable) {
+      currentPitch = null;
+      appendPitchBreak(now);
+    } else {
+      recentPitchWindow = pushPitchSample(recentPitchWindow, pitch);
+      const displayPitch = median(recentPitchWindow);
+      const candidate = selectPitchCandidate(displayPitch, lastStablePitch);
+      const maxJump = getMaxJumpThresholdHz(lastStablePitch);
+
+      if (!candidate || (lastStablePitch && Math.abs(candidate - lastStablePitch) > maxJump)) {
+        currentPitch = null;
+        appendPitchBreak(now);
+      } else {
+        lastStablePitch = candidate;
+        currentPitch = candidate;
+        pitchHistory.push({ time: now, pitch: candidate });
+      }
+    }
+
+    drawPitchHistory();
+
+    if (currentPitch) {
+      pitchValueEl.textContent = `${currentPitch.toFixed(1)} Hz`;
+      noteValueEl.textContent = frequencyToNote(currentPitch);
     } else {
       pitchValueEl.textContent = '-- Hz';
       noteValueEl.textContent = '--';
@@ -692,6 +811,9 @@ async function start() {
 
     pitchHistory = [];
     lastDisplayUpdate = 0;
+    recentPitchWindow = [];
+    lastStablePitch = null;
+    currentPitch = null;
     sessionStartTime = performance.now();
     lastFormantUpdate = 0;
     lastFormantTimestamp = 0;
@@ -723,6 +845,10 @@ function stop() {
     sourceNode.mediaStream.getTracks().forEach((track) => track.stop());
   }
   sourceNode = null;
+  recentPitchWindow = [];
+  lastStablePitch = null;
+  currentPitch = null;
+  lastDisplayUpdate = 0;
   setStatus('已停止');
   startButton.disabled = false;
   stopButton.disabled = true;
