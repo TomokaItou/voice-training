@@ -26,7 +26,7 @@ let sourceNode;
 let animationId;
 let pitchHistory = [];
 const maxHistorySeconds = 12;
-const displayUpdateIntervalMs = 150;
+const displayUpdateIntervalMs = 100;
 const pitchMinHz = 60;
 const pitchMaxHz = 1000;
 const pitchEnergyThreshold = 0.015;
