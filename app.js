@@ -37,6 +37,7 @@ const pitchMaxJumpHz = 30;
 const pitchMaxJumpCents = 50;
 const pitchEmaAlpha = 0.25;
 const pitchTransitionConfirmFrames = 2;
+const pitchHoldFrames = 2;
 const formantUpdateIntervalMs = 150;
 const formantWindowSize = 5;
 const formantTauMs = 450;
@@ -58,6 +59,7 @@ let smoothedPitch = null;
 let recentPitchWindow = [];
 let pendingPitch = null;
 let pendingPitchFrames = 0;
+let pitchHoldCounter = 0;
 let sessionStartTime = 0;
 let lastFormantUpdate = 0;
 let lastFormantTimestamp = 0;
@@ -765,21 +767,34 @@ function update() {
     const isReliable = Boolean(pitch) && isInRange && confidence >= pitchConfidenceThreshold;
 
     if (!isReliable) {
-      currentPitch = null;
       pendingPitch = null;
       pendingPitchFrames = 0;
-      appendPitchBreak(now);
+      pitchHoldCounter += 1;
+      if (lastStablePitch && pitchHoldCounter <= pitchHoldFrames) {
+        currentPitch = smoothedPitch ?? lastStablePitch;
+        pitchHistory.push({ time: now, pitch: currentPitch });
+      } else {
+        currentPitch = null;
+        appendPitchBreak(now);
+      }
     } else {
+      pitchHoldCounter = 0;
       recentPitchWindow = pushPitchSample(recentPitchWindow, pitch);
       const displayPitch = median(recentPitchWindow);
       const candidate = selectPitchCandidate(displayPitch, lastStablePitch);
       const maxJump = getMaxJumpThresholdHz(lastStablePitch);
 
       if (!candidate) {
-        currentPitch = null;
         pendingPitch = null;
         pendingPitchFrames = 0;
-        appendPitchBreak(now);
+        pitchHoldCounter += 1;
+        if (lastStablePitch && pitchHoldCounter <= pitchHoldFrames) {
+          currentPitch = smoothedPitch ?? lastStablePitch;
+          pitchHistory.push({ time: now, pitch: currentPitch });
+        } else {
+          currentPitch = null;
+          appendPitchBreak(now);
+        }
       } else if (lastStablePitch && Math.abs(candidate - lastStablePitch) > maxJump) {
         if (pendingPitch && Math.abs(candidate - pendingPitch) <= maxJump) {
           pendingPitchFrames += 1;
@@ -797,6 +812,7 @@ function update() {
           pitchHistory.push({ time: now, pitch: smoothedPitch });
         } else {
           currentPitch = smoothedPitch ?? lastStablePitch;
+          pitchHistory.push({ time: now, pitch: currentPitch });
         }
       } else {
         pendingPitch = null;
@@ -856,6 +872,7 @@ async function start() {
     smoothedPitch = null;
     pendingPitch = null;
     pendingPitchFrames = 0;
+    pitchHoldCounter = 0;
     currentPitch = null;
     sessionStartTime = performance.now();
     lastFormantUpdate = 0;
@@ -893,6 +910,7 @@ function stop() {
   smoothedPitch = null;
   pendingPitch = null;
   pendingPitchFrames = 0;
+  pitchHoldCounter = 0;
   currentPitch = null;
   lastDisplayUpdate = 0;
   setStatus('已停止');
