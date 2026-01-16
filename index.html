@@ -65,6 +65,18 @@
         <div class="formant-status" id="formantStatus"></div>
       </div>
       <div class="sidebar-card">
+        <h2>音高算法</h2>
+        <label class="field">
+          <span class="label">检测算法</span>
+          <select id="pitchAlgorithmSelect" class="select">
+            <option value="amdf">AMDF（默认）</option>
+            <option value="autocorr">自相关</option>
+            <option value="fft">频域（HPS）</option>
+          </select>
+        </label>
+        <p class="hint">可切换不同音高检测算法进行对比。</p>
+      </div>
+      <div class="sidebar-card">
         <h2>离线分析</h2>
         <input type="file" id="audioFileInput" accept="audio/*" class="file-input" />
         <button id="clearFileButton" class="secondary" disabled>清除文件/返回实时</button>

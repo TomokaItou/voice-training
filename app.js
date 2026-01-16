@@ -8,6 +8,7 @@ const formantToggle = document.getElementById('formantToggle');
 const formantF1El = document.getElementById('formantF1');
 const formantF2El = document.getElementById('formantF2');
 const formantStatusEl = document.getElementById('formantStatus');
+const pitchAlgorithmSelect = document.getElementById('pitchAlgorithmSelect');
 const audioFileInput = document.getElementById('audioFileInput');
 const clearFileButton = document.getElementById('clearFileButton');
 const dataSourceValue = document.getElementById('dataSourceValue');
@@ -61,6 +62,7 @@ let pendingPitch = null;
 let pendingPitchFrames = 0;
 let pitchHoldCounter = 0;
 let sessionStartTime = 0;
+let pitchAlgorithm = pitchAlgorithmSelect?.value || 'amdf';
 let lastFormantUpdate = 0;
 let lastFormantTimestamp = 0;
 let smoothedFormants = { f1: null, f2: null };
@@ -137,6 +139,98 @@ function autoCorrelateWithConfidence(buffer, sampleRate) {
   const confidence = Math.max(0, Math.min(1, bestCorrelation * energyScore));
 
   return { pitch, confidence, rms };
+}
+
+function autoCorrelateStandardWithConfidence(buffer, sampleRate, rms) {
+  const size = buffer.length;
+  const minLag = Math.floor(sampleRate / pitchMaxHz);
+  const maxLag = Math.floor(sampleRate / pitchMinHz);
+  let bestLag = -1;
+  let bestCorrelation = 0;
+
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    let sum = 0;
+    let norm = 0;
+    for (let i = 0; i < size - lag; i += 1) {
+      const value = buffer[i];
+      sum += value * buffer[i + lag];
+      norm += value * value;
+    }
+    const correlation = norm > 0 ? sum / norm : 0;
+    if (correlation > bestCorrelation) {
+      bestCorrelation = correlation;
+      bestLag = lag;
+    }
+  }
+
+  const pitch = bestLag !== -1 ? sampleRate / bestLag : null;
+  const energyScore = Math.min(1, rms / pitchEnergyRef);
+  const confidence = Math.max(0, Math.min(1, bestCorrelation * energyScore));
+
+  return { pitch, confidence, rms };
+}
+
+function estimatePitchFromSpectrum(spectrum, sampleRate, fftSize) {
+  const binResolution = sampleRate / fftSize;
+  const minBin = Math.max(1, Math.floor(pitchMinHz / binResolution));
+  const maxBin = Math.min(spectrum.length - 1, Math.ceil(pitchMaxHz / binResolution));
+  const amplitudes = new Float32Array(spectrum.length);
+  for (let i = minBin; i <= maxBin * 3 && i < spectrum.length; i += 1) {
+    amplitudes[i] = Math.pow(10, spectrum[i] / 20);
+  }
+
+  let bestBin = -1;
+  let bestValue = 0;
+  let sum = 0;
+  let count = 0;
+
+  for (let bin = minBin; bin <= maxBin; bin += 1) {
+    const amp1 = amplitudes[bin] || 0;
+    const amp2 = amplitudes[bin * 2] || 0;
+    const amp3 = amplitudes[bin * 3] || 0;
+    const hpsValue = amp1 * amp2 * amp3;
+    sum += hpsValue;
+    count += 1;
+    if (hpsValue > bestValue) {
+      bestValue = hpsValue;
+      bestBin = bin;
+    }
+  }
+
+  if (bestBin === -1) {
+    return { pitch: null, confidence: 0 };
+  }
+
+  const pitch = bestBin * binResolution;
+  const mean = count > 0 ? sum / count : 0;
+  const ratio = mean > 0 ? bestValue / mean : 0;
+  const confidence = Math.max(0, Math.min(1, (ratio - 1) / 4));
+
+  return { pitch, confidence };
+}
+
+function estimatePitchWithConfidence(buffer, sampleRate, analyserNode, spectrumBuffer) {
+  const rms = computeRms(buffer);
+  if (rms < pitchEnergyThreshold) {
+    return { pitch: null, confidence: 0, rms };
+  }
+
+  if (pitchAlgorithm === 'autocorr') {
+    return autoCorrelateStandardWithConfidence(buffer, sampleRate, rms);
+  }
+
+  if (pitchAlgorithm === 'fft' && analyserNode && spectrumBuffer) {
+    analyserNode.getFloatFrequencyData(spectrumBuffer);
+    const { pitch, confidence } = estimatePitchFromSpectrum(
+      spectrumBuffer,
+      sampleRate,
+      analyserNode.fftSize
+    );
+    const energyScore = Math.min(1, rms / pitchEnergyRef);
+    return { pitch, confidence: confidence * energyScore, rms };
+  }
+
+  return autoCorrelateWithConfidence(buffer, sampleRate);
 }
 
 function autoCorrelate(buffer, sampleRate) {
@@ -502,6 +596,19 @@ function updateExportButtons() {
   exportPngButton.disabled = !hasSession || !hasData;
 }
 
+function resetPitchStabilizer() {
+  recentPitchWindow = [];
+  lastStablePitch = null;
+  smoothedPitch = null;
+  pendingPitch = null;
+  pendingPitchFrames = 0;
+  pitchHoldCounter = 0;
+  currentPitch = null;
+  lastDisplayUpdate = 0;
+  pitchValueEl.textContent = '-- Hz';
+  noteValueEl.textContent = '--';
+}
+
 function formatTimestamp(date) {
   const pad = (value) => String(value).padStart(2, '0');
   return [
@@ -568,6 +675,7 @@ function setOfflineMode(enabled) {
   audioFileInput.disabled = offlineMode && offlineAnalysisInProgress;
   startButton.disabled = offlineMode || offlineAnalysisInProgress;
   stopButton.disabled = offlineMode || offlineAnalysisInProgress;
+  pitchAlgorithmSelect.disabled = offlineAnalysisInProgress;
   setDataSourceLabel(offlineMode ? '音频文件' : '实时麦克风');
   updateExportButtons();
 }
@@ -696,7 +804,21 @@ async function analyzeAudioFile(file) {
 
     let frame = readFrame();
     while (frame) {
-      const pitch = autoCorrelate(frame, audioBuffer.sampleRate);
+      let pitch;
+      if (pitchAlgorithm === 'fft') {
+        offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
+        const result = estimatePitchFromSpectrum(
+          offlineFrequencyData,
+          audioBuffer.sampleRate,
+          offlineAnalyser.fftSize
+        );
+        pitch = result.pitch;
+      } else if (pitchAlgorithm === 'autocorr') {
+        pitch = autoCorrelateStandardWithConfidence(frame, audioBuffer.sampleRate, computeRms(frame))
+          .pitch;
+      } else {
+        pitch = autoCorrelate(frame, audioBuffer.sampleRate);
+      }
       const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
       pitchHistory.push({ time: timeMs, pitch });
       frameOffsetSamples += hopLength;
@@ -759,9 +881,11 @@ function update() {
 
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
-    const { pitch, confidence } = autoCorrelateWithConfidence(
+    const { pitch, confidence } = estimatePitchWithConfidence(
       dataArray,
-      audioContext.sampleRate
+      audioContext.sampleRate,
+      analyser,
+      frequencyData
     );
     const isInRange = pitch && pitch >= pitchMinHz && pitch <= pitchMaxHz;
     const isReliable = Boolean(pitch) && isInRange && confidence >= pitchConfidenceThreshold;
@@ -866,14 +990,7 @@ async function start() {
     sourceNode.connect(analyser);
 
     pitchHistory = [];
-    lastDisplayUpdate = 0;
-    recentPitchWindow = [];
-    lastStablePitch = null;
-    smoothedPitch = null;
-    pendingPitch = null;
-    pendingPitchFrames = 0;
-    pitchHoldCounter = 0;
-    currentPitch = null;
+    resetPitchStabilizer();
     sessionStartTime = performance.now();
     lastFormantUpdate = 0;
     lastFormantTimestamp = 0;
@@ -905,14 +1022,7 @@ function stop() {
     sourceNode.mediaStream.getTracks().forEach((track) => track.stop());
   }
   sourceNode = null;
-  recentPitchWindow = [];
-  lastStablePitch = null;
-  smoothedPitch = null;
-  pendingPitch = null;
-  pendingPitchFrames = 0;
-  pitchHoldCounter = 0;
-  currentPitch = null;
-  lastDisplayUpdate = 0;
+  resetPitchStabilizer();
   setStatus('已停止');
   startButton.disabled = false;
   stopButton.disabled = true;
@@ -924,6 +1034,15 @@ startButton.addEventListener('click', start);
 stopButton.addEventListener('click', stop);
 exportCsvButton.addEventListener('click', exportCsv);
 exportPngButton.addEventListener('click', exportPng);
+pitchAlgorithmSelect.addEventListener('change', (event) => {
+  pitchAlgorithm = event.target.value;
+  resetPitchStabilizer();
+  if (!offlineAnalysisInProgress) {
+    pitchHistory = [];
+    drawPitchHistory();
+    updateExportButtons();
+  }
+});
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {
     resetFormants();
