@@ -32,13 +32,16 @@ const pitchMinHz = 60;
 const pitchMaxHz = 1000;
 const pitchEnergyThreshold = 0.015;
 const pitchEnergyRef = 0.05;
-const pitchConfidenceThreshold = 0.6;
+const pitchOnsetConfidenceThreshold = 0.7;
+const pitchSustainConfidenceThreshold = 0.45;
 const pitchMedianWindowSize = 5;
 const pitchMaxJumpHz = 30;
 const pitchMaxJumpCents = 50;
 const pitchEmaAlpha = 0.25;
 const pitchTransitionConfirmFrames = 2;
 const pitchHoldFrames = 2;
+const pitchOnsetFrames = 4;
+const pitchReleaseFrames = 3;
 const formantUpdateIntervalMs = 150;
 const formantWindowSize = 5;
 const formantTauMs = 450;
@@ -61,6 +64,9 @@ let recentPitchWindow = [];
 let pendingPitch = null;
 let pendingPitchFrames = 0;
 let pitchHoldCounter = 0;
+let voicedStable = false;
+let voicedFrames = 0;
+let voicedLostFrames = 0;
 let sessionStartTime = 0;
 let pitchAlgorithm = pitchAlgorithmSelect?.value || 'amdf';
 let lastFormantUpdate = 0;
@@ -603,6 +609,9 @@ function resetPitchStabilizer() {
   pendingPitch = null;
   pendingPitchFrames = 0;
   pitchHoldCounter = 0;
+  voicedStable = false;
+  voicedFrames = 0;
+  voicedLostFrames = 0;
   currentPitch = null;
   lastDisplayUpdate = 0;
   pitchValueEl.textContent = '-- Hz';
@@ -888,29 +897,17 @@ function update() {
       frequencyData
     );
     const isInRange = pitch && pitch >= pitchMinHz && pitch <= pitchMaxHz;
-    const isReliable = Boolean(pitch) && isInRange && confidence >= pitchConfidenceThreshold;
+    const hasPitch = Boolean(pitch) && isInRange;
+    const confidenceThreshold = voicedStable
+      ? pitchSustainConfidenceThreshold
+      : pitchOnsetConfidenceThreshold;
+    const isReliable = hasPitch && confidence >= confidenceThreshold;
 
     if (!isReliable) {
       pendingPitch = null;
       pendingPitchFrames = 0;
-      pitchHoldCounter += 1;
-      if (lastStablePitch && pitchHoldCounter <= pitchHoldFrames) {
-        currentPitch = smoothedPitch ?? lastStablePitch;
-        pitchHistory.push({ time: now, pitch: currentPitch });
-      } else {
-        currentPitch = null;
-        appendPitchBreak(now);
-      }
-    } else {
-      pitchHoldCounter = 0;
-      recentPitchWindow = pushPitchSample(recentPitchWindow, pitch);
-      const displayPitch = median(recentPitchWindow);
-      const candidate = selectPitchCandidate(displayPitch, lastStablePitch);
-      const maxJump = getMaxJumpThresholdHz(lastStablePitch);
-
-      if (!candidate) {
-        pendingPitch = null;
-        pendingPitchFrames = 0;
+      if (voicedStable) {
+        voicedLostFrames += 1;
         pitchHoldCounter += 1;
         if (lastStablePitch && pitchHoldCounter <= pitchHoldFrames) {
           currentPitch = smoothedPitch ?? lastStablePitch;
@@ -919,32 +916,69 @@ function update() {
           currentPitch = null;
           appendPitchBreak(now);
         }
-      } else if (lastStablePitch && Math.abs(candidate - lastStablePitch) > maxJump) {
-        if (pendingPitch && Math.abs(candidate - pendingPitch) <= maxJump) {
-          pendingPitchFrames += 1;
-        } else {
-          pendingPitch = candidate;
-          pendingPitchFrames = 1;
-        }
-
-        if (pendingPitchFrames >= pitchTransitionConfirmFrames) {
-          lastStablePitch = pendingPitch;
-          pendingPitch = null;
-          pendingPitchFrames = 0;
-          smoothedPitch = applyPitchEma(smoothedPitch, lastStablePitch);
-          currentPitch = smoothedPitch;
-          pitchHistory.push({ time: now, pitch: smoothedPitch });
-        } else {
-          currentPitch = smoothedPitch ?? lastStablePitch;
-          pitchHistory.push({ time: now, pitch: currentPitch });
+        if (voicedLostFrames >= pitchReleaseFrames) {
+          voicedStable = false;
+          voicedFrames = 0;
+          pitchHoldCounter = 0;
         }
       } else {
-        pendingPitch = null;
-        pendingPitchFrames = 0;
-        lastStablePitch = candidate;
-        smoothedPitch = applyPitchEma(smoothedPitch, candidate);
-        currentPitch = smoothedPitch;
-        pitchHistory.push({ time: now, pitch: smoothedPitch });
+        voicedFrames = 0;
+        currentPitch = null;
+        appendPitchBreak(now);
+      }
+    } else {
+      pitchHoldCounter = 0;
+      voicedLostFrames = 0;
+      recentPitchWindow = pushPitchSample(recentPitchWindow, pitch);
+      voicedFrames = Math.min(pitchOnsetFrames, voicedFrames + 1);
+
+      if (!voicedStable && voicedFrames < pitchOnsetFrames) {
+        currentPitch = null;
+        appendPitchBreak(now);
+      } else {
+        voicedStable = true;
+        const displayPitch = median(recentPitchWindow);
+        const candidate = selectPitchCandidate(displayPitch, lastStablePitch);
+        const maxJump = getMaxJumpThresholdHz(lastStablePitch);
+
+        if (!candidate) {
+          pendingPitch = null;
+          pendingPitchFrames = 0;
+          pitchHoldCounter += 1;
+          if (lastStablePitch && pitchHoldCounter <= pitchHoldFrames) {
+            currentPitch = smoothedPitch ?? lastStablePitch;
+            pitchHistory.push({ time: now, pitch: currentPitch });
+          } else {
+            currentPitch = null;
+            appendPitchBreak(now);
+          }
+        } else if (lastStablePitch && Math.abs(candidate - lastStablePitch) > maxJump) {
+          if (pendingPitch && Math.abs(candidate - pendingPitch) <= maxJump) {
+            pendingPitchFrames += 1;
+          } else {
+            pendingPitch = candidate;
+            pendingPitchFrames = 1;
+          }
+
+          if (pendingPitchFrames >= pitchTransitionConfirmFrames) {
+            lastStablePitch = pendingPitch;
+            pendingPitch = null;
+            pendingPitchFrames = 0;
+            smoothedPitch = applyPitchEma(smoothedPitch, lastStablePitch);
+            currentPitch = smoothedPitch;
+            pitchHistory.push({ time: now, pitch: smoothedPitch });
+          } else {
+            currentPitch = smoothedPitch ?? lastStablePitch;
+            pitchHistory.push({ time: now, pitch: currentPitch });
+          }
+        } else {
+          pendingPitch = null;
+          pendingPitchFrames = 0;
+          lastStablePitch = candidate;
+          smoothedPitch = applyPitchEma(smoothedPitch, candidate);
+          currentPitch = smoothedPitch;
+          pitchHistory.push({ time: now, pitch: smoothedPitch });
+        }
       }
     }
 
