@@ -9,6 +9,7 @@ const formantF1El = document.getElementById('formantF1');
 const formantF2El = document.getElementById('formantF2');
 const formantStatusEl = document.getElementById('formantStatus');
 const pitchAlgorithmSelect = document.getElementById('pitchAlgorithmSelect');
+const pitchScaleModeSelect = document.getElementById('pitchScaleModeSelect');
 const audioFileInput = document.getElementById('audioFileInput');
 const clearFileButton = document.getElementById('clearFileButton');
 const dataSourceValue = document.getElementById('dataSourceValue');
@@ -30,6 +31,8 @@ const maxHistorySeconds = 12;
 const displayUpdateIntervalMs = 150;
 const pitchMinHz = 60;
 const pitchMaxHz = 1000;
+const pitchScaleFixedMinHz = 50;
+const pitchScaleFixedMaxHz = 500;
 const pitchEnergyThreshold = 0.015;
 const pitchEnergyRef = 0.05;
 const pitchOnsetConfidenceThreshold = 0.7;
@@ -69,6 +72,7 @@ let voicedFrames = 0;
 let voicedLostFrames = 0;
 let sessionStartTime = 0;
 let pitchAlgorithm = pitchAlgorithmSelect?.value || 'amdf';
+let pitchScaleMode = pitchScaleModeSelect?.value || 'dynamic';
 let lastFormantUpdate = 0;
 let lastFormantTimestamp = 0;
 let smoothedFormants = { f1: null, f2: null };
@@ -298,7 +302,11 @@ function drawAxes(minPitch = null, maxPitch = null) {
 
 function drawPitchHistory() {
   if (pitchHistory.length < 2) {
-    drawAxes();
+    if (pitchScaleMode === 'fixed') {
+      drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
+    } else {
+      drawAxes();
+    }
     return;
   }
 
@@ -319,12 +327,21 @@ function drawPitchHistory() {
   }
 
   const pitches = visibleHistory.map((point) => point.pitch).filter(Boolean);
-  if (pitches.length === 0) {
-    drawAxes();
-    return;
+  let minPitch = null;
+  let maxPitch = null;
+
+  if (pitchScaleMode === 'fixed') {
+    minPitch = pitchScaleFixedMinHz;
+    maxPitch = pitchScaleFixedMaxHz;
+  } else {
+    if (pitches.length === 0) {
+      drawAxes();
+      return;
+    }
+    minPitch = Math.min(...pitches);
+    maxPitch = Math.max(...pitches);
   }
-  const minPitch = Math.min(...pitches);
-  const maxPitch = Math.max(...pitches);
+
   const pitchRange = Math.max(maxPitch - minPitch, 1);
   const padding = 20;
 
@@ -347,6 +364,16 @@ function drawPitchHistory() {
     if (!point.pitch) {
       return;
     }
+    if (point.pitch < minPitch || point.pitch > maxPitch) {
+      if (pitchScaleMode === 'fixed') {
+        if (hasActivePath) {
+          ctx.stroke();
+          ctx.beginPath();
+          hasActivePath = false;
+        }
+        return;
+      }
+    }
     const x = ((point.time - minTime) / durationMs) * canvas.width;
     const normalized = (point.pitch - minPitch) / pitchRange;
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
@@ -362,6 +389,9 @@ function drawPitchHistory() {
   }
 
   if (!offlineMode && currentPitch) {
+    if (currentPitch < minPitch || currentPitch > maxPitch) {
+      return;
+    }
     const normalized = (currentPitch - minPitch) / pitchRange;
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
     ctx.strokeStyle = '#ff7a59';
@@ -1076,6 +1106,10 @@ pitchAlgorithmSelect.addEventListener('change', (event) => {
     drawPitchHistory();
     updateExportButtons();
   }
+});
+pitchScaleModeSelect.addEventListener('change', (event) => {
+  pitchScaleMode = event.target.value;
+  drawPitchHistory();
 });
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {
