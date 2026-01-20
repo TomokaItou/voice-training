@@ -88,6 +88,17 @@
         <p class="hint">固定刻度下，范围保持 50–500 Hz，仅曲线移动。</p>
       </div>
       <div class="sidebar-card">
+        <h2>显示模式</h2>
+        <label class="field">
+          <span class="label">视图</span>
+          <select id="displayModeSelect" class="select">
+            <option value="pitch">音高曲线</option>
+            <option value="spectrogram">实时频谱图</option>
+          </select>
+        </label>
+        <p class="hint">切换为频谱图时，画布显示实时声谱。</p>
+      </div>
+      <div class="sidebar-card">
         <h2>离线分析</h2>
         <input type="file" id="audioFileInput" accept="audio/*" class="file-input" />
         <button id="clearFileButton" class="secondary" disabled>清除文件/返回实时</button>

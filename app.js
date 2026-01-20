@@ -10,6 +10,7 @@ const formantF2El = document.getElementById('formantF2');
 const formantStatusEl = document.getElementById('formantStatus');
 const pitchAlgorithmSelect = document.getElementById('pitchAlgorithmSelect');
 const pitchScaleModeSelect = document.getElementById('pitchScaleModeSelect');
+const displayModeSelect = document.getElementById('displayModeSelect');
 const audioFileInput = document.getElementById('audioFileInput');
 const clearFileButton = document.getElementById('clearFileButton');
 const dataSourceValue = document.getElementById('dataSourceValue');
@@ -33,6 +34,8 @@ const pitchMinHz = 60;
 const pitchMaxHz = 1000;
 const pitchScaleFixedMinHz = 50;
 const pitchScaleFixedMaxHz = 500;
+const spectrogramMinDb = -100;
+const spectrogramMaxDb = -30;
 const pitchEnergyThreshold = 0.015;
 const pitchEnergyRef = 0.05;
 const pitchOnsetConfidenceThreshold = 0.7;
@@ -73,6 +76,7 @@ let voicedLostFrames = 0;
 let sessionStartTime = 0;
 let pitchAlgorithm = pitchAlgorithmSelect?.value || 'amdf';
 let pitchScaleMode = pitchScaleModeSelect?.value || 'dynamic';
+let displayMode = displayModeSelect?.value || 'pitch';
 let lastFormantUpdate = 0;
 let lastFormantTimestamp = 0;
 let smoothedFormants = { f1: null, f2: null };
@@ -411,6 +415,34 @@ function drawPitchHistory() {
     ctx.textBaseline = 'middle';
     const label = `${Math.round(currentPitch)} Hz`;
     ctx.fillText(label, 8, y);
+  }
+}
+
+function resetSpectrogram() {
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawSpectrogramFrame() {
+  if (!analyser || !frequencyData) {
+    return;
+  }
+  analyser.getFloatFrequencyData(frequencyData);
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.drawImage(canvas, -1, 0);
+
+  for (let i = 0; i < frequencyData.length; i += 1) {
+    const value = frequencyData[i];
+    const normalized = (value - spectrogramMinDb) / (spectrogramMaxDb - spectrogramMinDb);
+    const intensity = Math.max(0, Math.min(1, normalized));
+    const y = height - Math.round((i / frequencyData.length) * height);
+    const brightness = Math.round(intensity * 255);
+    ctx.fillStyle = `rgb(${brightness}, ${Math.max(0, brightness - 40)}, ${Math.max(
+      0,
+      brightness - 80
+    )})`;
+    ctx.fillRect(width - 1, y, 1, 1);
   }
 }
 
@@ -771,6 +803,12 @@ function setOfflineMode(enabled) {
   startButton.disabled = offlineMode || offlineAnalysisInProgress;
   stopButton.disabled = offlineMode || offlineAnalysisInProgress;
   pitchAlgorithmSelect.disabled = offlineAnalysisInProgress;
+  displayModeSelect.disabled = offlineMode || offlineAnalysisInProgress;
+  if (offlineMode && displayMode === 'spectrogram') {
+    displayMode = 'pitch';
+    displayModeSelect.value = 'pitch';
+    drawPitchHistory();
+  }
   setDataSourceLabel(offlineMode ? '音频文件' : '实时麦克风');
   updateExportButtons();
 }
@@ -1068,7 +1106,9 @@ function update() {
       }
     }
 
-    drawPitchHistory();
+    if (displayMode !== 'spectrogram') {
+      drawPitchHistory();
+    }
 
     if (currentPitch) {
       pitchValueEl.textContent = `${currentPitch.toFixed(1)} Hz`;
@@ -1093,6 +1133,9 @@ function update() {
     setFormantStatus('');
   }
 
+  if (displayMode === 'spectrogram') {
+    drawSpectrogramFrame();
+  }
   animationId = requestAnimationFrame(update);
 }
 
@@ -1118,6 +1161,9 @@ async function start() {
     resetFormants();
     setAnalysisStatus('未开始');
     setStatus('正在监听麦克风', 'active');
+    if (displayMode === 'spectrogram') {
+      resetSpectrogram();
+    }
 
     startButton.disabled = true;
     stopButton.disabled = false;
@@ -1167,6 +1213,14 @@ pitchAlgorithmSelect.addEventListener('change', (event) => {
 pitchScaleModeSelect.addEventListener('change', (event) => {
   pitchScaleMode = event.target.value;
   drawPitchHistory();
+});
+displayModeSelect.addEventListener('change', (event) => {
+  displayMode = event.target.value;
+  if (displayMode === 'spectrogram') {
+    resetSpectrogram();
+  } else {
+    drawPitchHistory();
+  }
 });
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {
