@@ -78,6 +78,7 @@ let lastFormantTimestamp = 0;
 let smoothedFormants = { f1: null, f2: null };
 let stableFormants = { f1: null, f2: null };
 let formantHistory = { f1: [], f2: [] };
+let formantCurveHistory = [];
 let offlineMode = false;
 let offlineAbort = false;
 let offlineFormantHistory = [];
@@ -388,6 +389,10 @@ function drawPitchHistory() {
     ctx.stroke();
   }
 
+  if (formantToggle.checked) {
+    drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange, padding);
+  }
+
   if (!offlineMode && currentPitch) {
     if (currentPitch < minPitch || currentPitch > maxPitch) {
       return;
@@ -409,6 +414,56 @@ function drawPitchHistory() {
   }
 }
 
+function drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange, padding) {
+  const sourceHistory = offlineMode ? offlineFormantHistory : formantCurveHistory;
+  const now = performance.now();
+  const minVisibleTime = offlineMode ? minTime : now - maxHistorySeconds * 1000;
+  const visibleHistory = sourceHistory.filter((point) => point.time >= minVisibleTime);
+
+  const drawCurve = (key, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let hasActivePath = false;
+    visibleHistory.forEach((point) => {
+      const value = point[key];
+      if (!value) {
+        if (hasActivePath) {
+          ctx.stroke();
+          ctx.beginPath();
+          hasActivePath = false;
+        }
+        return;
+      }
+      if (value < minPitch || value > maxPitch) {
+        if (pitchScaleMode === 'fixed') {
+          if (hasActivePath) {
+            ctx.stroke();
+            ctx.beginPath();
+            hasActivePath = false;
+          }
+          return;
+        }
+      }
+      const x = ((point.time - minTime) / durationMs) * canvas.width;
+      const normalized = (value - minPitch) / pitchRange;
+      const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+      if (!hasActivePath) {
+        ctx.moveTo(x, y);
+        hasActivePath = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    if (hasActivePath) {
+      ctx.stroke();
+    }
+  };
+
+  drawCurve('f1', '#22c55e');
+  drawCurve('f2', '#f97316');
+}
+
 function setFormantDisplay(f1, f2) {
   formantF1El.textContent = f1 ? `${Math.round(f1)} Hz` : '— Hz';
   formantF2El.textContent = f2 ? `${Math.round(f2)} Hz` : '— Hz';
@@ -422,6 +477,7 @@ function resetFormants() {
   smoothedFormants = { f1: null, f2: null };
   stableFormants = { f1: null, f2: null };
   formantHistory = { f1: [], f2: [] };
+  formantCurveHistory = [];
   setFormantDisplay(null, null);
   setFormantStatus('');
 }
@@ -1029,6 +1085,7 @@ function update() {
       lastFormantUpdate = now;
       const { f1, f2 } = estimateFormants();
       const stabilized = stabilizeFormants(f1, f2, now);
+      formantCurveHistory.push({ time: now, f1: stabilized.f1, f2: stabilized.f2 });
       setFormantDisplay(stabilized.f1, stabilized.f2);
       lastFormantTimestamp = now;
     }
