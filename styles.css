@@ -147,6 +147,7 @@ canvas {
   padding: 24px 18px;
   transform: translateX(110%);
   transition: transform 0.3s ease;
+  overflow-y: auto;
   z-index: 20;
 }
 
