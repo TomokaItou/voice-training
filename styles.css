@@ -274,6 +274,10 @@ canvas {
   color: #1c1f2a;
 }
 
+input[type='range'] {
+  width: 100%;
+}
+
 @media (max-width: 640px) {
   .controls {
     align-items: flex-start;

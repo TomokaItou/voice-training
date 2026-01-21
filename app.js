@@ -20,6 +20,8 @@ const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
 const canvas = document.getElementById('pitchCanvas');
 const ctx = canvas.getContext('2d');
+const canvasScaleRange = document.getElementById('canvasScaleRange');
+const canvasScaleValue = document.getElementById('canvasScaleValue');
 
 let audioContext;
 let analyser;
@@ -30,6 +32,8 @@ let animationId;
 let pitchHistory = [];
 const maxHistorySeconds = 12;
 const displayUpdateIntervalMs = 150;
+const baseCanvasWidth = 720;
+const baseCanvasHeight = 360;
 const pitchMinHz = 60;
 const pitchMaxHz = 1000;
 const pitchScaleFixedMinHz = 50;
@@ -77,6 +81,7 @@ let sessionStartTime = 0;
 let pitchAlgorithm = pitchAlgorithmSelect?.value || 'amdf';
 let pitchScaleMode = pitchScaleModeSelect?.value || 'dynamic';
 let displayMode = displayModeSelect?.value || 'pitch';
+let canvasScale = Number(canvasScaleRange?.value || 1);
 let lastFormantUpdate = 0;
 let lastFormantTimestamp = 0;
 let smoothedFormants = { f1: null, f2: null };
@@ -90,6 +95,8 @@ let offlineSourceSampleRate = null;
 let offlineAnalysisInProgress = false;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+updateCanvasScale(canvasScale);
 
 function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
@@ -415,6 +422,23 @@ function drawPitchHistory() {
     ctx.textBaseline = 'middle';
     const label = `${Math.round(currentPitch)} Hz`;
     ctx.fillText(label, 8, y);
+  }
+}
+
+function updateCanvasScale(value) {
+  const scale = Number(value) || 1;
+  canvasScale = scale;
+  const width = Math.round(baseCanvasWidth * scale);
+  const height = Math.round(baseCanvasHeight * scale);
+  canvas.width = width;
+  canvas.height = height;
+  if (canvasScaleValue) {
+    canvasScaleValue.textContent = `${Math.round(scale * 100)}%`;
+  }
+  if (displayMode === 'spectrogram') {
+    resetSpectrogram();
+  } else {
+    drawPitchHistory();
   }
 }
 
@@ -804,6 +828,7 @@ function setOfflineMode(enabled) {
   stopButton.disabled = offlineMode || offlineAnalysisInProgress;
   pitchAlgorithmSelect.disabled = offlineAnalysisInProgress;
   displayModeSelect.disabled = offlineMode || offlineAnalysisInProgress;
+  canvasScaleRange.disabled = offlineAnalysisInProgress;
   if (offlineMode && displayMode === 'spectrogram') {
     displayMode = 'pitch';
     displayModeSelect.value = 'pitch';
@@ -1221,6 +1246,9 @@ displayModeSelect.addEventListener('change', (event) => {
   } else {
     drawPitchHistory();
   }
+});
+canvasScaleRange.addEventListener('input', (event) => {
+  updateCanvasScale(event.target.value);
 });
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {

@@ -99,6 +99,24 @@
         <p class="hint">切换为频谱图时，画布显示实时声谱。</p>
       </div>
       <div class="sidebar-card">
+        <h2>画布缩放</h2>
+        <label class="field">
+          <span class="label">显示大小</span>
+          <input
+            type="range"
+            id="canvasScaleRange"
+            min="0.8"
+            max="1.6"
+            step="0.1"
+            value="1"
+          />
+        </label>
+        <div class="file-status">
+          <span class="label">当前缩放</span>
+          <span class="value" id="canvasScaleValue">100%</span>
+        </div>
+      </div>
+      <div class="sidebar-card">
         <h2>离线分析</h2>
         <input type="file" id="audioFileInput" accept="audio/*" class="file-input" />
         <button id="clearFileButton" class="secondary" disabled>清除文件/返回实时</button>
