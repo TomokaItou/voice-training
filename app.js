@@ -34,6 +34,7 @@ const maxHistorySeconds = 12;
 const displayUpdateIntervalMs = 150;
 const baseCanvasWidth = 720;
 const baseCanvasHeight = 360;
+const baseAppMaxWidth = 920;
 const pitchMinHz = 60;
 const pitchMaxHz = 1000;
 const pitchScaleFixedMinHz = 50;
@@ -428,6 +429,8 @@ function drawPitchHistory() {
 function updateCanvasScale(value) {
   const scale = Number(value) || 1;
   canvasScale = scale;
+  const appWidth = Math.round(baseAppMaxWidth * scale);
+  document.documentElement.style.setProperty('--app-max-width', `${appWidth}px`);
   const width = Math.round(baseCanvasWidth * scale);
   const height = Math.round(baseCanvasHeight * scale);
   canvas.width = width;
