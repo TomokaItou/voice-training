@@ -11,6 +11,7 @@ const formantStatusEl = document.getElementById('formantStatus');
 const pitchAlgorithmSelect = document.getElementById('pitchAlgorithmSelect');
 const pitchScaleModeSelect = document.getElementById('pitchScaleModeSelect');
 const displayModeSelect = document.getElementById('displayModeSelect');
+const spectrogramOverlaySelect = document.getElementById('spectrogramOverlaySelect');
 const audioFileInput = document.getElementById('audioFileInput');
 const clearFileButton = document.getElementById('clearFileButton');
 const dataSourceValue = document.getElementById('dataSourceValue');
@@ -41,6 +42,12 @@ const pitchScaleFixedMinHz = 50;
 const pitchScaleFixedMaxHz = 500;
 const spectrogramMinDb = -100;
 const spectrogramMaxDb = -30;
+const spectrogramOverlayLineWidth = 2;
+const spectrogramOverlayColors = {
+  pitch: '#3a6ff7',
+  f1: '#22c55e',
+  f2: '#f97316',
+};
 const pitchEnergyThreshold = 0.015;
 const pitchEnergyRef = 0.05;
 const pitchOnsetConfidenceThreshold = 0.7;
@@ -82,6 +89,7 @@ let sessionStartTime = 0;
 let pitchAlgorithm = pitchAlgorithmSelect?.value || 'amdf';
 let pitchScaleMode = pitchScaleModeSelect?.value || 'dynamic';
 let displayMode = displayModeSelect?.value || 'pitch';
+let spectrogramOverlayMode = spectrogramOverlaySelect?.value || 'none';
 let canvasScale = Number(canvasScaleRange?.value || 1);
 let lastFormantUpdate = 0;
 let lastFormantTimestamp = 0;
@@ -89,6 +97,7 @@ let smoothedFormants = { f1: null, f2: null };
 let stableFormants = { f1: null, f2: null };
 let formantHistory = { f1: [], f2: [] };
 let formantCurveHistory = [];
+let spectrogramOverlayState = { pitch: null, f1: null, f2: null };
 let offlineMode = false;
 let offlineAbort = false;
 let offlineFormantHistory = [];
@@ -448,6 +457,7 @@ function updateCanvasScale(value) {
 function resetSpectrogram() {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  spectrogramOverlayState = { pitch: null, f1: null, f2: null };
 }
 
 function drawSpectrogramFrame() {
@@ -470,6 +480,56 @@ function drawSpectrogramFrame() {
       brightness - 80
     )})`;
     ctx.fillRect(width - 1, y, 1, 1);
+  }
+
+  drawSpectrogramOverlay();
+}
+
+function drawSpectrogramOverlay() {
+  if (spectrogramOverlayMode === 'none') {
+    spectrogramOverlayState = { pitch: null, f1: null, f2: null };
+    return;
+  }
+  if (!audioContext) {
+    return;
+  }
+  const nyquist = audioContext.sampleRate / 2;
+  const width = canvas.width;
+  const height = canvas.height;
+
+  const drawOverlayPoint = (key, freq, color) => {
+    if (!freq || freq <= 0 || freq > nyquist) {
+      spectrogramOverlayState[key] = null;
+      return;
+    }
+    const y = height - Math.round((freq / nyquist) * height);
+    const prevY = spectrogramOverlayState[key];
+    ctx.strokeStyle = color;
+    ctx.lineWidth = spectrogramOverlayLineWidth;
+    ctx.beginPath();
+    if (prevY === null || prevY === undefined) {
+      ctx.moveTo(width - 1, y);
+      ctx.lineTo(width - 1, y);
+    } else {
+      ctx.moveTo(width - 2, prevY);
+      ctx.lineTo(width - 1, y);
+    }
+    ctx.stroke();
+    spectrogramOverlayState[key] = y;
+  };
+
+  if (spectrogramOverlayMode === 'pitch' || spectrogramOverlayMode === 'both') {
+    drawOverlayPoint('pitch', currentPitch, spectrogramOverlayColors.pitch);
+  }
+
+  if (spectrogramOverlayMode === 'formants' || spectrogramOverlayMode === 'both') {
+    if (formantToggle.checked) {
+      drawOverlayPoint('f1', stableFormants.f1, spectrogramOverlayColors.f1);
+      drawOverlayPoint('f2', stableFormants.f2, spectrogramOverlayColors.f2);
+    } else {
+      spectrogramOverlayState.f1 = null;
+      spectrogramOverlayState.f2 = null;
+    }
   }
 }
 
@@ -1248,6 +1308,12 @@ displayModeSelect.addEventListener('change', (event) => {
     resetSpectrogram();
   } else {
     drawPitchHistory();
+  }
+});
+spectrogramOverlaySelect.addEventListener('change', (event) => {
+  spectrogramOverlayMode = event.target.value;
+  if (displayMode === 'spectrogram') {
+    resetSpectrogram();
   }
 });
 canvasScaleRange.addEventListener('input', (event) => {

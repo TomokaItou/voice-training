@@ -96,6 +96,15 @@
             <option value="spectrogram">实时频谱图</option>
           </select>
         </label>
+        <label class="field">
+          <span class="label">频谱叠加</span>
+          <select id="spectrogramOverlaySelect" class="select">
+            <option value="none">无</option>
+            <option value="pitch">仅音高曲线</option>
+            <option value="formants">仅共振峰曲线</option>
+            <option value="both">音高 + 共振峰</option>
+          </select>
+        </label>
         <p class="hint">切换为频谱图时，画布显示实时声谱。</p>
       </div>
       <div class="sidebar-card">
