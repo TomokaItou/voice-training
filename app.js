@@ -40,6 +40,8 @@ const pitchMinHz = 60;
 const pitchMaxHz = 1000;
 const pitchScaleFixedMinHz = 50;
 const pitchScaleFixedMaxHz = 500;
+const pitchScaleLogMinHz = 60;
+const pitchScaleLogMaxHz = 1000;
 const spectrogramMinDb = -100;
 const spectrogramMaxDb = -30;
 const spectrogramOverlayLineWidth = 2;
@@ -296,7 +298,7 @@ function autoCorrelate(buffer, sampleRate) {
   return null;
 }
 
-function drawAxes(minPitch = null, maxPitch = null) {
+function drawAxes(minPitch = null, maxPitch = null, scaleMode = 'linear') {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = '#e5e9f3';
   ctx.lineWidth = 1;
@@ -315,7 +317,10 @@ function drawAxes(minPitch = null, maxPitch = null) {
 
     if (minPitch !== null && maxPitch !== null) {
       const ratio = 1 - i / horizontalLines;
-      const labelValue = minPitch + (maxPitch - minPitch) * ratio;
+      const labelValue =
+        scaleMode === 'log'
+          ? Math.exp(Math.log(minPitch) + (Math.log(maxPitch) - Math.log(minPitch)) * ratio)
+          : minPitch + (maxPitch - minPitch) * ratio;
       const label = `${Math.round(labelValue)} Hz`;
       ctx.fillText(label, 8, y);
     }
@@ -326,6 +331,8 @@ function drawPitchHistory() {
   if (pitchHistory.length < 2) {
     if (pitchScaleMode === 'fixed') {
       drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
+    } else if (pitchScaleMode === 'log') {
+      drawAxes(pitchScaleLogMinHz, pitchScaleLogMaxHz, 'log');
     } else {
       drawAxes();
     }
@@ -355,6 +362,9 @@ function drawPitchHistory() {
   if (pitchScaleMode === 'fixed') {
     minPitch = pitchScaleFixedMinHz;
     maxPitch = pitchScaleFixedMaxHz;
+  } else if (pitchScaleMode === 'log') {
+    minPitch = pitchScaleLogMinHz;
+    maxPitch = pitchScaleLogMaxHz;
   } else {
     if (pitches.length === 0) {
       drawAxes();
@@ -367,7 +377,10 @@ function drawPitchHistory() {
   const pitchRange = Math.max(maxPitch - minPitch, 1);
   const padding = 20;
 
-  drawAxes(minPitch, maxPitch);
+  drawAxes(minPitch, maxPitch, pitchScaleMode === 'log' ? 'log' : 'linear');
+
+  const logMin = Math.log(minPitch);
+  const logRange = Math.max(Math.log(maxPitch) - logMin, 0.0001);
 
   ctx.strokeStyle = '#3a6ff7';
   ctx.lineWidth = 3;
@@ -387,7 +400,7 @@ function drawPitchHistory() {
       return;
     }
     if (point.pitch < minPitch || point.pitch > maxPitch) {
-      if (pitchScaleMode === 'fixed') {
+      if (pitchScaleMode === 'fixed' || pitchScaleMode === 'log') {
         if (hasActivePath) {
           ctx.stroke();
           ctx.beginPath();
@@ -397,7 +410,10 @@ function drawPitchHistory() {
       }
     }
     const x = ((point.time - minTime) / durationMs) * canvas.width;
-    const normalized = (point.pitch - minPitch) / pitchRange;
+    const normalized =
+      pitchScaleMode === 'log'
+        ? (Math.log(point.pitch) - logMin) / logRange
+        : (point.pitch - minPitch) / pitchRange;
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
     if (!hasActivePath) {
       ctx.moveTo(x, y);
@@ -418,7 +434,10 @@ function drawPitchHistory() {
     if (currentPitch < minPitch || currentPitch > maxPitch) {
       return;
     }
-    const normalized = (currentPitch - minPitch) / pitchRange;
+    const normalized =
+      pitchScaleMode === 'log'
+        ? (Math.log(currentPitch) - logMin) / logRange
+        : (currentPitch - minPitch) / pitchRange;
     const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
     ctx.strokeStyle = '#ff7a59';
     ctx.lineWidth = 2;
@@ -538,6 +557,8 @@ function drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange,
   const now = performance.now();
   const minVisibleTime = offlineMode ? minTime : now - maxHistorySeconds * 1000;
   const visibleHistory = sourceHistory.filter((point) => point.time >= minVisibleTime);
+  const logMin = Math.log(minPitch);
+  const logRange = Math.max(Math.log(maxPitch) - logMin, 0.0001);
 
   const drawCurve = (key, color) => {
     ctx.strokeStyle = color;
@@ -555,7 +576,7 @@ function drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange,
         return;
       }
       if (value < minPitch || value > maxPitch) {
-        if (pitchScaleMode === 'fixed') {
+        if (pitchScaleMode === 'fixed' || pitchScaleMode === 'log') {
           if (hasActivePath) {
             ctx.stroke();
             ctx.beginPath();
@@ -565,7 +586,10 @@ function drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange,
         }
       }
       const x = ((point.time - minTime) / durationMs) * canvas.width;
-      const normalized = (value - minPitch) / pitchRange;
+      const normalized =
+        pitchScaleMode === 'log'
+          ? (Math.log(value) - logMin) / logRange
+          : (value - minPitch) / pitchRange;
       const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
       if (!hasActivePath) {
         ctx.moveTo(x, y);
