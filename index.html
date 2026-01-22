@@ -17,6 +17,8 @@
         <div class="controls-main">
           <button id="startButton">开始检测</button>
           <button id="stopButton" disabled>停止</button>
+          <button id="recordButton" class="secondary">开始录音</button>
+          <button id="stopRecordButton" class="secondary" disabled>停止录音</button>
           <button id="exportCsvButton" class="secondary" disabled>保存本次（CSV）</button>
           <button id="exportPngButton" class="secondary" disabled>导出截图（PNG）</button>
           <div class="status" id="status">未开始</div>
@@ -145,6 +147,8 @@
       <div class="sidebar-card">
         <h2>离线分析</h2>
         <input type="file" id="audioFileInput" accept="audio/*" class="file-input" />
+        <button id="analyzeRecordingButton" class="secondary" disabled>分析最近录音</button>
+        <button id="downloadRecordingButton" class="secondary" disabled>下载最近录音</button>
         <button id="clearFileButton" class="secondary" disabled>清除文件/返回实时</button>
         <div class="file-status">
           <span class="label">数据源</span>

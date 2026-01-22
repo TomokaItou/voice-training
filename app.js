@@ -1,5 +1,7 @@
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
+const recordButton = document.getElementById('recordButton');
+const stopRecordButton = document.getElementById('stopRecordButton');
 const exportCsvButton = document.getElementById('exportCsvButton');
 const exportPngButton = document.getElementById('exportPngButton');
 const sidebarToggle = document.getElementById('sidebarToggle');
@@ -26,6 +28,8 @@ const canvas = document.getElementById('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const canvasScaleRange = document.getElementById('canvasScaleRange');
 const canvasScaleValue = document.getElementById('canvasScaleValue');
+const analyzeRecordingButton = document.getElementById('analyzeRecordingButton');
+const downloadRecordingButton = document.getElementById('downloadRecordingButton');
 
 let audioContext;
 let analyser;
@@ -110,11 +114,15 @@ let offlineAbort = false;
 let offlineFormantHistory = [];
 let offlineSourceSampleRate = null;
 let offlineAnalysisInProgress = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let lastRecordingBlob = null;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 updateCanvasScale(canvasScale);
 volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !meterToggle?.checked);
+updateRecordingButtons();
 
 function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
@@ -863,6 +871,12 @@ function updateExportButtons() {
   exportPngButton.disabled = !hasSession || !hasData;
 }
 
+function updateRecordingButtons() {
+  const hasRecording = Boolean(lastRecordingBlob);
+  analyzeRecordingButton.disabled = !hasRecording || offlineAnalysisInProgress;
+  downloadRecordingButton.disabled = !hasRecording;
+}
+
 function resetPitchStabilizer() {
   recentPitchWindow = [];
   lastStablePitch = null;
@@ -945,6 +959,8 @@ function setOfflineMode(enabled) {
   audioFileInput.disabled = offlineMode && offlineAnalysisInProgress;
   startButton.disabled = offlineMode || offlineAnalysisInProgress;
   stopButton.disabled = offlineMode || offlineAnalysisInProgress;
+  recordButton.disabled = offlineMode || offlineAnalysisInProgress;
+  stopRecordButton.disabled = offlineMode || offlineAnalysisInProgress;
   pitchAlgorithmSelect.disabled = offlineAnalysisInProgress;
   displayModeSelect.disabled = offlineMode || offlineAnalysisInProgress;
   canvasScaleRange.disabled = offlineAnalysisInProgress;
@@ -955,6 +971,7 @@ function setOfflineMode(enabled) {
   }
   setDataSourceLabel(offlineMode ? '音频文件' : '实时麦克风');
   updateExportButtons();
+  updateRecordingButtons();
 }
 
 function resetOfflineState() {
@@ -968,6 +985,16 @@ function resetOfflineState() {
 
 async function decodeAudioFile(file) {
   const arrayBuffer = await file.arrayBuffer();
+  const decodeContext = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    return await decodeContext.decodeAudioData(arrayBuffer);
+  } finally {
+    decodeContext.close();
+  }
+}
+
+async function decodeAudioBlob(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
   const decodeContext = new (window.AudioContext || window.webkitAudioContext)();
   try {
     return await decodeContext.decodeAudioData(arrayBuffer);
@@ -1000,6 +1027,178 @@ async function analyzeAudioFile(file) {
   } catch (error) {
     console.error(error);
     setAnalysisStatus('解码失败，请尝试 wav/mp3');
+    offlineAnalysisInProgress = false;
+    setOfflineMode(true);
+    return;
+  }
+
+  const durationSeconds = audioBuffer.duration;
+  if (durationSeconds > offlineMaxDurationSeconds) {
+    const proceed = window.confirm(
+      `音频时长为 ${Math.round(durationSeconds)} 秒，超过默认限制 ${offlineMaxDurationSeconds} 秒，继续分析全片吗？`
+    );
+    if (!proceed) {
+      setAnalysisStatus('已取消');
+      offlineAnalysisInProgress = false;
+      return;
+    }
+  }
+
+  setAnalysisStatus('分析中... 0%');
+  sessionStartTime = 0;
+  pitchHistory = [];
+  formantHistory = { f1: [], f2: [] };
+  smoothedFormants = { f1: null, f2: null };
+  stableFormants = { f1: null, f2: null };
+  currentPitch = null;
+  lastFormantTimestamp = 0;
+  lastFormantUpdate = 0;
+  offlineSourceSampleRate = audioBuffer.sampleRate;
+
+  const offlineContext = new OfflineAudioContext(
+    1,
+    audioBuffer.length,
+    audioBuffer.sampleRate
+  );
+  const source = offlineContext.createBufferSource();
+  source.buffer = audioBuffer;
+  const offlineAnalyser = offlineContext.createAnalyser();
+  offlineAnalyser.fftSize = 4096;
+  const offlineFrequencyData = new Float32Array(offlineAnalyser.frequencyBinCount);
+  const scriptNode = offlineContext.createScriptProcessor(2048, 1, 1);
+
+  const frameLength = Math.round(
+    (audioBuffer.sampleRate * offlineFrameDurationMs) / 1000
+  );
+  const hopLength = Math.round(
+    (audioBuffer.sampleRate * offlineHopDurationMs) / 1000
+  );
+  let buffer = new Float32Array(frameLength * 2);
+  let bufferLength = 0;
+  let frameOffsetSamples = 0;
+  let lastProgressUpdate = 0;
+
+  const appendSamples = (input) => {
+    if (bufferLength + input.length > buffer.length) {
+      const next = new Float32Array(bufferLength + input.length);
+      next.set(buffer.subarray(0, bufferLength));
+      buffer = next;
+    }
+    buffer.set(input, bufferLength);
+    bufferLength += input.length;
+  };
+
+  const readFrame = () => {
+    if (bufferLength < frameLength) {
+      return null;
+    }
+    const frame = new Float32Array(frameLength);
+    frame.set(buffer.subarray(0, frameLength));
+    buffer.copyWithin(0, hopLength, bufferLength);
+    bufferLength -= hopLength;
+    return frame;
+  };
+
+  scriptNode.onaudioprocess = (event) => {
+    if (offlineAbort) {
+      return;
+    }
+    const input = event.inputBuffer.getChannelData(0);
+    appendSamples(input);
+
+    let frame = readFrame();
+    while (frame) {
+      let pitch;
+      if (pitchAlgorithm === 'fft') {
+        offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
+        const result = estimatePitchFromSpectrum(
+          offlineFrequencyData,
+          audioBuffer.sampleRate,
+          offlineAnalyser.fftSize
+        );
+        pitch = result.pitch;
+      } else if (pitchAlgorithm === 'autocorr') {
+        pitch = autoCorrelateStandardWithConfidence(frame, audioBuffer.sampleRate, computeRms(frame))
+          .pitch;
+      } else {
+        pitch = autoCorrelate(frame, audioBuffer.sampleRate);
+      }
+      const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
+      pitchHistory.push({ time: timeMs, pitch });
+      frameOffsetSamples += hopLength;
+      frame = readFrame();
+    }
+
+    const nowMs = event.playbackTime * 1000;
+    const percent = (event.playbackTime / durationSeconds) * 100;
+    if (nowMs - lastProgressUpdate >= offlineProgressUpdateMs) {
+      lastProgressUpdate = nowMs;
+      setAnalysisStatus(`分析中... ${formatPercent(percent)}`);
+    }
+
+    if (formantToggle.checked && nowMs - lastFormantUpdate >= formantUpdateIntervalMs) {
+      lastFormantUpdate = nowMs;
+      offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
+      const { f1, f2 } = estimateFormantsFromSpectrum(
+        offlineFrequencyData,
+        audioBuffer.sampleRate,
+        offlineAnalyser.fftSize
+      );
+      const stabilized = stabilizeFormants(f1, f2, nowMs);
+      offlineFormantHistory.push({ time: nowMs, f1: stabilized.f1, f2: stabilized.f2 });
+      setFormantDisplay(stabilized.f1, stabilized.f2);
+      lastFormantTimestamp = nowMs;
+    }
+  };
+
+  source.connect(offlineAnalyser);
+  offlineAnalyser.connect(scriptNode);
+  scriptNode.connect(offlineContext.destination);
+  source.start();
+
+  try {
+    await offlineContext.startRendering();
+  } catch (error) {
+    console.error(error);
+    setAnalysisStatus('分析失败，请重试');
+    offlineAnalysisInProgress = false;
+    return;
+  }
+
+  if (offlineAbort) {
+    setAnalysisStatus('已取消');
+    offlineAnalysisInProgress = false;
+    setOfflineMode(false);
+    resetOfflineState();
+    return;
+  }
+
+  setAnalysisStatus('完成');
+  offlineAnalysisInProgress = false;
+  updateExportButtons();
+  drawPitchHistory();
+}
+
+async function analyzeRecordingBlob(blob) {
+  if (!blob) {
+    return;
+  }
+  if (offlineAnalysisInProgress) {
+    return;
+  }
+
+  stop();
+  offlineAnalysisInProgress = true;
+  setOfflineMode(true);
+  offlineAbort = false;
+  setAnalysisStatus('解码中...');
+
+  let audioBuffer;
+  try {
+    audioBuffer = await decodeAudioBlob(blob);
+  } catch (error) {
+    console.error(error);
+    setAnalysisStatus('解码失败，请重试');
     offlineAnalysisInProgress = false;
     setOfflineMode(true);
     return;
@@ -1335,6 +1534,9 @@ function stop() {
     sourceNode.mediaStream.getTracks().forEach((track) => track.stop());
   }
   sourceNode = null;
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
   resetPitchStabilizer();
   setStatus('已停止');
   updateVolumeMeter(0);
@@ -1382,6 +1584,55 @@ meterToggle.addEventListener('change', (event) => {
   const isVisible = event.target.checked;
   volumeMeter?.classList.toggle('meter-hidden', !isVisible);
   volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !isVisible);
+});
+recordButton.addEventListener('click', async () => {
+  if (offlineAnalysisInProgress) {
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    recordedChunks = [];
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data && event.data.size > 0) {
+        recordedChunks.push(event.data);
+      }
+    });
+    recorder.addEventListener('stop', () => {
+      const blob = new Blob(recordedChunks, { type: recorder.mimeType });
+      lastRecordingBlob = blob.size > 0 ? blob : null;
+      recordedChunks = [];
+      stream.getTracks().forEach((track) => track.stop());
+      updateRecordingButtons();
+    });
+    mediaRecorder = recorder;
+    recorder.start();
+    recordButton.disabled = true;
+    stopRecordButton.disabled = false;
+    setStatus('录音中', 'active');
+  } catch (error) {
+    console.error(error);
+    setStatus('无法开始录音，请检查权限设置');
+  }
+});
+stopRecordButton.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  recordButton.disabled = false;
+  stopRecordButton.disabled = true;
+});
+analyzeRecordingButton.addEventListener('click', () => {
+  if (lastRecordingBlob) {
+    analyzeRecordingBlob(lastRecordingBlob);
+  }
+});
+downloadRecordingButton.addEventListener('click', () => {
+  if (!lastRecordingBlob) {
+    return;
+  }
+  const filename = `voice-training_recording_${formatTimestamp(new Date())}.webm`;
+  downloadBlob(lastRecordingBlob, filename);
 });
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {

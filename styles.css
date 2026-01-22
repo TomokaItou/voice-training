@@ -49,6 +49,10 @@ header p {
   align-items: center;
 }
 
+.controls-main button.secondary {
+  white-space: nowrap;
+}
+
 button {
   appearance: none;
   border: none;
