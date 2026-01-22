@@ -36,6 +36,17 @@
       </section>
 
       <section class="chart">
+        <div class="meter-column">
+          <div class="meter" id="volumeMeter">
+            <div class="meter-bar" id="volumeMeterBar"></div>
+            <div class="meter-ticks">
+              <span>0 dB</span>
+              <span>-20</span>
+              <span>-40</span>
+              <span>-60</span>
+            </div>
+          </div>
+        </div>
         <canvas id="pitchCanvas" width="720" height="360"></canvas>
         <div class="chart-legend">
           <span>低音</span>
@@ -105,6 +116,11 @@
             <option value="formants">仅共振峰曲线</option>
             <option value="both">音高 + 共振峰</option>
           </select>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="meterToggle" checked />
+          <span class="toggle-pill"></span>
+          <span class="toggle-text">显示音量条</span>
         </label>
         <p class="hint">切换为频谱图时，画布显示实时声谱。</p>
       </div>

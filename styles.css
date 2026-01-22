@@ -117,6 +117,10 @@ button.secondary:not(:disabled):hover {
   background: linear-gradient(180deg, #f0f4ff 0%, #ffffff 100%);
   border-radius: 16px;
   padding: 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 16px;
+  align-items: stretch;
 }
 
 canvas {
@@ -126,6 +130,50 @@ canvas {
   border-radius: 12px;
   border: 1px solid #e1e6f3;
   background: #ffffff;
+}
+
+.meter-column {
+  display: flex;
+  align-items: stretch;
+}
+
+.meter {
+  position: relative;
+  width: 56px;
+  min-height: 100%;
+  border-radius: 12px;
+  border: 1px solid #e1e6f3;
+  background: #ffffff;
+  padding: 8px 6px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.meter-bar {
+  width: 14px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #22c55e 0%, #facc15 60%, #ef4444 100%);
+  height: 10%;
+  transition: height 0.08s linear;
+}
+
+.meter-ticks {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.meter-hidden .meter-column {
+  display: none;
 }
 
 .chart-legend {

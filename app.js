@@ -19,6 +19,9 @@ const analysisStatus = document.getElementById('analysisStatus');
 const statusEl = document.getElementById('status');
 const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
+const meterToggle = document.getElementById('meterToggle');
+const volumeMeter = document.getElementById('volumeMeter');
+const volumeMeterBar = document.getElementById('volumeMeterBar');
 const canvas = document.getElementById('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const canvasScaleRange = document.getElementById('canvasScaleRange');
@@ -50,6 +53,8 @@ const spectrogramOverlayColors = {
   f1: '#22c55e',
   f2: '#f97316',
 };
+const volumeMeterMinDb = -60;
+const volumeMeterMaxDb = 0;
 const pitchEnergyThreshold = 0.015;
 const pitchEnergyRef = 0.05;
 const pitchOnsetConfidenceThreshold = 0.7;
@@ -109,6 +114,7 @@ let offlineAnalysisInProgress = false;
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 updateCanvasScale(canvasScale);
+volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !meterToggle?.checked);
 
 function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
@@ -142,6 +148,20 @@ function computeRms(buffer) {
     sum += value * value;
   }
   return Math.sqrt(sum / buffer.length);
+}
+
+function updateVolumeMeter(rms) {
+  if (!volumeMeterBar) {
+    return;
+  }
+  if (rms === null || rms === undefined) {
+    volumeMeterBar.style.height = '0%';
+    return;
+  }
+  const db = 20 * Math.log10(Math.max(rms, 1e-5));
+  const clamped = Math.max(volumeMeterMinDb, Math.min(volumeMeterMaxDb, db));
+  const ratio = (clamped - volumeMeterMinDb) / (volumeMeterMaxDb - volumeMeterMinDb);
+  volumeMeterBar.style.height = `${Math.round(ratio * 100)}%`;
 }
 
 function autoCorrelateWithConfidence(buffer, sampleRate) {
@@ -1135,6 +1155,7 @@ async function analyzeAudioFile(file) {
 function update() {
   const now = performance.now();
   analyser.getFloatTimeDomainData(dataArray);
+  updateVolumeMeter(computeRms(dataArray));
 
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
@@ -1288,6 +1309,7 @@ async function start() {
     if (displayMode === 'spectrogram') {
       resetSpectrogram();
     }
+    updateVolumeMeter(0);
 
     startButton.disabled = true;
     stopButton.disabled = false;
@@ -1315,6 +1337,7 @@ function stop() {
   sourceNode = null;
   resetPitchStabilizer();
   setStatus('已停止');
+  updateVolumeMeter(0);
   startButton.disabled = false;
   stopButton.disabled = true;
   updateExportButtons();
@@ -1354,6 +1377,11 @@ spectrogramOverlaySelect.addEventListener('change', (event) => {
 });
 canvasScaleRange.addEventListener('input', (event) => {
   updateCanvasScale(event.target.value);
+});
+meterToggle.addEventListener('change', (event) => {
+  const isVisible = event.target.checked;
+  volumeMeter?.classList.toggle('meter-hidden', !isVisible);
+  volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !isVisible);
 });
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {
