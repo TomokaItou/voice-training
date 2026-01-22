@@ -736,23 +736,35 @@ function getMaxJumpThresholdHz(reference) {
 }
 
 function selectPitchCandidate(pitch, reference) {
-  if (!reference) {
-    return pitch;
-  }
-  const candidates = [pitch / 2, pitch, pitch * 2].filter(
-    (value) => value >= pitchMinHz && value <= pitchMaxHz
-  );
-  let best = null;
-  let bestDiff = Infinity;
-  candidates.forEach((value) => {
-    const diff = Math.abs(value - reference);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = value;
-    }
-  });
-  return best;
+  if (!pitch) return null;
+  if (!reference) return pitch;
+
+  // 用“音程（cents）”判断是否真的是倍频错误（octave error）
+  const cents = (a, b) => 1200 * Math.log2(a / b);
+  const absCents = (a, b) => Math.abs(cents(a, b));
+
+  // 如果当前pitch已经离reference很远（比如>300 cents=小三度以上），
+  // 不要强行用 pitch/2 去贴reference（否则会把真正的转高/转低压回去）
+  const farEnough = absCents(pitch, reference) > 300;
+  if (farEnough) return pitch;
+
+  // 只有在“看起来像倍频误判”时才纠错
+  const c0 = absCents(pitch, reference);
+  const cHalf = absCents(pitch / 2, reference);
+  const cDouble = absCents(pitch * 2, reference);
+
+  let best = pitch;
+  let bestC = c0;
+
+  if (cHalf < bestC) { bestC = cHalf; best = pitch / 2; }
+  if (cDouble < bestC) { bestC = cDouble; best = pitch * 2; }
+
+  // 再加一道门：纠错也必须“真的更接近”，并且接近到一个很小的范围（比如<=80 cents）
+  if (best !== pitch && bestC <= 80) return best;
+
+  return pitch;
 }
+
 
 function appendPitchBreak(time) {
   if (!pitchHistory.length || pitchHistory[pitchHistory.length - 1].pitch !== null) {
