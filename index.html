@@ -40,6 +40,7 @@
       <section class="chart">
         <div class="meter-column">
           <div class="meter" id="volumeMeter">
+            <span class="meter-title">音量</span>
             <div class="meter-bar" id="volumeMeterBar"></div>
             <div class="meter-ticks">
               <span>0 dB</span>
@@ -50,6 +51,18 @@
           </div>
         </div>
         <canvas id="pitchCanvas" width="720" height="360"></canvas>
+        <div class="meter-column">
+          <div class="meter" id="tiltMeter">
+            <span class="meter-title">倾斜</span>
+            <div class="meter-bar" id="tiltMeterBar"></div>
+            <div class="meter-ticks">
+              <span>+30</span>
+              <span>+10</span>
+              <span>-10</span>
+              <span>-30</span>
+            </div>
+          </div>
+        </div>
         <div class="chart-legend">
           <span>低音</span>
           <span>高音</span>

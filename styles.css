@@ -135,7 +135,7 @@ button.secondary:not(:disabled):hover {
   border-radius: 16px;
   padding: 18px;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   column-gap: 16px;
   align-items: stretch;
 }
@@ -167,6 +167,14 @@ canvas {
   justify-content: center;
 }
 
+.meter-title {
+  position: absolute;
+  top: 6px;
+  font-size: 11px;
+  color: #6b7285;
+  font-weight: 600;
+}
+
 .meter-bar {
   width: 14px;
   border-radius: 10px;
@@ -179,7 +187,7 @@ canvas {
   position: absolute;
   left: 8px;
   right: 8px;
-  top: 8px;
+  top: 22px;
   bottom: 8px;
   display: flex;
   flex-direction: column;

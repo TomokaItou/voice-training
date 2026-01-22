@@ -24,6 +24,8 @@ const noteValueEl = document.getElementById('noteValue');
 const meterToggle = document.getElementById('meterToggle');
 const volumeMeter = document.getElementById('volumeMeter');
 const volumeMeterBar = document.getElementById('volumeMeterBar');
+const tiltMeter = document.getElementById('tiltMeter');
+const tiltMeterBar = document.getElementById('tiltMeterBar');
 const canvas = document.getElementById('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const canvasScaleRange = document.getElementById('canvasScaleRange');
@@ -59,6 +61,10 @@ const spectrogramOverlayColors = {
 };
 const volumeMeterMinDb = -60;
 const volumeMeterMaxDb = 0;
+const tiltMeterMinDb = -30;
+const tiltMeterMaxDb = 30;
+const tiltLowBandHz = { min: 200, max: 800 };
+const tiltHighBandHz = { min: 2000, max: 5000 };
 const pitchEnergyThreshold = 0.015;
 const pitchEnergyRef = 0.05;
 const pitchOnsetConfidenceThreshold = 0.7;
@@ -170,6 +176,41 @@ function updateVolumeMeter(rms) {
   const clamped = Math.max(volumeMeterMinDb, Math.min(volumeMeterMaxDb, db));
   const ratio = (clamped - volumeMeterMinDb) / (volumeMeterMaxDb - volumeMeterMinDb);
   volumeMeterBar.style.height = `${Math.round(ratio * 100)}%`;
+}
+
+function updateSpectralTilt() {
+  if (!tiltMeterBar || !analyser || !frequencyData) {
+    return;
+  }
+  analyser.getFloatFrequencyData(frequencyData);
+  const nyquist = audioContext ? audioContext.sampleRate / 2 : 0;
+  if (!nyquist) {
+    tiltMeterBar.style.height = '0%';
+    return;
+  }
+
+  const binResolution = nyquist / frequencyData.length;
+  const bandAverage = (minHz, maxHz) => {
+    const start = Math.max(0, Math.floor(minHz / binResolution));
+    const end = Math.min(frequencyData.length - 1, Math.ceil(maxHz / binResolution));
+    let sum = 0;
+    let count = 0;
+    for (let i = start; i <= end; i += 1) {
+      const value = frequencyData[i];
+      if (Number.isFinite(value)) {
+        sum += value;
+        count += 1;
+      }
+    }
+    return count > 0 ? sum / count : -120;
+  };
+
+  const lowDb = bandAverage(tiltLowBandHz.min, tiltLowBandHz.max);
+  const highDb = bandAverage(tiltHighBandHz.min, tiltHighBandHz.max);
+  const tiltDb = highDb - lowDb;
+  const clamped = Math.max(tiltMeterMinDb, Math.min(tiltMeterMaxDb, tiltDb));
+  const ratio = (clamped - tiltMeterMinDb) / (tiltMeterMaxDb - tiltMeterMinDb);
+  tiltMeterBar.style.height = `${Math.round(ratio * 100)}%`;
 }
 
 function autoCorrelateWithConfidence(buffer, sampleRate) {
@@ -1355,6 +1396,7 @@ function update() {
   const now = performance.now();
   analyser.getFloatTimeDomainData(dataArray);
   updateVolumeMeter(computeRms(dataArray));
+  updateSpectralTilt();
 
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
@@ -1509,6 +1551,9 @@ async function start() {
       resetSpectrogram();
     }
     updateVolumeMeter(0);
+    if (tiltMeterBar) {
+      tiltMeterBar.style.height = '0%';
+    }
 
     startButton.disabled = true;
     stopButton.disabled = false;
@@ -1540,6 +1585,9 @@ function stop() {
   resetPitchStabilizer();
   setStatus('已停止');
   updateVolumeMeter(0);
+  if (tiltMeterBar) {
+    tiltMeterBar.style.height = '0%';
+  }
   startButton.disabled = false;
   stopButton.disabled = true;
   updateExportButtons();
