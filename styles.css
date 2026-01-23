@@ -54,6 +54,12 @@ header p {
   min-width: 240px;
 }
 
+.controls-inline {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .controls-main button.secondary {
   white-space: nowrap;
 }

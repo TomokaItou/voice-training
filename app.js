@@ -21,6 +21,12 @@ const analysisStatus = document.getElementById('analysisStatus');
 const statusEl = document.getElementById('status');
 const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
+const accompanimentInput = document.getElementById('accompanimentInput');
+const playAccompanimentButton = document.getElementById('playAccompanimentButton');
+const pauseAccompanimentButton = document.getElementById('pauseAccompanimentButton');
+const stopAccompanimentButton = document.getElementById('stopAccompanimentButton');
+const accompanimentVolume = document.getElementById('accompanimentVolume');
+const accompanimentStatus = document.getElementById('accompanimentStatus');
 const meterToggle = document.getElementById('meterToggle');
 const volumeMeter = document.getElementById('volumeMeter');
 const volumeMeterBar = document.getElementById('volumeMeterBar');
@@ -123,12 +129,15 @@ let offlineAnalysisInProgress = false;
 let mediaRecorder = null;
 let recordedChunks = [];
 let lastRecordingBlob = null;
+let accompanimentAudio = null;
+let accompanimentUrl = null;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 updateCanvasScale(canvasScale);
 volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !meterToggle?.checked);
 updateRecordingButtons();
+updateAccompanimentButtons(false);
 
 function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
@@ -142,6 +151,17 @@ function setDataSourceLabel(source) {
 
 function setAnalysisStatus(text) {
   analysisStatus.textContent = text;
+}
+
+function setAccompanimentStatus(text) {
+  accompanimentStatus.textContent = text;
+}
+
+function updateAccompanimentButtons(hasSource) {
+  const canPlay = Boolean(hasSource);
+  playAccompanimentButton.disabled = !canPlay;
+  pauseAccompanimentButton.disabled = !canPlay;
+  stopAccompanimentButton.disabled = !canPlay;
 }
 
 function frequencyToNote(freq) {
@@ -1529,7 +1549,13 @@ async function start() {
   try {
     setOfflineMode(false);
     resetOfflineState();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: false,
+      },
+    });
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 4096;
@@ -1713,3 +1739,61 @@ clearFileButton.addEventListener('click', () => {
 });
 
 window.addEventListener('beforeunload', stop);
+
+accompanimentInput.addEventListener('change', (event) => {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+  if (accompanimentUrl) {
+    URL.revokeObjectURL(accompanimentUrl);
+  }
+  accompanimentUrl = URL.createObjectURL(file);
+  if (!accompanimentAudio) {
+    accompanimentAudio = new Audio();
+    accompanimentAudio.addEventListener('ended', () => {
+      setAccompanimentStatus('已停止');
+    });
+  }
+  accompanimentAudio.src = accompanimentUrl;
+  accompanimentAudio.volume = Number(accompanimentVolume.value || 0.7);
+  setAccompanimentStatus('已加载');
+  updateAccompanimentButtons(true);
+});
+
+playAccompanimentButton.addEventListener('click', async () => {
+  if (!accompanimentAudio) {
+    return;
+  }
+  try {
+    await accompanimentAudio.play();
+    setAccompanimentStatus('播放中');
+  } catch (error) {
+    console.error(error);
+    setAccompanimentStatus('无法播放');
+  }
+});
+
+pauseAccompanimentButton.addEventListener('click', () => {
+  if (!accompanimentAudio) {
+    return;
+  }
+  accompanimentAudio.pause();
+  setAccompanimentStatus('已暂停');
+});
+
+stopAccompanimentButton.addEventListener('click', () => {
+  if (!accompanimentAudio) {
+    return;
+  }
+  accompanimentAudio.pause();
+  accompanimentAudio.currentTime = 0;
+  setAccompanimentStatus('已停止');
+});
+
+accompanimentVolume.addEventListener('input', (event) => {
+  if (!accompanimentAudio) {
+    return;
+  }
+  accompanimentAudio.volume = Number(event.target.value);
+});

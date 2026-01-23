@@ -172,6 +172,23 @@
           <span class="value" id="analysisStatus">未开始</span>
         </div>
       </div>
+      <div class="sidebar-card">
+        <h2>伴奏播放</h2>
+        <input type="file" id="accompanimentInput" accept="audio/*" class="file-input" />
+        <div class="controls-inline">
+          <button id="playAccompanimentButton" class="secondary" disabled>播放</button>
+          <button id="pauseAccompanimentButton" class="secondary" disabled>暂停</button>
+          <button id="stopAccompanimentButton" class="secondary" disabled>停止</button>
+        </div>
+        <label class="field">
+          <span class="label">伴奏音量</span>
+          <input type="range" id="accompanimentVolume" min="0" max="1" step="0.05" value="0.7" />
+        </label>
+        <div class="file-status">
+          <span class="label">状态</span>
+          <span class="value" id="accompanimentStatus">未加载</span>
+        </div>
+      </div>
     </aside>
 
     <script src="app.js"></script>
