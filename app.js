@@ -73,17 +73,20 @@ const tiltMeterMinDb = -30;
 const tiltMeterMaxDb = 30;
 const tiltLowBandHz = { min: 200, max: 800 };
 const tiltHighBandHz = { min: 2000, max: 5000 };
-const pitchEnergyThreshold = 0.01;
+const pitchMinEnergyThreshold = 0.0035;
+const pitchAdaptiveEnergyMultiplier = 2.1;
+const pitchNoiseFloorRiseAlpha = 0.06;
+const pitchNoiseFloorFallAlpha = 0.22;
 const pitchEnergyRef = 0.05;
-const pitchOnsetConfidenceThreshold = 0.55;
-const pitchSustainConfidenceThreshold = 0.3;
+const pitchOnsetConfidenceThreshold = 0.42;
+const pitchSustainConfidenceThreshold = 0.24;
 const pitchMedianWindowSize = 5;
 const pitchMaxJumpHz = 30;
 const pitchMaxJumpCents = 50;
 const pitchEmaAlpha = 0.25;
 const pitchTransitionConfirmFrames = 2;
 const pitchHoldFrames = 2;
-const pitchOnsetFrames = 2;
+const pitchOnsetFrames = 1;
 const pitchReleaseFrames = 4;
 const formantUpdateIntervalMs = 150;
 const formantWindowSize = 5;
@@ -110,6 +113,8 @@ let pitchHoldCounter = 0;
 let voicedStable = false;
 let voicedFrames = 0;
 let voicedLostFrames = 0;
+let adaptiveNoiseFloorRms = pitchMinEnergyThreshold;
+let adaptiveEnergyThreshold = pitchMinEnergyThreshold;
 let sessionStartTime = 0;
 let pitchAlgorithm = pitchAlgorithmSelect?.value || 'amdf';
 let pitchScaleMode = pitchScaleModeSelect?.value || 'dynamic';
@@ -134,12 +139,6 @@ let lastRecordingBlob = null;
 let accompanimentAudio = null;
 let accompanimentUrl = null;
 let accompanimentFile = null;
-
-let noiseFloorRms = 0.003;        // 初始值：偏保守
-const noiseFloorAlpha = 0.05;     // 更新速度
-const energyGateMultiplier = 2.0; // 阈值 = 噪声底 * 倍数（1.6~2.5都可试）
-const energyGateMin = 0.002;      // 下限，避免过敏
-const energyGateMax = 0.02;       // 上限，避免太迟钝
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -326,12 +325,122 @@ function updateSpectralTilt() {
   tiltMeterBar.style.height = `${Math.round(ratio * 100)}%`;
 }
 
-function autoCorrelateWithConfidence(buffer, sampleRate) {
+
+function updateAdaptiveEnergyThreshold(rms) {
+  if (!Number.isFinite(rms)) {
+    return adaptiveEnergyThreshold;
+  }
+  const alpha = rms < adaptiveNoiseFloorRms ? pitchNoiseFloorFallAlpha : pitchNoiseFloorRiseAlpha;
+  adaptiveNoiseFloorRms = (1 - alpha) * adaptiveNoiseFloorRms + alpha * rms;
+  adaptiveEnergyThreshold = Math.max(
+    pitchMinEnergyThreshold,
+    adaptiveNoiseFloorRms * pitchAdaptiveEnergyMultiplier
+  );
+  return adaptiveEnergyThreshold;
+}
+
+function estimatePitchYinWithConfidence(buffer, sampleRate, rms) {
   const size = buffer.length;
-  const rms = computeRms(buffer);
-  if (rms < pitchEnergyThreshold) {
+  const minTau = Math.max(2, Math.floor(sampleRate / pitchMaxHz));
+  const maxTau = Math.min(size - 2, Math.floor(sampleRate / pitchMinHz));
+  if (maxTau <= minTau) {
     return { pitch: null, confidence: 0, rms };
   }
+
+  const yinThreshold = 0.16;
+  const difference = new Float32Array(maxTau + 1);
+  const cmnd = new Float32Array(maxTau + 1);
+  cmnd[0] = 1;
+
+  for (let tau = 1; tau <= maxTau; tau += 1) {
+    let sum = 0;
+    for (let i = 0; i < size - tau; i += 1) {
+      const delta = buffer[i] - buffer[i + tau];
+      sum += delta * delta;
+    }
+    difference[tau] = sum;
+  }
+
+  let runningSum = 0;
+  for (let tau = 1; tau <= maxTau; tau += 1) {
+    runningSum += difference[tau];
+    cmnd[tau] = runningSum > 0 ? (difference[tau] * tau) / runningSum : 1;
+  }
+
+  let tauEstimate = -1;
+  for (let tau = minTau; tau <= maxTau; tau += 1) {
+    if (cmnd[tau] < yinThreshold) {
+      while (tau + 1 <= maxTau && cmnd[tau + 1] < cmnd[tau]) {
+        tau += 1;
+      }
+      tauEstimate = tau;
+      break;
+    }
+  }
+
+  if (tauEstimate === -1) {
+    let bestTau = minTau;
+    let bestValue = cmnd[minTau];
+    for (let tau = minTau + 1; tau <= maxTau; tau += 1) {
+      if (cmnd[tau] < bestValue) {
+        bestValue = cmnd[tau];
+        bestTau = tau;
+      }
+    }
+    if (bestValue >= 0.35) {
+      return { pitch: null, confidence: 0, rms };
+    }
+    tauEstimate = bestTau;
+  }
+
+  const x0 = tauEstimate > 1 ? tauEstimate - 1 : tauEstimate;
+  const x2 = tauEstimate + 1 <= maxTau ? tauEstimate + 1 : tauEstimate;
+  const s0 = cmnd[x0];
+  const s1 = cmnd[tauEstimate];
+  const s2 = cmnd[x2];
+  let betterTau = tauEstimate;
+  const denom = 2 * (2 * s1 - s2 - s0);
+  if (denom !== 0) {
+    betterTau = tauEstimate + (s2 - s0) / denom;
+  }
+
+  const pitch = betterTau > 0 ? sampleRate / betterTau : null;
+  const periodicity = Math.max(0, Math.min(1, 1 - cmnd[tauEstimate]));
+  const energyScore = Math.min(1, rms / pitchEnergyRef);
+  return { pitch, confidence: periodicity * energyScore, rms };
+}
+
+function detectPitchForAlgorithm(buffer, sampleRate, analyserNode = null, spectrumBuffer = null) {
+  const rms = computeRms(buffer);
+  const energyThreshold = updateAdaptiveEnergyThreshold(rms);
+  if (rms < energyThreshold) {
+    return { pitch: null, confidence: 0, rms, energyThreshold };
+  }
+
+  if (pitchAlgorithm === 'autocorr') {
+    return autoCorrelateStandardWithConfidence(buffer, sampleRate, rms);
+  }
+
+  if (pitchAlgorithm === 'fft' && analyserNode && spectrumBuffer) {
+    analyserNode.getFloatFrequencyData(spectrumBuffer);
+    const { pitch, confidence } = estimatePitchFromSpectrum(
+      spectrumBuffer,
+      sampleRate,
+      analyserNode.fftSize
+    );
+    const energyScore = Math.min(1, rms / pitchEnergyRef);
+    return { pitch, confidence: confidence * energyScore, rms };
+  }
+
+  if (pitchAlgorithm === 'yin') {
+    return estimatePitchYinWithConfidence(buffer, sampleRate, rms);
+  }
+
+  return autoCorrelateWithConfidence(buffer, sampleRate, rms);
+}
+
+function autoCorrelateWithConfidence(buffer, sampleRate, rms = computeRms(buffer)) {
+  const size = buffer.length;
 
   let bestOffset = -1;
   let bestCorrelation = 0;
@@ -426,66 +535,13 @@ function estimatePitchFromSpectrum(spectrum, sampleRate, fftSize) {
 }
 
 function estimatePitchWithConfidence(buffer, sampleRate, analyserNode, spectrumBuffer) {
-  const rms = computeRms(buffer);
-
-  // 1) 更新噪声底：只在“看起来无声/很不稳定”的时候更新得更快
-  //    简化版：只要 rms 比当前噪声底略高就慢慢跟随
-  if (rms < noiseFloorRms * 1.2) {
-    noiseFloorRms = noiseFloorRms + noiseFloorAlpha * (rms - noiseFloorRms);
-  } else {
-    // 讲话/有声时也让它慢慢漂移一点，避免环境变化
-    noiseFloorRms = noiseFloorRms + (noiseFloorAlpha * 0.2) * (rms - noiseFloorRms);
-  }
-
-  // 2) 动态能量门
-  const dynamicGate = Math.max(
-    energyGateMin,
-    Math.min(energyGateMax, noiseFloorRms * energyGateMultiplier)
-  );
-
-  if (rms < dynamicGate) {
-    return { pitch: null, confidence: 0, rms };
-  }
-
-  // 后面保持你原来的逻辑...
-  if (pitchAlgorithm === 'autocorr') {
-    return autoCorrelateStandardWithConfidence(buffer, sampleRate, rms);
-  }
-  if (pitchAlgorithm === 'fft' && analyserNode && spectrumBuffer) {
-    analyserNode.getFloatFrequencyData(spectrumBuffer);
-    const { pitch, confidence } = estimatePitchFromSpectrum(
-      spectrumBuffer,
-      sampleRate,
-      analyserNode.fftSize
-    );
-    const energyScore = Math.min(1, rms / pitchEnergyRef);
-    return { pitch, confidence: confidence * energyScore, rms };
-  }
-  return autoCorrelateWithConfidence(buffer, sampleRate);
-}
-
-  if (pitchAlgorithm === 'autocorr') {
-    return autoCorrelateStandardWithConfidence(buffer, sampleRate, rms);
-  }
-
-  if (pitchAlgorithm === 'fft' && analyserNode && spectrumBuffer) {
-    analyserNode.getFloatFrequencyData(spectrumBuffer);
-    const { pitch, confidence } = estimatePitchFromSpectrum(
-      spectrumBuffer,
-      sampleRate,
-      analyserNode.fftSize
-    );
-    const energyScore = Math.min(1, rms / pitchEnergyRef);
-    return { pitch, confidence: confidence * energyScore, rms };
-  }
-
-  return autoCorrelateWithConfidence(buffer, sampleRate);
+  return detectPitchForAlgorithm(buffer, sampleRate, analyserNode, spectrumBuffer);
 }
 
 function autoCorrelate(buffer, sampleRate) {
   const size = buffer.length;
   const rms = computeRms(buffer);
-  if (rms < pitchEnergyThreshold) {
+  if (rms < Math.max(pitchMinEnergyThreshold, adaptiveEnergyThreshold)) {
     return null;
   }
 
@@ -1074,6 +1130,8 @@ function resetPitchStabilizer() {
   voicedStable = false;
   voicedFrames = 0;
   voicedLostFrames = 0;
+  adaptiveNoiseFloorRms = pitchMinEnergyThreshold;
+  adaptiveEnergyThreshold = pitchMinEnergyThreshold;
   currentPitch = null;
   lastDisplayUpdate = 0;
   pitchValueEl.textContent = '-- Hz';
@@ -1296,21 +1354,12 @@ async function analyzeAudioFile(file) {
 
     let frame = readFrame();
     while (frame) {
-      let pitch;
-      if (pitchAlgorithm === 'fft') {
-        offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
-        const result = estimatePitchFromSpectrum(
-          offlineFrequencyData,
-          audioBuffer.sampleRate,
-          offlineAnalyser.fftSize
-        );
-        pitch = result.pitch;
-      } else if (pitchAlgorithm === 'autocorr') {
-        pitch = autoCorrelateStandardWithConfidence(frame, audioBuffer.sampleRate, computeRms(frame))
-          .pitch;
-      } else {
-        pitch = autoCorrelate(frame, audioBuffer.sampleRate);
-      }
+      const { pitch } = detectPitchForAlgorithm(
+        frame,
+        audioBuffer.sampleRate,
+        offlineAnalyser,
+        offlineFrequencyData
+      );
       const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
       pitchHistory.push({ time: timeMs, pitch });
       frameOffsetSamples += hopLength;
@@ -1468,21 +1517,12 @@ async function analyzeRecordingBlob(blob) {
 
     let frame = readFrame();
     while (frame) {
-      let pitch;
-      if (pitchAlgorithm === 'fft') {
-        offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
-        const result = estimatePitchFromSpectrum(
-          offlineFrequencyData,
-          audioBuffer.sampleRate,
-          offlineAnalyser.fftSize
-        );
-        pitch = result.pitch;
-      } else if (pitchAlgorithm === 'autocorr') {
-        pitch = autoCorrelateStandardWithConfidence(frame, audioBuffer.sampleRate, computeRms(frame))
-          .pitch;
-      } else {
-        pitch = autoCorrelate(frame, audioBuffer.sampleRate);
-      }
+      const { pitch } = detectPitchForAlgorithm(
+        frame,
+        audioBuffer.sampleRate,
+        offlineAnalyser,
+        offlineFrequencyData
+      );
       const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
       pitchHistory.push({ time: timeMs, pitch });
       frameOffsetSamples += hopLength;
