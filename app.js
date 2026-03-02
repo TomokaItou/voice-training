@@ -27,6 +27,8 @@ const pauseAccompanimentButton = document.getElementById('pauseAccompanimentButt
 const stopAccompanimentButton = document.getElementById('stopAccompanimentButton');
 const accompanimentVolume = document.getElementById('accompanimentVolume');
 const accompanimentStatus = document.getElementById('accompanimentStatus');
+const pitchAccuracyButton = document.getElementById('pitchAccuracyButton');
+const pitchAccuracyResult = document.getElementById('pitchAccuracyResult');
 const meterToggle = document.getElementById('meterToggle');
 const volumeMeter = document.getElementById('volumeMeter');
 const volumeMeterBar = document.getElementById('volumeMeterBar');
@@ -131,6 +133,7 @@ let recordedChunks = [];
 let lastRecordingBlob = null;
 let accompanimentAudio = null;
 let accompanimentUrl = null;
+let accompanimentFile = null;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -138,6 +141,8 @@ updateCanvasScale(canvasScale);
 volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !meterToggle?.checked);
 updateRecordingButtons();
 updateAccompanimentButtons(false);
+updatePitchAccuracyButton();
+setPitchAccuracyResult('--');
 
 function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
@@ -162,6 +167,88 @@ function updateAccompanimentButtons(hasSource) {
   playAccompanimentButton.disabled = !canPlay;
   pauseAccompanimentButton.disabled = !canPlay;
   stopAccompanimentButton.disabled = !canPlay;
+}
+
+function updatePitchAccuracyButton() {
+  const hasReference = Boolean(accompanimentFile);
+  const hasVocal = Boolean(lastRecordingBlob);
+  pitchAccuracyButton.disabled = !(hasReference && hasVocal) || offlineAnalysisInProgress;
+}
+
+function setPitchAccuracyResult(text, tone = 'neutral') {
+  pitchAccuracyResult.textContent = text;
+  if (tone === 'good') {
+    pitchAccuracyResult.style.color = '#16a34a';
+  } else if (tone === 'bad') {
+    pitchAccuracyResult.style.color = '#dc2626';
+  } else {
+    pitchAccuracyResult.style.color = '#1c1f2a';
+  }
+}
+
+function extractPitchTrack(audioBuffer) {
+  const sampleRate = audioBuffer.sampleRate;
+  const data = audioBuffer.getChannelData(0);
+  const frameLength = Math.round((sampleRate * offlineFrameDurationMs) / 1000);
+  const hopLength = Math.round((sampleRate * offlineHopDurationMs) / 1000);
+  const track = [];
+
+  for (let offset = 0; offset + frameLength <= data.length; offset += hopLength) {
+    const frame = data.subarray(offset, offset + frameLength);
+    const pitch = autoCorrelate(frame, sampleRate);
+    track.push(pitch);
+  }
+
+  return track;
+}
+
+async function runPitchAccuracyAnalysis() {
+  if (!accompanimentFile || !lastRecordingBlob || offlineAnalysisInProgress) {
+    return;
+  }
+
+  pitchAccuracyButton.disabled = true;
+  setPitchAccuracyResult('分析中...');
+  let referenceBuffer;
+  let vocalBuffer;
+  try {
+    referenceBuffer = await decodeAudioFile(accompanimentFile);
+    vocalBuffer = await decodeAudioBlob(lastRecordingBlob);
+  } catch (error) {
+    console.error(error);
+    setPitchAccuracyResult('解码失败');
+    updatePitchAccuracyButton();
+    return;
+  }
+
+  const referenceTrack = extractPitchTrack(referenceBuffer);
+  const vocalTrack = extractPitchTrack(vocalBuffer);
+  const compareLength = Math.min(referenceTrack.length, vocalTrack.length);
+  const centsErrors = [];
+
+  for (let i = 0; i < compareLength; i += 1) {
+    const ref = referenceTrack[i];
+    const vocal = vocalTrack[i];
+    if (!ref || !vocal) {
+      continue;
+    }
+    const cents = Math.abs(1200 * Math.log2(vocal / ref));
+    if (Number.isFinite(cents)) {
+      centsErrors.push(cents);
+    }
+  }
+
+  if (!centsErrors.length) {
+    setPitchAccuracyResult('有效音高不足');
+    updatePitchAccuracyButton();
+    return;
+  }
+
+  const meanError = centsErrors.reduce((sum, value) => sum + value, 0) / centsErrors.length;
+  const label = meanError <= 35 ? '音高准确' : '跑调';
+  const tone = meanError <= 35 ? 'good' : 'bad';
+  setPitchAccuracyResult(`${label}（偏差 ${meanError.toFixed(1)} cents）`, tone);
+  updatePitchAccuracyButton();
 }
 
 function frequencyToNote(freq) {
@@ -1033,6 +1120,7 @@ function setOfflineMode(enabled) {
   setDataSourceLabel(offlineMode ? '音频文件' : '实时麦克风');
   updateExportButtons();
   updateRecordingButtons();
+  updatePitchAccuracyButton();
 }
 
 function resetOfflineState() {
@@ -1678,6 +1766,7 @@ recordButton.addEventListener('click', async () => {
       recordedChunks = [];
       stream.getTracks().forEach((track) => track.stop());
       updateRecordingButtons();
+      updatePitchAccuracyButton();
     });
     mediaRecorder = recorder;
     recorder.start();
@@ -1707,6 +1796,9 @@ downloadRecordingButton.addEventListener('click', () => {
   }
   const filename = `voice-training_recording_${formatTimestamp(new Date())}.webm`;
   downloadBlob(lastRecordingBlob, filename);
+});
+pitchAccuracyButton.addEventListener('click', () => {
+  runPitchAccuracyAnalysis();
 });
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {
@@ -1757,8 +1849,10 @@ accompanimentInput.addEventListener('change', (event) => {
   }
   accompanimentAudio.src = accompanimentUrl;
   accompanimentAudio.volume = Number(accompanimentVolume.value || 0.7);
+  accompanimentFile = file;
   setAccompanimentStatus('已加载');
   updateAccompanimentButtons(true);
+  updatePitchAccuracyButton();
 });
 
 playAccompanimentButton.addEventListener('click', async () => {
