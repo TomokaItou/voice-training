@@ -135,6 +135,12 @@ let accompanimentAudio = null;
 let accompanimentUrl = null;
 let accompanimentFile = null;
 
+let noiseFloorRms = 0.003;        // 初始值：偏保守
+const noiseFloorAlpha = 0.05;     // 更新速度
+const energyGateMultiplier = 2.0; // 阈值 = 噪声底 * 倍数（1.6~2.5都可试）
+const energyGateMin = 0.002;      // 下限，避免过敏
+const energyGateMax = 0.02;       // 上限，避免太迟钝
+
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 updateCanvasScale(canvasScale);
@@ -421,9 +427,42 @@ function estimatePitchFromSpectrum(spectrum, sampleRate, fftSize) {
 
 function estimatePitchWithConfidence(buffer, sampleRate, analyserNode, spectrumBuffer) {
   const rms = computeRms(buffer);
-  if (rms < pitchEnergyThreshold) {
+
+  // 1) 更新噪声底：只在“看起来无声/很不稳定”的时候更新得更快
+  //    简化版：只要 rms 比当前噪声底略高就慢慢跟随
+  if (rms < noiseFloorRms * 1.2) {
+    noiseFloorRms = noiseFloorRms + noiseFloorAlpha * (rms - noiseFloorRms);
+  } else {
+    // 讲话/有声时也让它慢慢漂移一点，避免环境变化
+    noiseFloorRms = noiseFloorRms + (noiseFloorAlpha * 0.2) * (rms - noiseFloorRms);
+  }
+
+  // 2) 动态能量门
+  const dynamicGate = Math.max(
+    energyGateMin,
+    Math.min(energyGateMax, noiseFloorRms * energyGateMultiplier)
+  );
+
+  if (rms < dynamicGate) {
     return { pitch: null, confidence: 0, rms };
   }
+
+  // 后面保持你原来的逻辑...
+  if (pitchAlgorithm === 'autocorr') {
+    return autoCorrelateStandardWithConfidence(buffer, sampleRate, rms);
+  }
+  if (pitchAlgorithm === 'fft' && analyserNode && spectrumBuffer) {
+    analyserNode.getFloatFrequencyData(spectrumBuffer);
+    const { pitch, confidence } = estimatePitchFromSpectrum(
+      spectrumBuffer,
+      sampleRate,
+      analyserNode.fftSize
+    );
+    const energyScore = Math.min(1, rms / pitchEnergyRef);
+    return { pitch, confidence: confidence * energyScore, rms };
+  }
+  return autoCorrelateWithConfidence(buffer, sampleRate);
+}
 
   if (pitchAlgorithm === 'autocorr') {
     return autoCorrelateStandardWithConfidence(buffer, sampleRate, rms);
