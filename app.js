@@ -330,7 +330,13 @@ function updateAdaptiveEnergyThreshold(rms) {
   if (!Number.isFinite(rms)) {
     return adaptiveEnergyThreshold;
   }
-  const alpha = rms < adaptiveNoiseFloorRms ? pitchNoiseFloorFallAlpha : pitchNoiseFloorRiseAlpha;
+
+  // 关键修复：已经判定“有声稳定”时，不要让噪声底跟着人声往上抬
+  const allowRise = !voicedStable; // voicedStable 是你全局状态变量
+  const alphaRise = allowRise ? pitchNoiseFloorRiseAlpha : 0;
+
+  const alpha = rms < adaptiveNoiseFloorRms ? pitchNoiseFloorFallAlpha : alphaRise;
+
   adaptiveNoiseFloorRms = (1 - alpha) * adaptiveNoiseFloorRms + alpha * rms;
   adaptiveEnergyThreshold = Math.max(
     pitchMinEnergyThreshold,
