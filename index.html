@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="app">
+    <main class="app" id="appWindow">
       <header>
         <h1>实时音高曲线</h1>
         <p>允许麦克风权限后，对着手机唱歌即可看到音高变化。</p>
@@ -68,6 +68,15 @@
           <span>高音</span>
         </div>
       </section>
+
+      <div class="resize-handle resize-handle-top" data-resize="n" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-right" data-resize="e" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-bottom" data-resize="s" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-left" data-resize="w" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-top-left" data-resize="nw" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-top-right" data-resize="ne" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-bottom-right" data-resize="se" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-bottom-left" data-resize="sw" aria-hidden="true"></div>
     </main>
 
     <aside class="sidebar" id="sidebar" aria-hidden="true">

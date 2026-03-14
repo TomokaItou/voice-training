@@ -17,11 +17,88 @@ body {
 
 .app {
   max-width: var(--app-max-width, 920px);
+  width: min(100%, var(--app-max-width, 920px));
   margin: 0 auto;
   background: #ffffff;
   padding: 28px;
   border-radius: 20px;
   box-shadow: 0 16px 40px rgba(25, 30, 50, 0.08);
+  position: relative;
+}
+
+.app.is-resizing {
+  user-select: none;
+}
+
+.resize-handle {
+  position: absolute;
+  z-index: 2;
+}
+
+.resize-handle-top,
+.resize-handle-bottom {
+  left: 10px;
+  right: 10px;
+  height: 10px;
+}
+
+.resize-handle-top {
+  top: -5px;
+  cursor: ns-resize;
+}
+
+.resize-handle-bottom {
+  bottom: -5px;
+  cursor: ns-resize;
+}
+
+.resize-handle-left,
+.resize-handle-right {
+  top: 10px;
+  bottom: 10px;
+  width: 10px;
+}
+
+.resize-handle-left {
+  left: -5px;
+  cursor: ew-resize;
+}
+
+.resize-handle-right {
+  right: -5px;
+  cursor: ew-resize;
+}
+
+.resize-handle-top-left,
+.resize-handle-top-right,
+.resize-handle-bottom-right,
+.resize-handle-bottom-left {
+  width: 14px;
+  height: 14px;
+}
+
+.resize-handle-top-left {
+  top: -7px;
+  left: -7px;
+  cursor: nwse-resize;
+}
+
+.resize-handle-top-right {
+  top: -7px;
+  right: -7px;
+  cursor: nesw-resize;
+}
+
+.resize-handle-bottom-right {
+  bottom: -7px;
+  right: -7px;
+  cursor: nwse-resize;
+}
+
+.resize-handle-bottom-left {
+  bottom: -7px;
+  left: -7px;
+  cursor: nesw-resize;
 }
 
 header h1 {
@@ -365,5 +442,9 @@ input[type='range'] {
 
   .sidebar-toggle {
     width: 100%;
+  }
+
+  .resize-handle {
+    display: none;
   }
 }
