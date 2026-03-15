@@ -45,6 +45,11 @@ const modeLauncher = document.getElementById('modeLauncher');
 const openPitchModeButton = document.getElementById('openPitchModeButton');
 const openSpectrogramModeButton = document.getElementById('openSpectrogramModeButton');
 const backToHomeButton = document.getElementById('backToHomeButton');
+const songSearchForm = document.getElementById('songSearchForm');
+const songSearchInput = document.getElementById('songSearchInput');
+const songSearchButton = document.getElementById('songSearchButton');
+const songSearchStatus = document.getElementById('songSearchStatus');
+const songSearchResults = document.getElementById('songSearchResults');
 const targetPitchToggle = document.getElementById('targetPitchToggle');
 const targetPitchInput = document.getElementById('targetPitchInput');
 
@@ -150,6 +155,7 @@ let accompanimentUrl = null;
 let accompanimentFile = null;
 let targetPitchEnabled = targetPitchToggle?.checked ?? true;
 let targetPitchHz = Number(targetPitchInput?.value || 300);
+let songSearchAbortController = null;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -236,6 +242,80 @@ function showLauncherView() {
   }
   modeLauncher.hidden = false;
   appWindow.hidden = true;
+}
+
+function renderSongSearchResults(results) {
+  if (!songSearchResults) {
+    return;
+  }
+  songSearchResults.innerHTML = '';
+
+  results.forEach((item) => {
+    const li = document.createElement('li');
+    li.className = 'song-search-item';
+
+    const title = document.createElement('strong');
+    title.textContent = `${item.trackName || '未知歌曲'} - ${item.artistName || '未知歌手'}`;
+    li.appendChild(title);
+
+    const album = document.createElement('span');
+    album.textContent = item.collectionName ? `专辑：${item.collectionName}` : '专辑：未知';
+    li.appendChild(album);
+
+    if (item.trackViewUrl) {
+      const link = document.createElement('a');
+      link.href = item.trackViewUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = '查看歌曲';
+      li.appendChild(link);
+    }
+
+    songSearchResults.appendChild(li);
+  });
+}
+
+async function searchSongs(keyword) {
+  const query = keyword.trim();
+  if (!query) {
+    songSearchStatus.textContent = '请输入搜索关键词';
+    return;
+  }
+
+  if (songSearchAbortController) {
+    songSearchAbortController.abort();
+  }
+  songSearchAbortController = new AbortController();
+
+  songSearchButton.disabled = true;
+  songSearchStatus.textContent = '搜索中...';
+
+  try {
+    const endpoint = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=8&country=cn`;
+    const response = await fetch(endpoint, { signal: songSearchAbortController.signal });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    const results = Array.isArray(data.results) ? data.results : [];
+
+    if (results.length === 0) {
+      songSearchResults.innerHTML = '';
+      songSearchStatus.textContent = '没有找到相关歌曲，请尝试其他关键词';
+      return;
+    }
+
+    renderSongSearchResults(results);
+    songSearchStatus.textContent = `找到 ${results.length} 首歌曲`;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return;
+    }
+    console.error(error);
+    songSearchStatus.textContent = '搜索失败，请检查网络后重试';
+  } finally {
+    songSearchButton.disabled = false;
+  }
 }
 
 function extractPitchTrack(audioBuffer) {
@@ -2125,6 +2205,11 @@ sidebarToggle.addEventListener('click', () => {
     sidebar.hidden = true;
   }
 });
+songSearchForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  searchSongs(songSearchInput?.value || '');
+});
+
 openPitchModeButton?.addEventListener('click', () => {
   showTrainingView('pitch');
 });

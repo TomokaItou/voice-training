@@ -29,6 +29,21 @@
             <span class="mode-desc">暂无功能</span>
           </button>
         </div>
+        <div class="song-search-card">
+          <h2>网上搜歌</h2>
+          <form id="songSearchForm" class="song-search-form">
+            <input
+              id="songSearchInput"
+              class="input"
+              type="text"
+              placeholder="输入歌曲名或歌手，如：夜曲 / 周杰伦"
+              required
+            />
+            <button id="songSearchButton" type="submit" class="secondary">搜索</button>
+          </form>
+          <p id="songSearchStatus" class="song-search-status">输入关键词后点击搜索</p>
+          <ul id="songSearchResults" class="song-search-results" aria-live="polite"></ul>
+        </div>
       </div>
     </section>
 
