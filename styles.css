@@ -5,6 +5,10 @@
   color: #1c1f2a;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 * {
   box-sizing: border-box;
 }
