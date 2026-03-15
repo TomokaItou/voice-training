@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="app">
+    <main class="app" id="appWindow">
       <header>
         <h1>实时音高曲线</h1>
         <p>允许麦克风权限后，对着手机唱歌即可看到音高变化。</p>
@@ -68,6 +68,15 @@
           <span>高音</span>
         </div>
       </section>
+
+      <div class="resize-handle resize-handle-top" data-resize="n" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-right" data-resize="e" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-bottom" data-resize="s" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-left" data-resize="w" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-top-left" data-resize="nw" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-top-right" data-resize="ne" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-bottom-right" data-resize="se" aria-hidden="true"></div>
+      <div class="resize-handle resize-handle-bottom-left" data-resize="sw" aria-hidden="true"></div>
     </main>
 
     <aside class="sidebar" id="sidebar" aria-hidden="true">
@@ -114,6 +123,19 @@
           </select>
         </label>
         <p class="hint">固定刻度下，范围保持 50–500 Hz，仅曲线移动。</p>
+      </div>
+      <div class="sidebar-card">
+        <h2>音准目标线</h2>
+        <label class="toggle">
+          <input type="checkbox" id="targetPitchToggle" checked />
+          <span class="toggle-pill"></span>
+          <span class="toggle-text">显示目标线</span>
+        </label>
+        <label class="field">
+          <span class="label">目标音高 (Hz)</span>
+          <input type="number" id="targetPitchInput" class="input" min="50" max="1000" step="1" value="300" />
+        </label>
+        <p class="hint">目标线会与实时音高曲线叠加显示，方便对齐练习。</p>
       </div>
       <div class="sidebar-card">
         <h2>显示模式</h2>

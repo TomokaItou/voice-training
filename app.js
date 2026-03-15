@@ -40,6 +40,9 @@ const canvasScaleRange = document.getElementById('canvasScaleRange');
 const canvasScaleValue = document.getElementById('canvasScaleValue');
 const analyzeRecordingButton = document.getElementById('analyzeRecordingButton');
 const downloadRecordingButton = document.getElementById('downloadRecordingButton');
+const appWindow = document.getElementById('appWindow');
+const targetPitchToggle = document.getElementById('targetPitchToggle');
+const targetPitchInput = document.getElementById('targetPitchInput');
 
 let audioContext;
 let analyser;
@@ -53,6 +56,8 @@ const displayUpdateIntervalMs = 150;
 const baseCanvasWidth = 720;
 const baseCanvasHeight = 360;
 const baseAppMaxWidth = 920;
+const minResizableWidth = 640;
+const minResizableHeight = 520;
 const pitchMinHz = 60;
 const pitchMaxHz = 1000;
 const pitchScaleFixedMinHz = 50;
@@ -139,10 +144,13 @@ let lastRecordingBlob = null;
 let accompanimentAudio = null;
 let accompanimentUrl = null;
 let accompanimentFile = null;
+let targetPitchEnabled = targetPitchToggle?.checked ?? true;
+let targetPitchHz = Number(targetPitchInput?.value || 300);
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 updateCanvasScale(canvasScale);
+initWindowResize();
 volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !meterToggle?.checked);
 updateRecordingButtons();
 updateAccompanimentButtons(false);
@@ -604,12 +612,70 @@ function drawAxes(minPitch = null, maxPitch = null, scaleMode = 'linear') {
   }
 }
 
+function drawTargetPitchLine(targetPitch, minPitch, maxPitch, pitchRange, padding, logMin, logRange) {
+  if (!Number.isFinite(targetPitch) || targetPitch <= 0) {
+    return;
+  }
+  if (targetPitch < minPitch || targetPitch > maxPitch) {
+    return;
+  }
+
+  const normalized =
+    pitchScaleMode === 'log'
+      ? (Math.log(targetPitch) - logMin) / logRange
+      : (targetPitch - minPitch) / pitchRange;
+  const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+
+  ctx.save();
+  ctx.strokeStyle = '#22c55e';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(canvas.width, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16a34a';
+  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`目标 ${Math.round(targetPitch)} Hz`, 8, Math.max(y - 6, 14));
+  ctx.restore();
+}
+
 function drawPitchHistory() {
   if (pitchHistory.length < 2) {
     if (pitchScaleMode === 'fixed') {
       drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
+      if (targetPitchEnabled) {
+        const pitchRange = Math.max(pitchScaleFixedMaxHz - pitchScaleFixedMinHz, 1);
+        const logMin = Math.log(pitchScaleFixedMinHz);
+        const logRange = Math.max(Math.log(pitchScaleFixedMaxHz) - logMin, 0.0001);
+        drawTargetPitchLine(
+          targetPitchHz,
+          pitchScaleFixedMinHz,
+          pitchScaleFixedMaxHz,
+          pitchRange,
+          20,
+          logMin,
+          logRange
+        );
+      }
     } else if (pitchScaleMode === 'log') {
       drawAxes(pitchScaleLogMinHz, pitchScaleLogMaxHz, 'log');
+      if (targetPitchEnabled) {
+        const pitchRange = Math.max(pitchScaleLogMaxHz - pitchScaleLogMinHz, 1);
+        const logMin = Math.log(pitchScaleLogMinHz);
+        const logRange = Math.max(Math.log(pitchScaleLogMaxHz) - logMin, 0.0001);
+        drawTargetPitchLine(
+          targetPitchHz,
+          pitchScaleLogMinHz,
+          pitchScaleLogMaxHz,
+          pitchRange,
+          20,
+          logMin,
+          logRange
+        );
+      }
     } else {
       drawAxes();
     }
@@ -658,6 +724,10 @@ function drawPitchHistory() {
 
   const logMin = Math.log(minPitch);
   const logRange = Math.max(Math.log(maxPitch) - logMin, 0.0001);
+
+  if (targetPitchEnabled) {
+    drawTargetPitchLine(targetPitchHz, minPitch, maxPitch, pitchRange, padding, logMin, logRange);
+  }
 
   ctx.strokeStyle = '#3a6ff7';
   ctx.lineWidth = 3;
@@ -748,6 +818,107 @@ function updateCanvasScale(value) {
   } else {
     drawPitchHistory();
   }
+}
+
+
+function initWindowResize() {
+  if (!appWindow || !window.PointerEvent) {
+    return;
+  }
+
+  const handles = appWindow.querySelectorAll('[data-resize]');
+  if (handles.length === 0) {
+    return;
+  }
+
+  let activePointerId = null;
+  let activeHandle = null;
+  let startX = 0;
+  let startY = 0;
+  let startWidth = 0;
+  let startHeight = 0;
+
+  function onPointerMove(event) {
+    if (event.pointerId !== activePointerId || !activeHandle) {
+      return;
+    }
+
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    let width = startWidth;
+    let height = startHeight;
+
+    if (activeHandle.includes('e')) {
+      width = startWidth + dx;
+    }
+    if (activeHandle.includes('w')) {
+      width = startWidth - dx;
+    }
+    if (activeHandle.includes('s')) {
+      height = startHeight + dy;
+    }
+    if (activeHandle.includes('n')) {
+      height = startHeight - dy;
+    }
+
+    const maxWidth = window.innerWidth - 32;
+    const maxHeight = window.innerHeight - 32;
+    width = Math.max(minResizableWidth, Math.min(maxWidth, Math.round(width)));
+    height = Math.max(minResizableHeight, Math.min(maxHeight, Math.round(height)));
+
+    appWindow.style.width = `${width}px`;
+    appWindow.style.height = `${height}px`;
+  }
+
+  function endResize(event) {
+    if (activePointerId === null || event.pointerId !== activePointerId) {
+      return;
+    }
+
+    if (event.target?.releasePointerCapture) {
+      try {
+        event.target.releasePointerCapture(activePointerId);
+      } catch (_error) {
+        // no-op
+      }
+    }
+
+    activePointerId = null;
+    activeHandle = null;
+    appWindow.classList.remove('is-resizing');
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', endResize);
+    window.removeEventListener('pointercancel', endResize);
+  }
+
+  handles.forEach((handle) => {
+    handle.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      const direction = handle.dataset.resize;
+      if (!direction) {
+        return;
+      }
+
+      activePointerId = event.pointerId;
+      activeHandle = direction;
+      startX = event.clientX;
+      startY = event.clientY;
+      const rect = appWindow.getBoundingClientRect();
+      startWidth = rect.width;
+      startHeight = rect.height;
+      appWindow.classList.add('is-resizing');
+
+      if (handle.setPointerCapture) {
+        handle.setPointerCapture(event.pointerId);
+      }
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', endResize);
+      window.addEventListener('pointercancel', endResize);
+    });
+  });
 }
 
 function resetSpectrogram() {
@@ -1826,6 +1997,18 @@ spectrogramOverlaySelect.addEventListener('change', (event) => {
 });
 canvasScaleRange.addEventListener('input', (event) => {
   updateCanvasScale(event.target.value);
+});
+targetPitchToggle?.addEventListener('change', (event) => {
+  targetPitchEnabled = event.target.checked;
+  drawPitchHistory();
+});
+targetPitchInput?.addEventListener('input', (event) => {
+  const value = Number(event.target.value);
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  targetPitchHz = Math.max(50, Math.min(1000, value));
+  drawPitchHistory();
 });
 meterToggle.addEventListener('change', (event) => {
   const isVisible = event.target.checked;
