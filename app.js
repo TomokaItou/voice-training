@@ -41,6 +41,10 @@ const canvasScaleValue = document.getElementById('canvasScaleValue');
 const analyzeRecordingButton = document.getElementById('analyzeRecordingButton');
 const downloadRecordingButton = document.getElementById('downloadRecordingButton');
 const appWindow = document.getElementById('appWindow');
+const modeLauncher = document.getElementById('modeLauncher');
+const openPitchModeButton = document.getElementById('openPitchModeButton');
+const openSpectrogramModeButton = document.getElementById('openSpectrogramModeButton');
+const backToHomeButton = document.getElementById('backToHomeButton');
 const targetPitchToggle = document.getElementById('targetPitchToggle');
 const targetPitchInput = document.getElementById('targetPitchInput');
 
@@ -151,6 +155,7 @@ const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', '
 
 updateCanvasScale(canvasScale);
 initWindowResize();
+showLauncherView();
 volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !meterToggle?.checked);
 updateRecordingButtons();
 updateAccompanimentButtons(false);
@@ -197,6 +202,40 @@ function setPitchAccuracyResult(text, tone = 'neutral') {
   } else {
     pitchAccuracyResult.style.color = '#1c1f2a';
   }
+}
+
+
+function hideSidebarPanel() {
+  sidebar.classList.remove('open');
+  sidebarToggle.setAttribute('aria-expanded', 'false');
+  sidebar.setAttribute('aria-hidden', 'true');
+  sidebar.hidden = true;
+}
+
+function showTrainingView(mode = 'pitch') {
+  modeLauncher.hidden = true;
+  appWindow.hidden = false;
+
+  if (mode === 'spectrogram') {
+    displayMode = 'spectrogram';
+    displayModeSelect.value = 'spectrogram';
+    resetSpectrogram();
+  } else {
+    displayMode = 'pitch';
+    displayModeSelect.value = 'pitch';
+    drawPitchHistory();
+  }
+}
+
+function showLauncherView() {
+  hideSidebarPanel();
+  if (!startButton.disabled) {
+    // already stopped
+  } else {
+    stop();
+  }
+  modeLauncher.hidden = false;
+  appWindow.hidden = true;
 }
 
 function extractPitchTrack(audioBuffer) {
@@ -2075,10 +2114,27 @@ formantToggle.addEventListener('change', () => {
   }
 });
 sidebarToggle.addEventListener('click', () => {
+  if (appWindow.hidden) {
+    return;
+  }
+  sidebar.hidden = false;
   const isOpen = sidebar.classList.toggle('open');
-  sidebarToggle.setAttribute('aria-expanded', isOpen);
-  sidebar.setAttribute('aria-hidden', !isOpen);
+  sidebarToggle.setAttribute('aria-expanded', String(isOpen));
+  sidebar.setAttribute('aria-hidden', String(!isOpen));
+  if (!isOpen) {
+    sidebar.hidden = true;
+  }
 });
+openPitchModeButton?.addEventListener('click', () => {
+  showTrainingView('pitch');
+});
+openSpectrogramModeButton?.addEventListener('click', () => {
+  showTrainingView('spectrogram');
+});
+backToHomeButton?.addEventListener('click', () => {
+  showLauncherView();
+});
+
 audioFileInput.addEventListener('change', (event) => {
   const file = event.target.files?.[0];
   if (file) {

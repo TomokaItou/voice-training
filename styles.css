@@ -15,6 +15,72 @@ body {
   background: #f3f5fb;
 }
 
+.mode-launcher {
+  min-height: calc(100vh - 64px);
+  display: grid;
+  place-items: center;
+}
+
+.mode-launcher-card {
+  width: min(920px, 100%);
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(25, 30, 50, 0.08);
+  padding: 28px;
+}
+
+.mode-launcher-card h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+}
+
+.mode-launcher-card p {
+  margin: 0 0 20px;
+  color: #5a6275;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.mode-button {
+  border-radius: 16px;
+  border: 1px solid #d7def7;
+  background: #f6f8ff;
+  color: #1c1f2a;
+  padding: 18px 16px;
+  text-align: left;
+  display: grid;
+  gap: 8px;
+}
+
+.mode-button .mode-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.mode-button .mode-desc {
+  font-size: 13px;
+  color: #5a6275;
+}
+
+.mode-button.secondary-mode {
+  background: #eef6ff;
+}
+
+.mode-button-disabled {
+  background: #f7f7f9;
+  color: #8b91a8;
+}
+
+.controls-side {
+  display: flex;
+  gap: 10px;
+}
+
+
 .app {
   max-width: var(--app-max-width, 920px);
   width: min(100%, var(--app-max-width, 920px));
@@ -441,8 +507,12 @@ input[type='range'] {
     align-items: flex-start;
   }
 
-  .sidebar-toggle {
+  .controls-side {
     width: 100%;
+  }
+
+  .sidebar-toggle {
+    flex: 1;
   }
 
   .resize-handle {

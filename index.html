@@ -7,7 +7,32 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="app" id="appWindow">
+    <section class="mode-launcher" id="modeLauncher">
+      <div class="mode-launcher-card">
+        <h1>选择训练模式</h1>
+        <p>请选择要进入的功能模块。</p>
+        <div class="mode-grid">
+          <button id="openPitchModeButton" class="mode-button">
+            <span class="mode-title">音高曲线</span>
+            <span class="mode-desc">进入实时音高曲线检测与可视化</span>
+          </button>
+          <button id="openSpectrogramModeButton" class="mode-button secondary-mode">
+            <span class="mode-title">频谱图</span>
+            <span class="mode-desc">直接进入实时频谱图视图</span>
+          </button>
+          <button class="mode-button mode-button-disabled" disabled>
+            <span class="mode-title">音域训练模式</span>
+            <span class="mode-desc">暂无功能</span>
+          </button>
+          <button class="mode-button mode-button-disabled" disabled>
+            <span class="mode-title">音准评分</span>
+            <span class="mode-desc">暂无功能</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <main class="app" id="appWindow" hidden>
       <header>
         <h1>实时音高曲线</h1>
         <p>允许麦克风权限后，对着手机唱歌即可看到音高变化。</p>
@@ -23,7 +48,10 @@
           <button id="exportPngButton" class="secondary" disabled>导出截图（PNG）</button>
           <div class="status" id="status">未开始</div>
         </div>
-        <button id="sidebarToggle" class="secondary sidebar-toggle" aria-expanded="false">⚙️ 更多</button>
+        <div class="controls-side">
+          <button id="backToHomeButton" class="secondary sidebar-toggle">← 返回</button>
+          <button id="sidebarToggle" class="secondary sidebar-toggle" aria-expanded="false">⚙️ 更多</button>
+        </div>
       </section>
 
       <section class="readout">
@@ -79,7 +107,7 @@
       <div class="resize-handle resize-handle-bottom-left" data-resize="sw" aria-hidden="true"></div>
     </main>
 
-    <aside class="sidebar" id="sidebar" aria-hidden="true">
+    <aside class="sidebar" id="sidebar" aria-hidden="true" hidden>
       <div class="sidebar-card">
         <h2>共振峰 (Formants)</h2>
         <label class="toggle">
