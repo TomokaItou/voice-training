@@ -41,6 +41,8 @@ const canvasScaleValue = document.getElementById('canvasScaleValue');
 const analyzeRecordingButton = document.getElementById('analyzeRecordingButton');
 const downloadRecordingButton = document.getElementById('downloadRecordingButton');
 const appWindow = document.getElementById('appWindow');
+const targetPitchToggle = document.getElementById('targetPitchToggle');
+const targetPitchInput = document.getElementById('targetPitchInput');
 
 let audioContext;
 let analyser;
@@ -142,6 +144,8 @@ let lastRecordingBlob = null;
 let accompanimentAudio = null;
 let accompanimentUrl = null;
 let accompanimentFile = null;
+let targetPitchEnabled = targetPitchToggle?.checked ?? true;
+let targetPitchHz = Number(targetPitchInput?.value || 300);
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -608,12 +612,70 @@ function drawAxes(minPitch = null, maxPitch = null, scaleMode = 'linear') {
   }
 }
 
+function drawTargetPitchLine(targetPitch, minPitch, maxPitch, pitchRange, padding, logMin, logRange) {
+  if (!Number.isFinite(targetPitch) || targetPitch <= 0) {
+    return;
+  }
+  if (targetPitch < minPitch || targetPitch > maxPitch) {
+    return;
+  }
+
+  const normalized =
+    pitchScaleMode === 'log'
+      ? (Math.log(targetPitch) - logMin) / logRange
+      : (targetPitch - minPitch) / pitchRange;
+  const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+
+  ctx.save();
+  ctx.strokeStyle = '#22c55e';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(canvas.width, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16a34a';
+  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`目标 ${Math.round(targetPitch)} Hz`, 8, Math.max(y - 6, 14));
+  ctx.restore();
+}
+
 function drawPitchHistory() {
   if (pitchHistory.length < 2) {
     if (pitchScaleMode === 'fixed') {
       drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
+      if (targetPitchEnabled) {
+        const pitchRange = Math.max(pitchScaleFixedMaxHz - pitchScaleFixedMinHz, 1);
+        const logMin = Math.log(pitchScaleFixedMinHz);
+        const logRange = Math.max(Math.log(pitchScaleFixedMaxHz) - logMin, 0.0001);
+        drawTargetPitchLine(
+          targetPitchHz,
+          pitchScaleFixedMinHz,
+          pitchScaleFixedMaxHz,
+          pitchRange,
+          20,
+          logMin,
+          logRange
+        );
+      }
     } else if (pitchScaleMode === 'log') {
       drawAxes(pitchScaleLogMinHz, pitchScaleLogMaxHz, 'log');
+      if (targetPitchEnabled) {
+        const pitchRange = Math.max(pitchScaleLogMaxHz - pitchScaleLogMinHz, 1);
+        const logMin = Math.log(pitchScaleLogMinHz);
+        const logRange = Math.max(Math.log(pitchScaleLogMaxHz) - logMin, 0.0001);
+        drawTargetPitchLine(
+          targetPitchHz,
+          pitchScaleLogMinHz,
+          pitchScaleLogMaxHz,
+          pitchRange,
+          20,
+          logMin,
+          logRange
+        );
+      }
     } else {
       drawAxes();
     }
@@ -662,6 +724,10 @@ function drawPitchHistory() {
 
   const logMin = Math.log(minPitch);
   const logRange = Math.max(Math.log(maxPitch) - logMin, 0.0001);
+
+  if (targetPitchEnabled) {
+    drawTargetPitchLine(targetPitchHz, minPitch, maxPitch, pitchRange, padding, logMin, logRange);
+  }
 
   ctx.strokeStyle = '#3a6ff7';
   ctx.lineWidth = 3;
@@ -1931,6 +1997,18 @@ spectrogramOverlaySelect.addEventListener('change', (event) => {
 });
 canvasScaleRange.addEventListener('input', (event) => {
   updateCanvasScale(event.target.value);
+});
+targetPitchToggle?.addEventListener('change', (event) => {
+  targetPitchEnabled = event.target.checked;
+  drawPitchHistory();
+});
+targetPitchInput?.addEventListener('input', (event) => {
+  const value = Number(event.target.value);
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  targetPitchHz = Math.max(50, Math.min(1000, value));
+  drawPitchHistory();
 });
 meterToggle.addEventListener('change', (event) => {
   const isVisible = event.target.checked;

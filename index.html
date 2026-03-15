@@ -125,6 +125,19 @@
         <p class="hint">固定刻度下，范围保持 50–500 Hz，仅曲线移动。</p>
       </div>
       <div class="sidebar-card">
+        <h2>音准目标线</h2>
+        <label class="toggle">
+          <input type="checkbox" id="targetPitchToggle" checked />
+          <span class="toggle-pill"></span>
+          <span class="toggle-text">显示目标线</span>
+        </label>
+        <label class="field">
+          <span class="label">目标音高 (Hz)</span>
+          <input type="number" id="targetPitchInput" class="input" min="50" max="1000" step="1" value="300" />
+        </label>
+        <p class="hint">目标线会与实时音高曲线叠加显示，方便对齐练习。</p>
+      </div>
+      <div class="sidebar-card">
         <h2>显示模式</h2>
         <label class="field">
           <span class="label">视图</span>
