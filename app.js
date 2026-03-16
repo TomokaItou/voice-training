@@ -40,6 +40,18 @@ const canvasScaleRange = document.getElementById('canvasScaleRange');
 const canvasScaleValue = document.getElementById('canvasScaleValue');
 const analyzeRecordingButton = document.getElementById('analyzeRecordingButton');
 const downloadRecordingButton = document.getElementById('downloadRecordingButton');
+const appWindow = document.getElementById('appWindow');
+const modeLauncher = document.getElementById('modeLauncher');
+const openPitchModeButton = document.getElementById('openPitchModeButton');
+const openSpectrogramModeButton = document.getElementById('openSpectrogramModeButton');
+const backToHomeButton = document.getElementById('backToHomeButton');
+const songSearchForm = document.getElementById('songSearchForm');
+const songSearchInput = document.getElementById('songSearchInput');
+const songSearchButton = document.getElementById('songSearchButton');
+const songSearchStatus = document.getElementById('songSearchStatus');
+const songSearchResults = document.getElementById('songSearchResults');
+const targetPitchToggle = document.getElementById('targetPitchToggle');
+const targetPitchInput = document.getElementById('targetPitchInput');
 
 let audioContext;
 let analyser;
@@ -53,6 +65,8 @@ const displayUpdateIntervalMs = 150;
 const baseCanvasWidth = 720;
 const baseCanvasHeight = 360;
 const baseAppMaxWidth = 920;
+const minResizableWidth = 640;
+const minResizableHeight = 520;
 const pitchMinHz = 60;
 const pitchMaxHz = 1000;
 const pitchScaleFixedMinHz = 50;
@@ -139,10 +153,15 @@ let lastRecordingBlob = null;
 let accompanimentAudio = null;
 let accompanimentUrl = null;
 let accompanimentFile = null;
+let targetPitchEnabled = targetPitchToggle?.checked ?? true;
+let targetPitchHz = Number(targetPitchInput?.value || 300);
+let songSearchAbortController = null;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 updateCanvasScale(canvasScale);
+initWindowResize();
+showLauncherView();
 volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !meterToggle?.checked);
 updateRecordingButtons();
 updateAccompanimentButtons(false);
@@ -188,6 +207,170 @@ function setPitchAccuracyResult(text, tone = 'neutral') {
     pitchAccuracyResult.style.color = '#dc2626';
   } else {
     pitchAccuracyResult.style.color = '#1c1f2a';
+  }
+}
+
+
+function hideSidebarPanel() {
+  sidebar.classList.remove('open');
+  sidebarToggle.setAttribute('aria-expanded', 'false');
+  sidebar.setAttribute('aria-hidden', 'true');
+  sidebar.hidden = true;
+}
+
+function showTrainingView(mode = 'pitch') {
+  modeLauncher.hidden = true;
+  appWindow.hidden = false;
+
+  if (mode === 'spectrogram') {
+    displayMode = 'spectrogram';
+    displayModeSelect.value = 'spectrogram';
+    resetSpectrogram();
+  } else {
+    displayMode = 'pitch';
+    displayModeSelect.value = 'pitch';
+    drawPitchHistory();
+  }
+}
+
+function showLauncherView() {
+  hideSidebarPanel();
+  if (!startButton.disabled) {
+    // already stopped
+  } else {
+    stop();
+  }
+  modeLauncher.hidden = false;
+  appWindow.hidden = true;
+}
+
+function renderSongSearchResults(results) {
+  if (!songSearchResults) {
+    return;
+  }
+  songSearchResults.innerHTML = '';
+
+  results.forEach((item) => {
+    const li = document.createElement('li');
+    li.className = 'song-search-item';
+
+    const title = document.createElement('strong');
+    title.textContent = `${item.trackName || '未知歌曲'} - ${item.artistName || '未知歌手'}`;
+    li.appendChild(title);
+
+    const album = document.createElement('span');
+    album.textContent = item.collectionName ? `专辑：${item.collectionName}` : '专辑：未知';
+    li.appendChild(album);
+
+    const source = document.createElement('span');
+    source.className = 'song-source';
+    source.textContent = `来源：${item.source || '未知'}`;
+    li.appendChild(source);
+
+    if (item.trackViewUrl) {
+      const link = document.createElement('a');
+      link.href = item.trackViewUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = '查看歌曲';
+      li.appendChild(link);
+    }
+
+    songSearchResults.appendChild(li);
+  });
+}
+
+async function fetchItunesSongs(query, signal) {
+  const endpoint = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=6&country=cn`;
+  const response = await fetch(endpoint, { signal });
+  if (!response.ok) {
+    throw new Error(`iTunes HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  const results = Array.isArray(data.results) ? data.results : [];
+  return results.map((item) => ({
+    trackName: item.trackName,
+    artistName: item.artistName,
+    collectionName: item.collectionName,
+    trackViewUrl: item.trackViewUrl,
+    source: 'iTunes Music',
+  }));
+}
+
+function mapNeteaseItem(item) {
+  const artist = Array.isArray(item.artists)
+    ? item.artists.map((a) => a.name).filter(Boolean).join(' / ')
+    : item.artist || item.author || item.singer;
+  return {
+    trackName: item.name || item.songname || item.title,
+    artistName: artist,
+    collectionName: item.album?.name || item.album || item.albumname,
+    trackViewUrl: item.url || (item.id ? `https://music.163.com/#/song?id=${item.id}` : ''),
+    source: '网易云音乐',
+  };
+}
+
+async function fetchNeteaseSongs(query, signal) {
+  const endpoint = `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${encodeURIComponent(query)}&count=6`;
+  const response = await fetch(endpoint, { signal });
+  if (!response.ok) {
+    throw new Error(`Netease HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.result)
+      ? data.result
+      : Array.isArray(data?.songs)
+        ? data.songs
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+  return list.map(mapNeteaseItem).filter((item) => item.trackName || item.artistName);
+}
+
+async function searchSongs(keyword) {
+  const query = keyword.trim();
+  if (!query) {
+    songSearchStatus.textContent = '请输入搜索关键词';
+    return;
+  }
+
+  if (songSearchAbortController) {
+    songSearchAbortController.abort();
+  }
+  songSearchAbortController = new AbortController();
+
+  songSearchButton.disabled = true;
+  songSearchStatus.textContent = '搜索中...';
+
+  try {
+    const settled = await Promise.allSettled([
+      fetchItunesSongs(query, songSearchAbortController.signal),
+      fetchNeteaseSongs(query, songSearchAbortController.signal),
+    ]);
+
+    const successfulResults = settled
+      .filter((result) => result.status === 'fulfilled')
+      .flatMap((result) => result.value);
+
+    if (successfulResults.length === 0) {
+      songSearchResults.innerHTML = '';
+      songSearchStatus.textContent = '未找到歌曲，或部分平台暂不可用，请稍后重试';
+      return;
+    }
+
+    renderSongSearchResults(successfulResults);
+    const sources = successfulResults.reduce((set, item) => set.add(item.source), new Set());
+    songSearchStatus.textContent = `找到 ${successfulResults.length} 首歌曲（来源：${[...sources].join('、')}）`;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return;
+    }
+    console.error(error);
+    songSearchStatus.textContent = '搜索失败，请检查网络后重试';
+  } finally {
+    songSearchButton.disabled = false;
   }
 }
 
@@ -604,12 +787,70 @@ function drawAxes(minPitch = null, maxPitch = null, scaleMode = 'linear') {
   }
 }
 
+function drawTargetPitchLine(targetPitch, minPitch, maxPitch, pitchRange, padding, logMin, logRange) {
+  if (!Number.isFinite(targetPitch) || targetPitch <= 0) {
+    return;
+  }
+  if (targetPitch < minPitch || targetPitch > maxPitch) {
+    return;
+  }
+
+  const normalized =
+    pitchScaleMode === 'log'
+      ? (Math.log(targetPitch) - logMin) / logRange
+      : (targetPitch - minPitch) / pitchRange;
+  const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+
+  ctx.save();
+  ctx.strokeStyle = '#22c55e';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(canvas.width, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16a34a';
+  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`目标 ${Math.round(targetPitch)} Hz`, 8, Math.max(y - 6, 14));
+  ctx.restore();
+}
+
 function drawPitchHistory() {
   if (pitchHistory.length < 2) {
     if (pitchScaleMode === 'fixed') {
       drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
+      if (targetPitchEnabled) {
+        const pitchRange = Math.max(pitchScaleFixedMaxHz - pitchScaleFixedMinHz, 1);
+        const logMin = Math.log(pitchScaleFixedMinHz);
+        const logRange = Math.max(Math.log(pitchScaleFixedMaxHz) - logMin, 0.0001);
+        drawTargetPitchLine(
+          targetPitchHz,
+          pitchScaleFixedMinHz,
+          pitchScaleFixedMaxHz,
+          pitchRange,
+          20,
+          logMin,
+          logRange
+        );
+      }
     } else if (pitchScaleMode === 'log') {
       drawAxes(pitchScaleLogMinHz, pitchScaleLogMaxHz, 'log');
+      if (targetPitchEnabled) {
+        const pitchRange = Math.max(pitchScaleLogMaxHz - pitchScaleLogMinHz, 1);
+        const logMin = Math.log(pitchScaleLogMinHz);
+        const logRange = Math.max(Math.log(pitchScaleLogMaxHz) - logMin, 0.0001);
+        drawTargetPitchLine(
+          targetPitchHz,
+          pitchScaleLogMinHz,
+          pitchScaleLogMaxHz,
+          pitchRange,
+          20,
+          logMin,
+          logRange
+        );
+      }
     } else {
       drawAxes();
     }
@@ -658,6 +899,10 @@ function drawPitchHistory() {
 
   const logMin = Math.log(minPitch);
   const logRange = Math.max(Math.log(maxPitch) - logMin, 0.0001);
+
+  if (targetPitchEnabled) {
+    drawTargetPitchLine(targetPitchHz, minPitch, maxPitch, pitchRange, padding, logMin, logRange);
+  }
 
   ctx.strokeStyle = '#3a6ff7';
   ctx.lineWidth = 3;
@@ -748,6 +993,107 @@ function updateCanvasScale(value) {
   } else {
     drawPitchHistory();
   }
+}
+
+
+function initWindowResize() {
+  if (!appWindow || !window.PointerEvent) {
+    return;
+  }
+
+  const handles = appWindow.querySelectorAll('[data-resize]');
+  if (handles.length === 0) {
+    return;
+  }
+
+  let activePointerId = null;
+  let activeHandle = null;
+  let startX = 0;
+  let startY = 0;
+  let startWidth = 0;
+  let startHeight = 0;
+
+  function onPointerMove(event) {
+    if (event.pointerId !== activePointerId || !activeHandle) {
+      return;
+    }
+
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    let width = startWidth;
+    let height = startHeight;
+
+    if (activeHandle.includes('e')) {
+      width = startWidth + dx;
+    }
+    if (activeHandle.includes('w')) {
+      width = startWidth - dx;
+    }
+    if (activeHandle.includes('s')) {
+      height = startHeight + dy;
+    }
+    if (activeHandle.includes('n')) {
+      height = startHeight - dy;
+    }
+
+    const maxWidth = window.innerWidth - 32;
+    const maxHeight = window.innerHeight - 32;
+    width = Math.max(minResizableWidth, Math.min(maxWidth, Math.round(width)));
+    height = Math.max(minResizableHeight, Math.min(maxHeight, Math.round(height)));
+
+    appWindow.style.width = `${width}px`;
+    appWindow.style.height = `${height}px`;
+  }
+
+  function endResize(event) {
+    if (activePointerId === null || event.pointerId !== activePointerId) {
+      return;
+    }
+
+    if (event.target?.releasePointerCapture) {
+      try {
+        event.target.releasePointerCapture(activePointerId);
+      } catch (_error) {
+        // no-op
+      }
+    }
+
+    activePointerId = null;
+    activeHandle = null;
+    appWindow.classList.remove('is-resizing');
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', endResize);
+    window.removeEventListener('pointercancel', endResize);
+  }
+
+  handles.forEach((handle) => {
+    handle.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      const direction = handle.dataset.resize;
+      if (!direction) {
+        return;
+      }
+
+      activePointerId = event.pointerId;
+      activeHandle = direction;
+      startX = event.clientX;
+      startY = event.clientY;
+      const rect = appWindow.getBoundingClientRect();
+      startWidth = rect.width;
+      startHeight = rect.height;
+      appWindow.classList.add('is-resizing');
+
+      if (handle.setPointerCapture) {
+        handle.setPointerCapture(event.pointerId);
+      }
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', endResize);
+      window.addEventListener('pointercancel', endResize);
+    });
+  });
 }
 
 function resetSpectrogram() {
@@ -1827,6 +2173,18 @@ spectrogramOverlaySelect.addEventListener('change', (event) => {
 canvasScaleRange.addEventListener('input', (event) => {
   updateCanvasScale(event.target.value);
 });
+targetPitchToggle?.addEventListener('change', (event) => {
+  targetPitchEnabled = event.target.checked;
+  drawPitchHistory();
+});
+targetPitchInput?.addEventListener('input', (event) => {
+  const value = Number(event.target.value);
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  targetPitchHz = Math.max(50, Math.min(1000, value));
+  drawPitchHistory();
+});
 meterToggle.addEventListener('change', (event) => {
   const isVisible = event.target.checked;
   volumeMeter?.classList.toggle('meter-hidden', !isVisible);
@@ -1892,10 +2250,32 @@ formantToggle.addEventListener('change', () => {
   }
 });
 sidebarToggle.addEventListener('click', () => {
+  if (appWindow.hidden) {
+    return;
+  }
+  sidebar.hidden = false;
   const isOpen = sidebar.classList.toggle('open');
-  sidebarToggle.setAttribute('aria-expanded', isOpen);
-  sidebar.setAttribute('aria-hidden', !isOpen);
+  sidebarToggle.setAttribute('aria-expanded', String(isOpen));
+  sidebar.setAttribute('aria-hidden', String(!isOpen));
+  if (!isOpen) {
+    sidebar.hidden = true;
+  }
 });
+songSearchForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  searchSongs(songSearchInput?.value || '');
+});
+
+openPitchModeButton?.addEventListener('click', () => {
+  showTrainingView('pitch');
+});
+openSpectrogramModeButton?.addEventListener('click', () => {
+  showTrainingView('spectrogram');
+});
+backToHomeButton?.addEventListener('click', () => {
+  showLauncherView();
+});
+
 audioFileInput.addEventListener('change', (event) => {
   const file = event.target.files?.[0];
   if (file) {
