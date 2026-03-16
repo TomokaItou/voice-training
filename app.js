@@ -262,6 +262,11 @@ function renderSongSearchResults(results) {
     album.textContent = item.collectionName ? `专辑：${item.collectionName}` : '专辑：未知';
     li.appendChild(album);
 
+    const source = document.createElement('span');
+    source.className = 'song-source';
+    source.textContent = `来源：${item.source || '未知'}`;
+    li.appendChild(source);
+
     if (item.trackViewUrl) {
       const link = document.createElement('a');
       link.href = item.trackViewUrl;
@@ -273,6 +278,55 @@ function renderSongSearchResults(results) {
 
     songSearchResults.appendChild(li);
   });
+}
+
+async function fetchItunesSongs(query, signal) {
+  const endpoint = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=6&country=cn`;
+  const response = await fetch(endpoint, { signal });
+  if (!response.ok) {
+    throw new Error(`iTunes HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  const results = Array.isArray(data.results) ? data.results : [];
+  return results.map((item) => ({
+    trackName: item.trackName,
+    artistName: item.artistName,
+    collectionName: item.collectionName,
+    trackViewUrl: item.trackViewUrl,
+    source: 'iTunes Music',
+  }));
+}
+
+function mapNeteaseItem(item) {
+  const artist = Array.isArray(item.artists)
+    ? item.artists.map((a) => a.name).filter(Boolean).join(' / ')
+    : item.artist || item.author || item.singer;
+  return {
+    trackName: item.name || item.songname || item.title,
+    artistName: artist,
+    collectionName: item.album?.name || item.album || item.albumname,
+    trackViewUrl: item.url || (item.id ? `https://music.163.com/#/song?id=${item.id}` : ''),
+    source: '网易云音乐',
+  };
+}
+
+async function fetchNeteaseSongs(query, signal) {
+  const endpoint = `https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=${encodeURIComponent(query)}&count=6`;
+  const response = await fetch(endpoint, { signal });
+  if (!response.ok) {
+    throw new Error(`Netease HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.result)
+      ? data.result
+      : Array.isArray(data?.songs)
+        ? data.songs
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+  return list.map(mapNeteaseItem).filter((item) => item.trackName || item.artistName);
 }
 
 async function searchSongs(keyword) {
@@ -291,22 +345,24 @@ async function searchSongs(keyword) {
   songSearchStatus.textContent = '搜索中...';
 
   try {
-    const endpoint = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=8&country=cn`;
-    const response = await fetch(endpoint, { signal: songSearchAbortController.signal });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const data = await response.json();
-    const results = Array.isArray(data.results) ? data.results : [];
+    const settled = await Promise.allSettled([
+      fetchItunesSongs(query, songSearchAbortController.signal),
+      fetchNeteaseSongs(query, songSearchAbortController.signal),
+    ]);
 
-    if (results.length === 0) {
+    const successfulResults = settled
+      .filter((result) => result.status === 'fulfilled')
+      .flatMap((result) => result.value);
+
+    if (successfulResults.length === 0) {
       songSearchResults.innerHTML = '';
-      songSearchStatus.textContent = '没有找到相关歌曲，请尝试其他关键词';
+      songSearchStatus.textContent = '未找到歌曲，或部分平台暂不可用，请稍后重试';
       return;
     }
 
-    renderSongSearchResults(results);
-    songSearchStatus.textContent = `找到 ${results.length} 首歌曲`;
+    renderSongSearchResults(successfulResults);
+    const sources = successfulResults.reduce((set, item) => set.add(item.source), new Set());
+    songSearchStatus.textContent = `找到 ${successfulResults.length} 首歌曲（来源：${[...sources].join('、')}）`;
   } catch (error) {
     if (error.name === 'AbortError') {
       return;
