@@ -552,6 +552,65 @@ function estimateBreathFlow(rms) {
   return clamp01((db - breathFlowMinDb) / (breathFlowMaxDb - breathFlowMinDb));
 }
 
+function dbToLinear(db) {
+  return Math.pow(10, db / 10);
+}
+
+function averageBandPower(spectrum, sampleRate, fftSize, minHz, maxHz) {
+  const binResolution = sampleRate / fftSize;
+  const start = Math.max(0, Math.floor(minHz / binResolution));
+  const end = Math.min(spectrum.length - 1, Math.ceil(maxHz / binResolution));
+  let sum = 0;
+  let count = 0;
+
+  for (let i = start; i <= end; i += 1) {
+    const db = spectrum[i];
+    if (Number.isFinite(db)) {
+      sum += dbToLinear(db);
+      count += 1;
+    }
+  }
+
+  return count > 0 ? sum / count : 0;
+}
+
+function estimateBreathinessFromSpectrum(analyserNode, spectrumBuffer, sampleRate) {
+  if (!analyserNode || !spectrumBuffer || !sampleRate) {
+    return 0;
+  }
+
+  analyserNode.getFloatFrequencyData(spectrumBuffer);
+
+  const lowPower = averageBandPower(
+    spectrumBuffer,
+    sampleRate,
+    analyserNode.fftSize,
+    200,
+    1000
+  );
+  const highPower = averageBandPower(
+    spectrumBuffer,
+    sampleRate,
+    analyserNode.fftSize,
+    2500,
+    8000
+  );
+
+  const total = lowPower + highPower + 1e-12;
+  const highRatio = highPower / total;
+  return clamp01((highRatio - 0.2) / 0.55);
+}
+
+function estimateBreathControlScore(rms, analyserNode, spectrumBuffer, sampleRate) {
+  const effort = estimateBreathFlow(rms);
+  const breathiness = estimateBreathinessFromSpectrum(
+    analyserNode,
+    spectrumBuffer,
+    sampleRate
+  );
+  return clamp01(0.35 * effort + 0.65 * breathiness);
+}
+
 function computeBreathStability(scores) {
   const activeScores = scores.filter((score) => score >= breathActiveThreshold);
   if (activeScores.length < 4) {
@@ -2167,7 +2226,12 @@ function update() {
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
     if (displayMode === 'breath') {
-      const flow = estimateBreathFlow(rms);
+      const flow = estimateBreathControlScore(
+        rms,
+        analyser,
+        frequencyData,
+        audioContext.sampleRate
+      );
       breathRecentScores.push(flow);
       if (breathRecentScores.length > breathStabilityWindowSize) {
         breathRecentScores.shift();
