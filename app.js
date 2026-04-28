@@ -19,8 +19,12 @@ const clearFileButton = document.getElementById('clearFileButton');
 const dataSourceValue = document.getElementById('dataSourceValue');
 const analysisStatus = document.getElementById('analysisStatus');
 const statusEl = document.getElementById('status');
+const appTitle = document.getElementById('appTitle');
+const appDescription = document.getElementById('appDescription');
 const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
+const breathFlowValueEl = document.getElementById('breathFlowValue');
+const breathStabilityValueEl = document.getElementById('breathStabilityValue');
 const accompanimentInput = document.getElementById('accompanimentInput');
 const playAccompanimentButton = document.getElementById('playAccompanimentButton');
 const pauseAccompanimentButton = document.getElementById('pauseAccompanimentButton');
@@ -44,6 +48,7 @@ const appWindow = document.getElementById('appWindow');
 const modeLauncher = document.getElementById('modeLauncher');
 const openPitchModeButton = document.getElementById('openPitchModeButton');
 const openSpectrogramModeButton = document.getElementById('openSpectrogramModeButton');
+const openBreathModeButton = document.getElementById('openBreathModeButton');
 const backToHomeButton = document.getElementById('backToHomeButton');
 const songSearchForm = document.getElementById('songSearchForm');
 const songSearchInput = document.getElementById('songSearchInput');
@@ -87,6 +92,11 @@ const tiltMeterMinDb = -30;
 const tiltMeterMaxDb = 30;
 const tiltLowBandHz = { min: 200, max: 800 };
 const tiltHighBandHz = { min: 2000, max: 5000 };
+const breathFlowMinDb = -58;
+const breathFlowMaxDb = -18;
+const breathActiveThreshold = 0.08;
+const breathHistoryWindowSeconds = 12;
+const breathStabilityWindowSize = 18;
 const pitchMinEnergyThreshold = 0.0035;
 const pitchAdaptiveEnergyMultiplier = 1.7;
 const pitchNoiseFloorRiseAlpha = 0.06;
@@ -134,6 +144,7 @@ let pitchAlgorithm = pitchAlgorithmSelect?.value || 'amdf';
 let pitchScaleMode = pitchScaleModeSelect?.value || 'dynamic';
 let displayMode = displayModeSelect?.value || 'pitch';
 let spectrogramOverlayMode = spectrogramOverlaySelect?.value || 'none';
+let trainingMode = 'pitch';
 let canvasScale = Number(canvasScaleRange?.value || 1);
 let lastFormantUpdate = 0;
 let lastFormantTimestamp = 0;
@@ -156,6 +167,12 @@ let accompanimentFile = null;
 let targetPitchEnabled = targetPitchToggle?.checked ?? true;
 let targetPitchHz = Number(targetPitchInput?.value || 300);
 let songSearchAbortController = null;
+let breathHistory = [];
+let breathRecentScores = [];
+let breathCurrentFlow = null;
+let breathCurrentStability = null;
+let breathStartTime = null;
+let breathDurationSeconds = 0;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -218,14 +235,49 @@ function hideSidebarPanel() {
   sidebar.hidden = true;
 }
 
+function setReadoutMode(mode) {
+  const pitchReadouts = [pitchValueEl?.closest('div'), noteValueEl?.closest('div')];
+  const breathReadouts = document.querySelectorAll('.breath-readout');
+  const isBreath = mode === 'breath';
+  pitchReadouts.forEach((el) => {
+    if (el) {
+      el.hidden = isBreath;
+    }
+  });
+  breathReadouts.forEach((el) => {
+    el.hidden = !isBreath;
+  });
+}
+
+function setTrainingCopy(mode) {
+  if (mode === 'breath') {
+    appTitle.textContent = '出气量测量';
+    appDescription.textContent = '允许麦克风权限后，对准麦克风平稳吹气，软件会估算相对出气强度、稳定度和持续时间。';
+  } else if (mode === 'spectrogram') {
+    appTitle.textContent = '实时频谱图';
+    appDescription.textContent = '允许麦克风权限后，可以观察声音在不同频率上的能量变化。';
+  } else {
+    appTitle.textContent = '实时音高曲线';
+    appDescription.textContent = '允许麦克风权限后，对着手机唱歌即可看到音高变化。';
+  }
+}
+
 function showTrainingView(mode = 'pitch') {
   modeLauncher.hidden = true;
   appWindow.hidden = false;
+  trainingMode = mode;
+  setReadoutMode(mode);
+  setTrainingCopy(mode);
 
   if (mode === 'spectrogram') {
     displayMode = 'spectrogram';
     displayModeSelect.value = 'spectrogram';
     resetSpectrogram();
+  } else if (mode === 'breath') {
+    displayMode = 'breath';
+    displayModeSelect.value = 'breath';
+    resetBreathMeter();
+    drawBreathHistory();
   } else {
     displayMode = 'pitch';
     displayModeSelect.value = 'pitch';
@@ -471,6 +523,74 @@ function updateVolumeMeter(rms) {
   const clamped = Math.max(volumeMeterMinDb, Math.min(volumeMeterMaxDb, db));
   const ratio = (clamped - volumeMeterMinDb) / (volumeMeterMaxDb - volumeMeterMinDb);
   volumeMeterBar.style.height = `${Math.round(ratio * 100)}%`;
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function resetBreathMeter() {
+  breathHistory = [];
+  breathRecentScores = [];
+  breathCurrentFlow = null;
+  breathCurrentStability = null;
+  breathStartTime = null;
+  breathDurationSeconds = 0;
+  if (breathFlowValueEl) {
+    breathFlowValueEl.textContent = '--%';
+  }
+  if (breathStabilityValueEl) {
+    breathStabilityValueEl.textContent = '-- / 0.0s';
+  }
+}
+
+function estimateBreathFlow(rms) {
+  if (!Number.isFinite(rms) || rms <= 0) {
+    return 0;
+  }
+  const db = 20 * Math.log10(Math.max(rms, 1e-6));
+  return clamp01((db - breathFlowMinDb) / (breathFlowMaxDb - breathFlowMinDb));
+}
+
+function computeBreathStability(scores) {
+  const activeScores = scores.filter((score) => score >= breathActiveThreshold);
+  if (activeScores.length < 4) {
+    return null;
+  }
+  const mean = activeScores.reduce((sum, value) => sum + value, 0) / activeScores.length;
+  const variance =
+    activeScores.reduce((sum, value) => sum + (value - mean) ** 2, 0) / activeScores.length;
+  const stdDev = Math.sqrt(variance);
+  return Math.round(clamp01(1 - stdDev * 4) * 100);
+}
+
+function updateBreathDisplay(flowScore, stability, now) {
+  breathCurrentFlow = flowScore;
+  breathCurrentStability = stability;
+
+  if (flowScore >= breathActiveThreshold) {
+    if (breathStartTime === null) {
+      breathStartTime = now;
+    }
+    breathDurationSeconds = (now - breathStartTime) / 1000;
+  } else {
+    breathStartTime = null;
+    breathDurationSeconds = 0;
+  }
+
+  if (breathFlowValueEl) {
+    breathFlowValueEl.textContent = `${Math.round(flowScore * 100)}%`;
+  }
+  if (breathStabilityValueEl) {
+    const stabilityText = stability === null ? '--' : `${stability}%`;
+    breathStabilityValueEl.textContent = `${stabilityText} / ${breathDurationSeconds.toFixed(1)}s`;
+  }
+}
+
+function hasRecentBreathData() {
+  const now = performance.now();
+  const minTime = now - breathHistoryWindowSeconds * 1000;
+  return breathHistory.some((point) => point.time >= minTime && point.flow >= breathActiveThreshold);
 }
 
 function updateSpectralTilt() {
@@ -976,6 +1096,79 @@ function drawPitchHistory() {
   }
 }
 
+function drawBreathHistory() {
+  const padding = 28;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#e5e9f3';
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i <= 4; i += 1) {
+    const y = padding + (i / 4) * (canvas.height - padding * 2);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+    ctx.fillStyle = '#7b8198';
+    ctx.font = '12px sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${100 - i * 25}%`, 8, y);
+  }
+
+  const now = performance.now();
+  const minTime = now - breathHistoryWindowSeconds * 1000;
+  const visibleHistory = breathHistory.filter((point) => point.time >= minTime);
+  breathHistory = visibleHistory;
+
+  const thresholdY =
+    canvas.height - padding - breathActiveThreshold * (canvas.height - padding * 2);
+  ctx.save();
+  ctx.strokeStyle = '#f97316';
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, thresholdY);
+  ctx.lineTo(canvas.width, thresholdY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#f97316';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('有效吹气线', 8, Math.max(thresholdY - 6, 14));
+  ctx.restore();
+
+  if (visibleHistory.length < 2) {
+    ctx.fillStyle = '#8b91a8';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('开始检测后，对准麦克风平稳吹气', canvas.width / 2, canvas.height / 2);
+    ctx.textAlign = 'left';
+    return;
+  }
+
+  ctx.strokeStyle = '#0ea5e9';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  visibleHistory.forEach((point, index) => {
+    const x = ((point.time - minTime) / (breathHistoryWindowSeconds * 1000)) * canvas.width;
+    const y = canvas.height - padding - point.flow * (canvas.height - padding * 2);
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.stroke();
+
+  if (breathCurrentFlow !== null) {
+    const y = canvas.height - padding - breathCurrentFlow * (canvas.height - padding * 2);
+    ctx.fillStyle = '#0ea5e9';
+    ctx.beginPath();
+    ctx.arc(canvas.width - 10, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function updateCanvasScale(value) {
   const scale = Number(value) || 1;
   canvasScale = scale;
@@ -990,6 +1183,9 @@ function updateCanvasScale(value) {
   }
   if (displayMode === 'spectrogram') {
     resetSpectrogram();
+  } else if (displayMode === 'breath') {
+    resetBreathMeter();
+    drawBreathHistory();
   } else {
     drawPitchHistory();
   }
@@ -1460,7 +1656,7 @@ function hasRecentPitchData() {
 }
 
 function updateExportButtons() {
-  const hasData = hasRecentPitchData();
+  const hasData = displayMode === 'breath' ? hasRecentBreathData() : hasRecentPitchData();
   const hasSession = Boolean(audioContext) || offlineMode;
   exportCsvButton.disabled = !hasSession || !hasData;
   exportPngButton.disabled = !hasSession || !hasData;
@@ -1515,6 +1711,34 @@ function downloadBlob(blob, filename) {
 }
 
 function exportCsv() {
+  if (displayMode === 'breath') {
+    if (!breathHistory.length) {
+      return;
+    }
+    const now = performance.now();
+    const minTime = now - breathHistoryWindowSeconds * 1000;
+    const rows = breathHistory
+      .filter((point) => point.time >= minTime)
+      .map((point) => {
+        const timestampMs = Math.max(0, Math.round(point.time - sessionStartTime));
+        const flowPercent = Math.round(point.flow * 100);
+        const stabilityPercent = point.stability === null ? '' : point.stability;
+        const durationSeconds = point.durationSeconds.toFixed(1);
+        return [timestampMs, flowPercent, stabilityPercent, durationSeconds].join(',');
+      });
+
+    if (!rows.length) {
+      return;
+    }
+
+    const header = 'timestampMs,breathFlowPercent,stabilityPercent,durationSeconds';
+    const csvContent = [header, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const filename = `voice-training_breath_${formatTimestamp(new Date())}.csv`;
+    downloadBlob(blob, filename);
+    return;
+  }
+
   if (!pitchHistory.length) {
     return;
   }
@@ -1561,9 +1785,11 @@ function setOfflineMode(enabled) {
   pitchAlgorithmSelect.disabled = offlineAnalysisInProgress;
   displayModeSelect.disabled = offlineMode || offlineAnalysisInProgress;
   canvasScaleRange.disabled = offlineAnalysisInProgress;
-  if (offlineMode && displayMode === 'spectrogram') {
+  if (offlineMode && (displayMode === 'spectrogram' || displayMode === 'breath')) {
     displayMode = 'pitch';
     displayModeSelect.value = 'pitch';
+    setReadoutMode('pitch');
+    setTrainingCopy('pitch');
     drawPitchHistory();
   }
   setDataSourceLabel(offlineMode ? '音频文件' : '实时麦克风');
@@ -1934,11 +2160,32 @@ async function analyzeRecordingBlob(blob) {
 function update() {
   const now = performance.now();
   analyser.getFloatTimeDomainData(dataArray);
-  updateVolumeMeter(computeRms(dataArray));
+  const rms = computeRms(dataArray);
+  updateVolumeMeter(rms);
   updateSpectralTilt();
 
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
+    if (displayMode === 'breath') {
+      const flow = estimateBreathFlow(rms);
+      breathRecentScores.push(flow);
+      if (breathRecentScores.length > breathStabilityWindowSize) {
+        breathRecentScores.shift();
+      }
+      const stability = computeBreathStability(breathRecentScores);
+      updateBreathDisplay(flow, stability, now);
+      breathHistory.push({
+        time: now,
+        flow,
+        stability,
+        durationSeconds: breathDurationSeconds,
+      });
+      drawBreathHistory();
+      updateExportButtons();
+      animationId = requestAnimationFrame(update);
+      return;
+    }
+
     const { pitch, confidence } = estimatePitchWithConfidence(
       dataArray,
       audioContext.sampleRate,
@@ -2086,14 +2333,17 @@ async function start() {
 
     pitchHistory = [];
     resetPitchStabilizer();
+    resetBreathMeter();
     sessionStartTime = performance.now();
     lastFormantUpdate = 0;
     lastFormantTimestamp = 0;
     resetFormants();
     setAnalysisStatus('未开始');
-    setStatus('正在监听麦克风', 'active');
+    setStatus(displayMode === 'breath' ? '正在测量出气' : '正在监听麦克风', 'active');
     if (displayMode === 'spectrogram') {
       resetSpectrogram();
+    } else if (displayMode === 'breath') {
+      drawBreathHistory();
     }
     updateVolumeMeter(0);
     if (tiltMeterBar) {
@@ -2158,6 +2408,9 @@ pitchScaleModeSelect.addEventListener('change', (event) => {
 });
 displayModeSelect.addEventListener('change', (event) => {
   displayMode = event.target.value;
+  trainingMode = displayMode;
+  setReadoutMode(displayMode);
+  setTrainingCopy(displayMode);
   if (displayMode === 'spectrogram') {
     resetSpectrogram();
   } else {
@@ -2271,6 +2524,9 @@ openPitchModeButton?.addEventListener('click', () => {
 });
 openSpectrogramModeButton?.addEventListener('click', () => {
   showTrainingView('spectrogram');
+});
+openBreathModeButton?.addEventListener('click', () => {
+  showTrainingView('breath');
 });
 backToHomeButton?.addEventListener('click', () => {
   showLauncherView();

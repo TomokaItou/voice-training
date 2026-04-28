@@ -20,6 +20,10 @@
             <span class="mode-title">频谱图</span>
             <span class="mode-desc">直接进入实时频谱图视图</span>
           </button>
+          <button id="openBreathModeButton" class="mode-button">
+            <span class="mode-title">出气量测量</span>
+            <span class="mode-desc">通过麦克风估算吹气强度、稳定度和持续时间</span>
+          </button>
           <button class="mode-button mode-button-disabled" disabled>
             <span class="mode-title">音域训练模式</span>
             <span class="mode-desc">暂无功能</span>
@@ -49,8 +53,8 @@
 
     <main class="app" id="appWindow" hidden>
       <header>
-        <h1>实时音高曲线</h1>
-        <p>允许麦克风权限后，对着手机唱歌即可看到音高变化。</p>
+        <h1 id="appTitle">实时音高曲线</h1>
+        <p id="appDescription">允许麦克风权限后，对着手机唱歌即可看到音高变化。</p>
       </header>
 
       <section class="controls">
@@ -77,6 +81,14 @@
         <div>
           <span class="label">音名</span>
           <span class="value" id="noteValue">--</span>
+        </div>
+        <div class="breath-readout" hidden>
+          <span class="label">出气强度</span>
+          <span class="value" id="breathFlowValue">--%</span>
+        </div>
+        <div class="breath-readout" hidden>
+          <span class="label">稳定度 / 持续</span>
+          <span class="value" id="breathStabilityValue">-- / 0.0s</span>
         </div>
       </section>
 
@@ -187,6 +199,7 @@
           <select id="displayModeSelect" class="select">
             <option value="pitch">音高曲线</option>
             <option value="spectrogram">实时频谱图</option>
+            <option value="breath">出气量测量</option>
           </select>
         </label>
         <label class="field">
