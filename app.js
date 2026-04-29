@@ -26,6 +26,7 @@ const noteValueEl = document.getElementById('noteValue');
 const breathFlowValueEl = document.getElementById('breathFlowValue');
 const breathEffortValueEl = document.getElementById('breathEffortValue');
 const breathNoiseValueEl = document.getElementById('breathNoiseValue');
+const breathLeakValueEl = document.getElementById('breathLeakValue');
 const breathStabilityValueEl = document.getElementById('breathStabilityValue');
 const breathCalibrationValueEl = document.getElementById('breathCalibrationValue');
 const breathCalibrateButton = document.getElementById('breathCalibrateButton');
@@ -104,6 +105,8 @@ const breathStabilityWindowSize = 18;
 const breathCalibrationDurationMs = 2000;
 const breathHighFrequencyMinHz = 3000;
 const breathTotalEnergyMinHz = 200;
+const hnrMinFrequencyHz = 70;
+const hnrMaxFrequencyHz = 500;
 const pitchMinEnergyThreshold = 0.0035;
 const pitchAdaptiveEnergyMultiplier = 1.7;
 const pitchNoiseFloorRiseAlpha = 0.06;
@@ -179,6 +182,7 @@ let breathRecentScores = [];
 let breathCurrentFlow = null;
 let breathCurrentEffort = null;
 let breathCurrentHighFrequency = null;
+let breathCurrentLeakNoise = null;
 let breathCurrentStability = null;
 let breathStartTime = null;
 let breathDurationSeconds = 0;
@@ -186,6 +190,7 @@ let breathCalibration = {
   calibrated: false,
   effort: 0,
   highFrequency: 0,
+  leakNoise: 0,
   score: 0,
 };
 let breathCalibrationInProgress = false;
@@ -556,6 +561,7 @@ function resetBreathMeter() {
   breathCurrentFlow = null;
   breathCurrentEffort = null;
   breathCurrentHighFrequency = null;
+  breathCurrentLeakNoise = null;
   breathCurrentStability = null;
   breathStartTime = null;
   breathDurationSeconds = 0;
@@ -567,6 +573,9 @@ function resetBreathMeter() {
   }
   if (breathNoiseValueEl) {
     breathNoiseValueEl.textContent = '--%';
+  }
+  if (breathLeakValueEl) {
+    breathLeakValueEl.textContent = '--%';
   }
   if (breathStabilityValueEl) {
     breathStabilityValueEl.textContent = '-- / 0.0s';
@@ -584,6 +593,7 @@ function resetBreathCalibration() {
     calibrated: false,
     effort: 0,
     highFrequency: 0,
+    leakNoise: 0,
     score: 0,
   };
   breathCalibrationInProgress = false;
@@ -677,13 +687,52 @@ function estimateHighFrequencyBreathFromSpectrum(analyserNode, spectrumBuffer, s
   return clamp01(highNoiseScore * (1 - lowVoicePenalty));
 }
 
-function estimateBreathMetrics(rms, analyserNode, spectrumBuffer, sampleRate) {
+function estimateLeakNoiseFromAutocorrelation(buffer, sampleRate, rms) {
+  if (!buffer || !sampleRate || !Number.isFinite(rms) || rms < 1e-5) {
+    return 0;
+  }
+
+  const size = buffer.length;
+  const minLag = Math.max(1, Math.floor(sampleRate / hnrMaxFrequencyHz));
+  const maxLag = Math.min(size - 2, Math.floor(sampleRate / hnrMinFrequencyHz));
+  if (maxLag <= minLag) {
+    return 0;
+  }
+
+  let energy = 0;
+  for (let i = 0; i < size; i += 1) {
+    energy += buffer[i] * buffer[i];
+  }
+  if (energy <= 1e-12) {
+    return 0;
+  }
+
+  let bestCorrelation = 0;
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    let correlation = 0;
+    let lagEnergy = 0;
+    for (let i = 0; i < size - lag; i += 1) {
+      correlation += buffer[i] * buffer[i + lag];
+      lagEnergy += buffer[i + lag] * buffer[i + lag];
+    }
+    const normalized = correlation / Math.sqrt(energy * Math.max(lagEnergy, 1e-12));
+    if (normalized > bestCorrelation) {
+      bestCorrelation = normalized;
+    }
+  }
+
+  const periodicity = clamp01((bestCorrelation - 0.18) / 0.62);
+  return clamp01(1 - periodicity);
+}
+
+function estimateBreathMetrics(buffer, rms, analyserNode, spectrumBuffer, sampleRate) {
   const effort = estimateBreathFlow(rms);
   const highFrequency = estimateHighFrequencyBreathFromSpectrum(
     analyserNode,
     spectrumBuffer,
     sampleRate
   );
+  const leakNoise = estimateLeakNoiseFromAutocorrelation(buffer, sampleRate, rms);
   const adjustedEffort = breathCalibration.calibrated
     ? clamp01((effort - breathCalibration.effort) / Math.max(1 - breathCalibration.effort, 0.05))
     : effort;
@@ -693,10 +742,19 @@ function estimateBreathMetrics(rms, analyserNode, spectrumBuffer, sampleRate) {
           Math.max(1 - breathCalibration.highFrequency, 0.05)
       )
     : highFrequency;
+  const adjustedLeakNoise = breathCalibration.calibrated
+    ? clamp01(
+        (leakNoise - breathCalibration.leakNoise) /
+          Math.max(1 - breathCalibration.leakNoise, 0.05)
+      )
+    : leakNoise;
   return {
-    score: clamp01(0.15 * adjustedEffort + 0.85 * adjustedHighFrequency),
+    score: clamp01(
+      0.12 * adjustedEffort + 0.48 * adjustedHighFrequency + 0.4 * adjustedLeakNoise
+    ),
     effort: adjustedEffort,
     highFrequency: adjustedHighFrequency,
+    leakNoise: adjustedLeakNoise,
   };
 }
 
@@ -736,7 +794,12 @@ async function calibrateBreathEnvironment() {
         frequencyData,
         audioContext.sampleRate
       );
-      samples.push({ effort, highFrequency });
+      const leakNoise = estimateLeakNoiseFromAutocorrelation(
+        dataArray,
+        audioContext.sampleRate,
+        rms
+      );
+      samples.push({ effort, highFrequency, leakNoise });
 
       if (performance.now() - startedAt >= breathCalibrationDurationMs) {
         resolve();
@@ -757,12 +820,15 @@ async function calibrateBreathEnvironment() {
   const meanEffort = samples.reduce((sum, sample) => sum + sample.effort, 0) / samples.length;
   const meanHighFrequency =
     samples.reduce((sum, sample) => sum + sample.highFrequency, 0) / samples.length;
-  const score = clamp01(0.15 * meanEffort + 0.85 * meanHighFrequency);
+  const meanLeakNoise =
+    samples.reduce((sum, sample) => sum + sample.leakNoise, 0) / samples.length;
+  const score = clamp01(0.12 * meanEffort + 0.48 * meanHighFrequency + 0.4 * meanLeakNoise);
 
   breathCalibration = {
     calibrated: true,
     effort: meanEffort,
     highFrequency: meanHighFrequency,
+    leakNoise: meanLeakNoise,
     score,
   };
   breathCalibrationInProgress = false;
@@ -788,6 +854,7 @@ function updateBreathDisplay(metrics, stability, now) {
   breathCurrentFlow = flowScore;
   breathCurrentEffort = metrics.effort;
   breathCurrentHighFrequency = metrics.highFrequency;
+  breathCurrentLeakNoise = metrics.leakNoise;
   breathCurrentStability = stability;
 
   if (flowScore >= breathActiveThreshold) {
@@ -808,6 +875,9 @@ function updateBreathDisplay(metrics, stability, now) {
   }
   if (breathNoiseValueEl) {
     breathNoiseValueEl.textContent = `${Math.round(metrics.highFrequency * 100)}%`;
+  }
+  if (breathLeakValueEl) {
+    breathLeakValueEl.textContent = `${Math.round(metrics.leakNoise * 100)}%`;
   }
   if (breathStabilityValueEl) {
     const stabilityText = stability === null ? '--' : `${stability}%`;
@@ -1952,6 +2022,7 @@ function exportCsv() {
         const flowPercent = Math.round(point.flow * 100);
         const effortPercent = Math.round((point.effort ?? 0) * 100);
         const highFrequencyPercent = Math.round((point.highFrequency ?? 0) * 100);
+        const leakNoisePercent = Math.round((point.leakNoise ?? 0) * 100);
         const stabilityPercent = point.stability === null ? '' : point.stability;
         const durationSeconds = point.durationSeconds.toFixed(1);
         return [
@@ -1959,6 +2030,7 @@ function exportCsv() {
           flowPercent,
           effortPercent,
           highFrequencyPercent,
+          leakNoisePercent,
           stabilityPercent,
           durationSeconds,
         ].join(',');
@@ -1969,7 +2041,7 @@ function exportCsv() {
     }
 
     const header =
-      'timestampMs,breathScorePercent,effortPercent,highFrequencyBreathPercent,stabilityPercent,durationSeconds';
+      'timestampMs,breathScorePercent,effortPercent,highFrequencyBreathPercent,leakNoisePercent,stabilityPercent,durationSeconds';
     const csvContent = [header, ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const filename = `voice-training_breath_${formatTimestamp(new Date())}.csv`;
@@ -2406,8 +2478,9 @@ function update() {
     lastDisplayUpdate = now;
     if (displayMode === 'breath') {
       const metrics = breathCalibrationInProgress
-        ? { score: 0, effort: 0, highFrequency: 0 }
+        ? { score: 0, effort: 0, highFrequency: 0, leakNoise: 0 }
         : estimateBreathMetrics(
+            dataArray,
             rms,
             analyser,
             frequencyData,
@@ -2425,6 +2498,7 @@ function update() {
         flow,
         effort: metrics.effort,
         highFrequency: metrics.highFrequency,
+        leakNoise: metrics.leakNoise,
         stability,
         durationSeconds: breathDurationSeconds,
       });
