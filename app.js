@@ -609,6 +609,36 @@ function averageBandPower(spectrum, sampleRate, fftSize, minHz, maxHz) {
   return count > 0 ? sum / count : 0;
 }
 
+function bandPowerStats(spectrum, sampleRate, fftSize, minHz, maxHz) {
+  const binResolution = sampleRate / fftSize;
+  const start = Math.max(0, Math.floor(minHz / binResolution));
+  const end = Math.min(spectrum.length - 1, Math.ceil(maxHz / binResolution));
+  let linearSum = 0;
+  let logSum = 0;
+  let count = 0;
+
+  for (let i = start; i <= end; i += 1) {
+    const db = spectrum[i];
+    if (Number.isFinite(db)) {
+      const linear = Math.max(dbToLinear(db), 1e-18);
+      linearSum += linear;
+      logSum += Math.log(linear);
+      count += 1;
+    }
+  }
+
+  if (!count) {
+    return { averagePower: 0, flatness: 0 };
+  }
+
+  const averagePower = linearSum / count;
+  const geometricMean = Math.exp(logSum / count);
+  return {
+    averagePower,
+    flatness: clamp01(geometricMean / Math.max(averagePower, 1e-18)),
+  };
+}
+
 function estimateBreathinessFromSpectrum(analyserNode, spectrumBuffer, sampleRate) {
   if (!analyserNode || !spectrumBuffer || !sampleRate) {
     return 0;
@@ -623,7 +653,14 @@ function estimateBreathinessFromSpectrum(analyserNode, spectrumBuffer, sampleRat
     200,
     1000
   );
-  const highPower = averageBandPower(
+  const midPower = averageBandPower(
+    spectrumBuffer,
+    sampleRate,
+    analyserNode.fftSize,
+    1000,
+    2500
+  );
+  const highStats = bandPowerStats(
     spectrumBuffer,
     sampleRate,
     analyserNode.fftSize,
@@ -631,9 +668,13 @@ function estimateBreathinessFromSpectrum(analyserNode, spectrumBuffer, sampleRat
     8000
   );
 
-  const total = lowPower + highPower + 1e-12;
-  const highRatio = highPower / total;
-  return clamp01((highRatio - 0.2) / 0.55);
+  const total = lowPower + midPower + highStats.averagePower + 1e-12;
+  const highRatio = highStats.averagePower / total;
+  const lowRatio = lowPower / total;
+  const highNoiseScore = clamp01((highRatio - 0.08) / 0.42);
+  const lowVoicePenalty = clamp01((lowRatio - 0.35) / 0.45);
+
+  return clamp01((0.65 * highNoiseScore + 0.35 * highStats.flatness) * (1 - lowVoicePenalty));
 }
 
 function estimateBreathControlScore(rms, analyserNode, spectrumBuffer, sampleRate) {
@@ -652,7 +693,7 @@ function estimateBreathControlScore(rms, analyserNode, spectrumBuffer, sampleRat
           Math.max(1 - breathCalibration.breathiness, 0.05)
       )
     : breathiness;
-  return clamp01(0.35 * adjustedEffort + 0.65 * adjustedBreathiness);
+  return clamp01(0.15 * adjustedEffort + 0.85 * adjustedBreathiness);
 }
 
 async function calibrateBreathEnvironment() {
@@ -712,7 +753,7 @@ async function calibrateBreathEnvironment() {
   const meanEffort = samples.reduce((sum, sample) => sum + sample.effort, 0) / samples.length;
   const meanBreathiness =
     samples.reduce((sum, sample) => sum + sample.breathiness, 0) / samples.length;
-  const score = clamp01(0.35 * meanEffort + 0.65 * meanBreathiness);
+  const score = clamp01(0.15 * meanEffort + 0.85 * meanBreathiness);
 
   breathCalibration = {
     calibrated: true,
