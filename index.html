@@ -65,6 +65,7 @@
           <button id="stopRecordButton" class="secondary" disabled>停止录音</button>
           <button id="exportCsvButton" class="secondary" disabled>保存本次（CSV）</button>
           <button id="exportPngButton" class="secondary" disabled>导出截图（PNG）</button>
+          <button id="breathCalibrateButton" class="secondary breath-control" hidden>校准环境</button>
           <div class="status" id="status">未开始</div>
         </div>
         <div class="controls-side">
@@ -89,6 +90,10 @@
         <div class="breath-readout" hidden>
           <span class="label">稳定度 / 持续</span>
           <span class="value" id="breathStabilityValue">-- / 0.0s</span>
+        </div>
+        <div class="breath-readout" hidden>
+          <span class="label">环境校准</span>
+          <span class="value" id="breathCalibrationValue">未校准</span>
         </div>
       </section>
 

@@ -25,6 +25,8 @@ const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
 const breathFlowValueEl = document.getElementById('breathFlowValue');
 const breathStabilityValueEl = document.getElementById('breathStabilityValue');
+const breathCalibrationValueEl = document.getElementById('breathCalibrationValue');
+const breathCalibrateButton = document.getElementById('breathCalibrateButton');
 const accompanimentInput = document.getElementById('accompanimentInput');
 const playAccompanimentButton = document.getElementById('playAccompanimentButton');
 const pauseAccompanimentButton = document.getElementById('pauseAccompanimentButton');
@@ -97,6 +99,7 @@ const breathFlowMaxDb = -18;
 const breathActiveThreshold = 0.08;
 const breathHistoryWindowSeconds = 12;
 const breathStabilityWindowSize = 18;
+const breathCalibrationDurationMs = 2000;
 const pitchMinEnergyThreshold = 0.0035;
 const pitchAdaptiveEnergyMultiplier = 1.7;
 const pitchNoiseFloorRiseAlpha = 0.06;
@@ -173,6 +176,13 @@ let breathCurrentFlow = null;
 let breathCurrentStability = null;
 let breathStartTime = null;
 let breathDurationSeconds = 0;
+let breathCalibration = {
+  calibrated: false,
+  effort: 0,
+  breathiness: 0,
+  score: 0,
+};
+let breathCalibrationInProgress = false;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -184,6 +194,7 @@ updateRecordingButtons();
 updateAccompanimentButtons(false);
 updatePitchAccuracyButton();
 setPitchAccuracyResult('--');
+resetBreathCalibration();
 
 function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
@@ -238,6 +249,7 @@ function hideSidebarPanel() {
 function setReadoutMode(mode) {
   const pitchReadouts = [pitchValueEl?.closest('div'), noteValueEl?.closest('div')];
   const breathReadouts = document.querySelectorAll('.breath-readout');
+  const breathControls = document.querySelectorAll('.breath-control');
   const isBreath = mode === 'breath';
   pitchReadouts.forEach((el) => {
     if (el) {
@@ -245,6 +257,9 @@ function setReadoutMode(mode) {
     }
   });
   breathReadouts.forEach((el) => {
+    el.hidden = !isBreath;
+  });
+  breathControls.forEach((el) => {
     el.hidden = !isBreath;
   });
 }
@@ -544,6 +559,26 @@ function resetBreathMeter() {
   }
 }
 
+function setBreathCalibrationStatus(text) {
+  if (breathCalibrationValueEl) {
+    breathCalibrationValueEl.textContent = text;
+  }
+}
+
+function resetBreathCalibration() {
+  breathCalibration = {
+    calibrated: false,
+    effort: 0,
+    breathiness: 0,
+    score: 0,
+  };
+  breathCalibrationInProgress = false;
+  if (breathCalibrateButton) {
+    breathCalibrateButton.disabled = false;
+  }
+  setBreathCalibrationStatus('未校准');
+}
+
 function estimateBreathFlow(rms) {
   if (!Number.isFinite(rms) || rms <= 0) {
     return 0;
@@ -608,7 +643,87 @@ function estimateBreathControlScore(rms, analyserNode, spectrumBuffer, sampleRat
     spectrumBuffer,
     sampleRate
   );
-  return clamp01(0.35 * effort + 0.65 * breathiness);
+  const adjustedEffort = breathCalibration.calibrated
+    ? clamp01((effort - breathCalibration.effort) / Math.max(1 - breathCalibration.effort, 0.05))
+    : effort;
+  const adjustedBreathiness = breathCalibration.calibrated
+    ? clamp01(
+        (breathiness - breathCalibration.breathiness) /
+          Math.max(1 - breathCalibration.breathiness, 0.05)
+      )
+    : breathiness;
+  return clamp01(0.35 * adjustedEffort + 0.65 * adjustedBreathiness);
+}
+
+async function calibrateBreathEnvironment() {
+  if (breathCalibrationInProgress) {
+    return;
+  }
+
+  if (displayMode !== 'breath') {
+    showTrainingView('breath');
+  }
+
+  if (!audioContext || !analyser || !frequencyData) {
+    await start();
+  }
+
+  if (!audioContext || !analyser || !frequencyData) {
+    setBreathCalibrationStatus('校准失败');
+    return;
+  }
+
+  breathCalibrationInProgress = true;
+  breathCalibrateButton.disabled = true;
+  setBreathCalibrationStatus('校准中...');
+  setStatus('请保持安静，正在校准环境', 'active');
+
+  const samples = [];
+  const startedAt = performance.now();
+
+  await new Promise((resolve) => {
+    const collect = () => {
+      analyser.getFloatTimeDomainData(dataArray);
+      const rms = computeRms(dataArray);
+      const effort = estimateBreathFlow(rms);
+      const breathiness = estimateBreathinessFromSpectrum(
+        analyser,
+        frequencyData,
+        audioContext.sampleRate
+      );
+      samples.push({ effort, breathiness });
+
+      if (performance.now() - startedAt >= breathCalibrationDurationMs) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(collect);
+    };
+    collect();
+  });
+
+  if (!samples.length) {
+    breathCalibrationInProgress = false;
+    breathCalibrateButton.disabled = false;
+    setBreathCalibrationStatus('校准失败');
+    return;
+  }
+
+  const meanEffort = samples.reduce((sum, sample) => sum + sample.effort, 0) / samples.length;
+  const meanBreathiness =
+    samples.reduce((sum, sample) => sum + sample.breathiness, 0) / samples.length;
+  const score = clamp01(0.35 * meanEffort + 0.65 * meanBreathiness);
+
+  breathCalibration = {
+    calibrated: true,
+    effort: meanEffort,
+    breathiness: meanBreathiness,
+    score,
+  };
+  breathCalibrationInProgress = false;
+  breathCalibrateButton.disabled = false;
+  setBreathCalibrationStatus(`已校准 ${Math.round(score * 100)}%`);
+  setStatus('环境校准完成', 'active');
 }
 
 function computeBreathStability(scores) {
@@ -2226,12 +2341,14 @@ function update() {
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
     if (displayMode === 'breath') {
-      const flow = estimateBreathControlScore(
-        rms,
-        analyser,
-        frequencyData,
-        audioContext.sampleRate
-      );
+      const flow = breathCalibrationInProgress
+        ? 0
+        : estimateBreathControlScore(
+            rms,
+            analyser,
+            frequencyData,
+            audioContext.sampleRate
+          );
       breathRecentScores.push(flow);
       if (breathRecentScores.length > breathStabilityWindowSize) {
         breathRecentScores.shift();
@@ -2477,6 +2594,9 @@ displayModeSelect.addEventListener('change', (event) => {
   setTrainingCopy(displayMode);
   if (displayMode === 'spectrogram') {
     resetSpectrogram();
+  } else if (displayMode === 'breath') {
+    resetBreathMeter();
+    drawBreathHistory();
   } else {
     drawPitchHistory();
   }
@@ -2506,6 +2626,9 @@ meterToggle.addEventListener('change', (event) => {
   const isVisible = event.target.checked;
   volumeMeter?.classList.toggle('meter-hidden', !isVisible);
   volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !isVisible);
+});
+breathCalibrateButton?.addEventListener('click', () => {
+  calibrateBreathEnvironment();
 });
 recordButton.addEventListener('click', async () => {
   if (offlineAnalysisInProgress) {
