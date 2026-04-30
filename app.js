@@ -98,7 +98,7 @@ const spectrogramMinDb = -100;
 const spectrogramMaxDb = -30;
 const spectrogramOverlayLineWidth = 2;
 const spectrogramOverlayColors = {
-  pitch: '#3a6ff7',
+  pitch: '#0f766e',
   f1: '#22c55e',
   f2: '#f97316',
 };
@@ -221,8 +221,8 @@ resetBreathCalibration();
 
 function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
-  statusEl.style.background = tone === 'active' ? '#e8f0ff' : '#eef1f7';
-  statusEl.style.color = tone === 'active' ? '#2f4fdd' : '#49506b';
+  statusEl.style.background = tone === 'active' ? '#e4f3ef' : '#eef1ed';
+  statusEl.style.color = tone === 'active' ? '#0b5d56' : '#697167';
 }
 
 function setDataSourceLabel(source) {
@@ -1503,7 +1503,7 @@ function drawPitchHistory() {
     drawTargetPitchLine(targetPitchHz, minPitch, maxPitch, pitchRange, padding, logMin, logRange);
   }
 
-  ctx.strokeStyle = '#3a6ff7';
+  ctx.strokeStyle = '#0f766e';
   ctx.lineWidth = 3;
   ctx.beginPath();
   let hasActivePath = false;
