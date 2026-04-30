@@ -109,6 +109,40 @@
         </div>
       </section>
 
+      <section class="breath-report" id="breathReport" hidden>
+        <div class="breath-report-header">
+          <h2>本次出气报告</h2>
+          <span id="breathReportSummary">--</span>
+        </div>
+        <div class="breath-report-grid">
+          <div>
+            <span class="label">平均评分</span>
+            <span class="value" id="breathReportAverage">--%</span>
+          </div>
+          <div>
+            <span class="label">峰值评分</span>
+            <span class="value" id="breathReportPeak">--%</span>
+          </div>
+          <div>
+            <span class="label">平均气流</span>
+            <span class="value" id="breathReportEffort">--%</span>
+          </div>
+          <div>
+            <span class="label">平均高频气声</span>
+            <span class="value" id="breathReportHighFrequency">--%</span>
+          </div>
+          <div>
+            <span class="label">平均漏气噪声</span>
+            <span class="value" id="breathReportLeakNoise">--%</span>
+          </div>
+          <div>
+            <span class="label">中断次数</span>
+            <span class="value" id="breathReportBreaks">--</span>
+          </div>
+        </div>
+        <p id="breathReportFeedback" class="breath-report-feedback">--</p>
+      </section>
+
       <section class="chart">
         <div class="meter-column">
           <div class="meter" id="volumeMeter">

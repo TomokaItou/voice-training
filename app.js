@@ -30,6 +30,15 @@ const breathLeakValueEl = document.getElementById('breathLeakValue');
 const breathStabilityValueEl = document.getElementById('breathStabilityValue');
 const breathCalibrationValueEl = document.getElementById('breathCalibrationValue');
 const breathCalibrateButton = document.getElementById('breathCalibrateButton');
+const breathReport = document.getElementById('breathReport');
+const breathReportSummary = document.getElementById('breathReportSummary');
+const breathReportAverage = document.getElementById('breathReportAverage');
+const breathReportPeak = document.getElementById('breathReportPeak');
+const breathReportEffort = document.getElementById('breathReportEffort');
+const breathReportHighFrequency = document.getElementById('breathReportHighFrequency');
+const breathReportLeakNoise = document.getElementById('breathReportLeakNoise');
+const breathReportBreaks = document.getElementById('breathReportBreaks');
+const breathReportFeedback = document.getElementById('breathReportFeedback');
 const accompanimentInput = document.getElementById('accompanimentInput');
 const playAccompanimentButton = document.getElementById('playAccompanimentButton');
 const pauseAccompanimentButton = document.getElementById('pauseAccompanimentButton');
@@ -178,6 +187,7 @@ let targetPitchEnabled = targetPitchToggle?.checked ?? true;
 let targetPitchHz = Number(targetPitchInput?.value || 300);
 let songSearchAbortController = null;
 let breathHistory = [];
+let breathSessionHistory = [];
 let breathRecentScores = [];
 let breathCurrentFlow = null;
 let breathCurrentEffort = null;
@@ -273,6 +283,9 @@ function setReadoutMode(mode) {
   breathControls.forEach((el) => {
     el.hidden = !isBreath;
   });
+  if (breathReport) {
+    breathReport.hidden = !isBreath || !breathReport.dataset.hasReport;
+  }
 }
 
 function setTrainingCopy(mode) {
@@ -557,6 +570,7 @@ function clamp01(value) {
 
 function resetBreathMeter() {
   breathHistory = [];
+  breathSessionHistory = [];
   breathRecentScores = [];
   breathCurrentFlow = null;
   breathCurrentEffort = null;
@@ -579,6 +593,32 @@ function resetBreathMeter() {
   }
   if (breathStabilityValueEl) {
     breathStabilityValueEl.textContent = '-- / 0.0s';
+  }
+}
+
+function clearBreathReport() {
+  if (!breathReport) {
+    return;
+  }
+  breathReport.hidden = true;
+  delete breathReport.dataset.hasReport;
+  if (breathReportSummary) {
+    breathReportSummary.textContent = '--';
+  }
+  [
+    breathReportAverage,
+    breathReportPeak,
+    breathReportEffort,
+    breathReportHighFrequency,
+    breathReportLeakNoise,
+    breathReportBreaks,
+  ].forEach((el) => {
+    if (el) {
+      el.textContent = '--';
+    }
+  });
+  if (breathReportFeedback) {
+    breathReportFeedback.textContent = '--';
   }
 }
 
@@ -889,6 +929,90 @@ function hasRecentBreathData() {
   const now = performance.now();
   const minTime = now - breathHistoryWindowSeconds * 1000;
   return breathHistory.some((point) => point.time >= minTime && point.flow >= breathActiveThreshold);
+}
+
+function averageMetric(points, key) {
+  if (!points.length) {
+    return 0;
+  }
+  return points.reduce((sum, point) => sum + (point[key] ?? 0), 0) / points.length;
+}
+
+function countBreathBreaks(points) {
+  let breaks = 0;
+  let wasActive = false;
+
+  points.forEach((point) => {
+    const isActive = point.flow >= breathActiveThreshold;
+    if (!isActive && wasActive) {
+      breaks += 1;
+    }
+    wasActive = isActive;
+  });
+
+  return breaks;
+}
+
+function getBreathFeedback(summary) {
+  if (summary.durationSeconds < 2) {
+    return '有效出气时间偏短，先尝试保持 5 秒以上的连续气流。';
+  }
+  if (summary.breaks >= 3) {
+    return '中途断气较多，先降低强度，练习更连续的平稳出气。';
+  }
+  if (summary.stability !== null && summary.stability < 55) {
+    return '气息波动较明显，可以用更小的气流做慢而均匀的练习。';
+  }
+  if (summary.highFrequency > 0.65 && summary.effort < 0.35) {
+    return '高频气声明显但气流强度偏低，说明气息漏出感强，支撑还可以再增加。';
+  }
+  if (summary.effort > 0.7 && summary.highFrequency < 0.35) {
+    return '气流强度高但高频气声低，可能更接近用力发声，试着减少声带参与。';
+  }
+  if (summary.leakNoise > 0.65 && summary.highFrequency > 0.5) {
+    return '漏气噪声和高频气声都较高，本次更接近吹气/气声练习。';
+  }
+  return '本次出气比较平稳，可以继续延长持续时间或尝试渐强渐弱练习。';
+}
+
+function renderBreathReport() {
+  if (!breathReport || !breathSessionHistory.length) {
+    return;
+  }
+
+  const sessionPoints = breathSessionHistory.filter((point) => point.time >= sessionStartTime);
+  const activePoints = sessionPoints.filter((point) => point.flow >= breathActiveThreshold);
+
+  if (activePoints.length < 4) {
+    clearBreathReport();
+    setStatus('已停止，出气数据不足');
+    return;
+  }
+
+  const activeStart = activePoints[0].time;
+  const activeEnd = activePoints[activePoints.length - 1].time;
+  const durationSeconds = Math.max(0, (activeEnd - activeStart) / 1000);
+  const summary = {
+    durationSeconds,
+    score: averageMetric(activePoints, 'flow'),
+    peak: Math.max(...activePoints.map((point) => point.flow)),
+    effort: averageMetric(activePoints, 'effort'),
+    highFrequency: averageMetric(activePoints, 'highFrequency'),
+    leakNoise: averageMetric(activePoints, 'leakNoise'),
+    stability: computeBreathStability(activePoints.map((point) => point.flow)),
+    breaks: countBreathBreaks(sessionPoints),
+  };
+
+  breathReport.dataset.hasReport = 'true';
+  breathReport.hidden = displayMode !== 'breath';
+  breathReportSummary.textContent = `持续 ${summary.durationSeconds.toFixed(1)}s`;
+  breathReportAverage.textContent = `${Math.round(summary.score * 100)}%`;
+  breathReportPeak.textContent = `${Math.round(summary.peak * 100)}%`;
+  breathReportEffort.textContent = `${Math.round(summary.effort * 100)}%`;
+  breathReportHighFrequency.textContent = `${Math.round(summary.highFrequency * 100)}%`;
+  breathReportLeakNoise.textContent = `${Math.round(summary.leakNoise * 100)}%`;
+  breathReportBreaks.textContent = String(summary.breaks);
+  breathReportFeedback.textContent = getBreathFeedback(summary);
 }
 
 function updateSpectralTilt() {
@@ -2493,7 +2617,7 @@ function update() {
       }
       const stability = computeBreathStability(breathRecentScores);
       updateBreathDisplay(metrics, stability, now);
-      breathHistory.push({
+      const breathPoint = {
         time: now,
         flow,
         effort: metrics.effort,
@@ -2501,7 +2625,9 @@ function update() {
         leakNoise: metrics.leakNoise,
         stability,
         durationSeconds: breathDurationSeconds,
-      });
+      };
+      breathHistory.push(breathPoint);
+      breathSessionHistory.push(breathPoint);
       drawBreathHistory();
       updateExportButtons();
       animationId = requestAnimationFrame(update);
@@ -2656,6 +2782,7 @@ async function start() {
     pitchHistory = [];
     resetPitchStabilizer();
     resetBreathMeter();
+    clearBreathReport();
     sessionStartTime = performance.now();
     lastFormantUpdate = 0;
     lastFormantTimestamp = 0;
@@ -2684,6 +2811,7 @@ async function start() {
 }
 
 function stop() {
+  const shouldRenderBreathReport = displayMode === 'breath' && breathSessionHistory.length > 0;
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
@@ -2709,6 +2837,9 @@ function stop() {
   stopButton.disabled = true;
   updateExportButtons();
   resetFormants();
+  if (shouldRenderBreathReport) {
+    renderBreathReport();
+  }
 }
 
 startButton.addEventListener('click', start);
