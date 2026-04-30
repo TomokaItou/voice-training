@@ -23,6 +23,15 @@ const appTitle = document.getElementById('appTitle');
 const appDescription = document.getElementById('appDescription');
 const pitchValueEl = document.getElementById('pitchValue');
 const noteValueEl = document.getElementById('noteValue');
+const breathDashboard = document.getElementById('breathDashboard');
+const breathScoreHeroValue = document.getElementById('breathScoreHeroValue');
+const breathVoiceHeroValue = document.getElementById('breathVoiceHeroValue');
+const breathStabilityHeroValue = document.getElementById('breathStabilityHeroValue');
+const breathDurationHeroValue = document.getElementById('breathDurationHeroValue');
+const breathEffortHeroValue = document.getElementById('breathEffortHeroValue');
+const breathNoiseHeroValue = document.getElementById('breathNoiseHeroValue');
+const breathLeakHeroValue = document.getElementById('breathLeakHeroValue');
+const breathCalibrationHeroValue = document.getElementById('breathCalibrationHeroValue');
 const breathFlowValueEl = document.getElementById('breathFlowValue');
 const breathEffortValueEl = document.getElementById('breathEffortValue');
 const breathNoiseValueEl = document.getElementById('breathNoiseValue');
@@ -273,14 +282,21 @@ function setReadoutMode(mode) {
   const pitchReadouts = [pitchValueEl?.closest('div'), noteValueEl?.closest('div')];
   const breathReadouts = document.querySelectorAll('.breath-readout');
   const breathControls = document.querySelectorAll('.breath-control');
+  const readout = document.querySelector('.readout');
   const isBreath = mode === 'breath';
+  if (breathDashboard) {
+    breathDashboard.hidden = !isBreath;
+  }
+  if (readout) {
+    readout.classList.toggle('readout-breath-compact', isBreath);
+  }
   pitchReadouts.forEach((el) => {
     if (el) {
       el.hidden = isBreath;
     }
   });
   breathReadouts.forEach((el) => {
-    el.hidden = !isBreath;
+    el.hidden = true;
   });
   breathControls.forEach((el) => {
     el.hidden = !isBreath;
@@ -584,20 +600,41 @@ function resetBreathMeter() {
   if (breathFlowValueEl) {
     breathFlowValueEl.textContent = '--%';
   }
+  if (breathScoreHeroValue) {
+    breathScoreHeroValue.textContent = '--%';
+  }
   if (breathEffortValueEl) {
     breathEffortValueEl.textContent = '--%';
+  }
+  if (breathEffortHeroValue) {
+    breathEffortHeroValue.textContent = '--%';
   }
   if (breathNoiseValueEl) {
     breathNoiseValueEl.textContent = '--%';
   }
+  if (breathNoiseHeroValue) {
+    breathNoiseHeroValue.textContent = '--%';
+  }
   if (breathLeakValueEl) {
     breathLeakValueEl.textContent = '--%';
+  }
+  if (breathLeakHeroValue) {
+    breathLeakHeroValue.textContent = '--%';
   }
   if (breathVoiceTypeValueEl) {
     breathVoiceTypeValueEl.textContent = '--';
   }
+  if (breathVoiceHeroValue) {
+    breathVoiceHeroValue.textContent = '--';
+  }
   if (breathStabilityValueEl) {
     breathStabilityValueEl.textContent = '-- / 0.0s';
+  }
+  if (breathStabilityHeroValue) {
+    breathStabilityHeroValue.textContent = '--%';
+  }
+  if (breathDurationHeroValue) {
+    breathDurationHeroValue.textContent = '0.0s';
   }
 }
 
@@ -631,6 +668,9 @@ function clearBreathReport() {
 function setBreathCalibrationStatus(text) {
   if (breathCalibrationValueEl) {
     breathCalibrationValueEl.textContent = text;
+  }
+  if (breathCalibrationHeroValue) {
+    breathCalibrationHeroValue.textContent = text;
   }
 }
 
@@ -938,21 +978,42 @@ function updateBreathDisplay(metrics, stability, now, voiceType) {
   if (breathFlowValueEl) {
     breathFlowValueEl.textContent = `${Math.round(flowScore * 100)}%`;
   }
+  if (breathScoreHeroValue) {
+    breathScoreHeroValue.textContent = `${Math.round(flowScore * 100)}%`;
+  }
   if (breathEffortValueEl) {
     breathEffortValueEl.textContent = `${Math.round(metrics.effort * 100)}%`;
+  }
+  if (breathEffortHeroValue) {
+    breathEffortHeroValue.textContent = `${Math.round(metrics.effort * 100)}%`;
   }
   if (breathNoiseValueEl) {
     breathNoiseValueEl.textContent = `${Math.round(metrics.highFrequency * 100)}%`;
   }
+  if (breathNoiseHeroValue) {
+    breathNoiseHeroValue.textContent = `${Math.round(metrics.highFrequency * 100)}%`;
+  }
   if (breathLeakValueEl) {
     breathLeakValueEl.textContent = `${Math.round(metrics.leakNoise * 100)}%`;
+  }
+  if (breathLeakHeroValue) {
+    breathLeakHeroValue.textContent = `${Math.round(metrics.leakNoise * 100)}%`;
   }
   if (breathVoiceTypeValueEl) {
     breathVoiceTypeValueEl.textContent = voiceType;
   }
+  if (breathVoiceHeroValue) {
+    breathVoiceHeroValue.textContent = voiceType;
+  }
   if (breathStabilityValueEl) {
     const stabilityText = stability === null ? '--' : `${stability}%`;
     breathStabilityValueEl.textContent = `${stabilityText} / ${breathDurationSeconds.toFixed(1)}s`;
+  }
+  if (breathStabilityHeroValue) {
+    breathStabilityHeroValue.textContent = stability === null ? '--%' : `${stability}%`;
+  }
+  if (breathDurationHeroValue) {
+    breathDurationHeroValue.textContent = `${breathDurationSeconds.toFixed(1)}s`;
   }
 }
 

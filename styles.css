@@ -355,6 +355,110 @@ button.secondary:not(:disabled):hover {
   font-size: 13px;
 }
 
+.breath-dashboard {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.1fr);
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.breath-score-panel,
+.breath-state-panel,
+.breath-metric-strip {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.breath-score-panel {
+  min-height: 196px;
+  padding: 20px;
+  display: grid;
+  align-content: center;
+  border-color: #b8cec8;
+  background:
+    linear-gradient(180deg, #f6fbf9 0%, #ffffff 100%);
+}
+
+.breath-score-value {
+  display: block;
+  margin: 8px 0;
+  color: var(--accent-strong);
+  font-size: 64px;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.breath-score-caption {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.breath-state-panel {
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.breath-state-value {
+  display: block;
+  margin-top: 8px;
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.breath-state-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.breath-state-meta > div {
+  background: var(--surface-muted);
+  padding: 12px;
+}
+
+.breath-state-meta .value {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 780;
+}
+
+.breath-metric-strip {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.breath-metric-strip > div {
+  background: var(--surface);
+  padding: 12px 14px;
+}
+
+.breath-dashboard .label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.breath-dashboard .value {
+  display: block;
+  margin-top: 5px;
+  font-size: 20px;
+  font-weight: 780;
+}
+
 .readout {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -383,6 +487,10 @@ button.secondary:not(:disabled):hover {
   font-size: 21px;
   font-weight: 780;
   color: var(--text);
+}
+
+.readout-breath-compact {
+  display: none;
 }
 
 .breath-report {
@@ -707,6 +815,16 @@ input[type='range'] {
 
   .song-search-form {
     grid-template-columns: 1fr;
+  }
+
+  .breath-dashboard,
+  .breath-state-meta,
+  .breath-metric-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .breath-score-value {
+    font-size: 52px;
   }
 
   .chart {

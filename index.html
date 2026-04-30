@@ -74,6 +74,48 @@
         </div>
       </section>
 
+      <section class="breath-dashboard" id="breathDashboard" hidden>
+        <div class="breath-score-panel">
+          <span class="label">出气评分</span>
+          <span class="breath-score-value" id="breathScoreHeroValue">--%</span>
+          <span class="breath-score-caption">综合气流、高频气声和漏气噪声</span>
+        </div>
+        <div class="breath-state-panel">
+          <div>
+            <span class="label">声音类型</span>
+            <span class="breath-state-value" id="breathVoiceHeroValue">--</span>
+          </div>
+          <div class="breath-state-meta">
+            <div>
+              <span class="label">稳定度</span>
+              <span class="value" id="breathStabilityHeroValue">--%</span>
+            </div>
+            <div>
+              <span class="label">持续</span>
+              <span class="value" id="breathDurationHeroValue">0.0s</span>
+            </div>
+          </div>
+        </div>
+        <div class="breath-metric-strip">
+          <div>
+            <span class="label">气流强度</span>
+            <span class="value" id="breathEffortHeroValue">--%</span>
+          </div>
+          <div>
+            <span class="label">高频气声</span>
+            <span class="value" id="breathNoiseHeroValue">--%</span>
+          </div>
+          <div>
+            <span class="label">漏气噪声</span>
+            <span class="value" id="breathLeakHeroValue">--%</span>
+          </div>
+          <div>
+            <span class="label">环境校准</span>
+            <span class="value" id="breathCalibrationHeroValue">未校准</span>
+          </div>
+        </div>
+      </section>
+
       <section class="readout">
         <div>
           <span class="label">当前音高</span>
