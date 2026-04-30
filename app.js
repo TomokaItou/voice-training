@@ -27,6 +27,7 @@ const breathFlowValueEl = document.getElementById('breathFlowValue');
 const breathEffortValueEl = document.getElementById('breathEffortValue');
 const breathNoiseValueEl = document.getElementById('breathNoiseValue');
 const breathLeakValueEl = document.getElementById('breathLeakValue');
+const breathVoiceTypeValueEl = document.getElementById('breathVoiceTypeValue');
 const breathStabilityValueEl = document.getElementById('breathStabilityValue');
 const breathCalibrationValueEl = document.getElementById('breathCalibrationValue');
 const breathCalibrateButton = document.getElementById('breathCalibrateButton');
@@ -37,6 +38,7 @@ const breathReportPeak = document.getElementById('breathReportPeak');
 const breathReportEffort = document.getElementById('breathReportEffort');
 const breathReportHighFrequency = document.getElementById('breathReportHighFrequency');
 const breathReportLeakNoise = document.getElementById('breathReportLeakNoise');
+const breathReportVoiceType = document.getElementById('breathReportVoiceType');
 const breathReportBreaks = document.getElementById('breathReportBreaks');
 const breathReportFeedback = document.getElementById('breathReportFeedback');
 const accompanimentInput = document.getElementById('accompanimentInput');
@@ -591,6 +593,9 @@ function resetBreathMeter() {
   if (breathLeakValueEl) {
     breathLeakValueEl.textContent = '--%';
   }
+  if (breathVoiceTypeValueEl) {
+    breathVoiceTypeValueEl.textContent = '--';
+  }
   if (breathStabilityValueEl) {
     breathStabilityValueEl.textContent = '-- / 0.0s';
   }
@@ -611,6 +616,7 @@ function clearBreathReport() {
     breathReportEffort,
     breathReportHighFrequency,
     breathReportLeakNoise,
+    breathReportVoiceType,
     breathReportBreaks,
   ].forEach((el) => {
     if (el) {
@@ -798,6 +804,28 @@ function estimateBreathMetrics(buffer, rms, analyserNode, spectrumBuffer, sample
   };
 }
 
+function classifyBreathVoice(metrics, pitch, confidence) {
+  const { effort, highFrequency, leakNoise, score } = metrics;
+  const voiced = Boolean(pitch) && confidence > 0.25;
+
+  if (!voiced && score > 0.35) {
+    return '吹气/气声';
+  }
+  if (voiced && leakNoise > 0.6 && highFrequency > 0.45) {
+    return '漏气型发声';
+  }
+  if (voiced && effort > 0.65 && leakNoise < 0.35) {
+    return '用力型发声';
+  }
+  if (voiced && leakNoise < 0.35 && highFrequency < 0.35) {
+    return '闭合较好';
+  }
+  if (voiced) {
+    return '混合型';
+  }
+  return '无有效发声';
+}
+
 async function calibrateBreathEnvironment() {
   if (breathCalibrationInProgress) {
     return;
@@ -889,7 +917,7 @@ function computeBreathStability(scores) {
   return Math.round(clamp01(1 - stdDev * 4) * 100);
 }
 
-function updateBreathDisplay(metrics, stability, now) {
+function updateBreathDisplay(metrics, stability, now, voiceType) {
   const flowScore = metrics.score;
   breathCurrentFlow = flowScore;
   breathCurrentEffort = metrics.effort;
@@ -918,6 +946,9 @@ function updateBreathDisplay(metrics, stability, now) {
   }
   if (breathLeakValueEl) {
     breathLeakValueEl.textContent = `${Math.round(metrics.leakNoise * 100)}%`;
+  }
+  if (breathVoiceTypeValueEl) {
+    breathVoiceTypeValueEl.textContent = voiceType;
   }
   if (breathStabilityValueEl) {
     const stabilityText = stability === null ? '--' : `${stability}%`;
@@ -953,7 +984,31 @@ function countBreathBreaks(points) {
   return breaks;
 }
 
+function getDominantVoiceType(points) {
+  const counts = points.reduce((map, point) => {
+    if (point.voiceType && point.voiceType !== '无有效发声') {
+      map.set(point.voiceType, (map.get(point.voiceType) || 0) + 1);
+    }
+    return map;
+  }, new Map());
+
+  if (!counts.size) {
+    return '无有效发声';
+  }
+
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
 function getBreathFeedback(summary) {
+  if (summary.voiceType === '漏气型发声') {
+    return '本次以漏气型发声为主，声带有振动但气声和噪声偏多。';
+  }
+  if (summary.voiceType === '用力型发声') {
+    return '本次更像用力型发声，气流强但漏气噪声低，可以试着减少喉部用力。';
+  }
+  if (summary.voiceType === '闭合较好') {
+    return '本次声带闭合相对集中，如果目标是练气声，可以再增加柔和的气流感。';
+  }
   if (summary.durationSeconds < 2) {
     return '有效出气时间偏短，先尝试保持 5 秒以上的连续气流。';
   }
@@ -1001,6 +1056,7 @@ function renderBreathReport() {
     leakNoise: averageMetric(activePoints, 'leakNoise'),
     stability: computeBreathStability(activePoints.map((point) => point.flow)),
     breaks: countBreathBreaks(sessionPoints),
+    voiceType: getDominantVoiceType(activePoints),
   };
 
   breathReport.dataset.hasReport = 'true';
@@ -1011,6 +1067,7 @@ function renderBreathReport() {
   breathReportEffort.textContent = `${Math.round(summary.effort * 100)}%`;
   breathReportHighFrequency.textContent = `${Math.round(summary.highFrequency * 100)}%`;
   breathReportLeakNoise.textContent = `${Math.round(summary.leakNoise * 100)}%`;
+  breathReportVoiceType.textContent = summary.voiceType;
   breathReportBreaks.textContent = String(summary.breaks);
   breathReportFeedback.textContent = getBreathFeedback(summary);
 }
@@ -2147,6 +2204,7 @@ function exportCsv() {
         const effortPercent = Math.round((point.effort ?? 0) * 100);
         const highFrequencyPercent = Math.round((point.highFrequency ?? 0) * 100);
         const leakNoisePercent = Math.round((point.leakNoise ?? 0) * 100);
+        const voiceType = point.voiceType || '';
         const stabilityPercent = point.stability === null ? '' : point.stability;
         const durationSeconds = point.durationSeconds.toFixed(1);
         return [
@@ -2155,6 +2213,7 @@ function exportCsv() {
           effortPercent,
           highFrequencyPercent,
           leakNoisePercent,
+          voiceType,
           stabilityPercent,
           durationSeconds,
         ].join(',');
@@ -2165,7 +2224,7 @@ function exportCsv() {
     }
 
     const header =
-      'timestampMs,breathScorePercent,effortPercent,highFrequencyBreathPercent,leakNoisePercent,stabilityPercent,durationSeconds';
+      'timestampMs,breathScorePercent,effortPercent,highFrequencyBreathPercent,leakNoisePercent,voiceType,stabilityPercent,durationSeconds';
     const csvContent = [header, ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const filename = `voice-training_breath_${formatTimestamp(new Date())}.csv`;
@@ -2601,6 +2660,12 @@ function update() {
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
     if (displayMode === 'breath') {
+      const pitchResult = estimatePitchWithConfidence(
+        dataArray,
+        audioContext.sampleRate,
+        analyser,
+        frequencyData
+      );
       const metrics = breathCalibrationInProgress
         ? { score: 0, effort: 0, highFrequency: 0, leakNoise: 0 }
         : estimateBreathMetrics(
@@ -2610,19 +2675,23 @@ function update() {
             frequencyData,
             audioContext.sampleRate
           );
+      const voiceType = breathCalibrationInProgress
+        ? '校准中'
+        : classifyBreathVoice(metrics, pitchResult.pitch, pitchResult.confidence);
       const flow = metrics.score;
       breathRecentScores.push(flow);
       if (breathRecentScores.length > breathStabilityWindowSize) {
         breathRecentScores.shift();
       }
       const stability = computeBreathStability(breathRecentScores);
-      updateBreathDisplay(metrics, stability, now);
+      updateBreathDisplay(metrics, stability, now, voiceType);
       const breathPoint = {
         time: now,
         flow,
         effort: metrics.effort,
         highFrequency: metrics.highFrequency,
         leakNoise: metrics.leakNoise,
+        voiceType,
         stability,
         durationSeconds: breathDurationSeconds,
       };
