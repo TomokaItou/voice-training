@@ -50,6 +50,8 @@ const breathReportLeakNoise = document.getElementById('breathReportLeakNoise');
 const breathReportVoiceType = document.getElementById('breathReportVoiceType');
 const breathReportBreaks = document.getElementById('breathReportBreaks');
 const breathReportFeedback = document.getElementById('breathReportFeedback');
+const chartLegendLow = document.getElementById('chartLegendLow');
+const chartLegendHigh = document.getElementById('chartLegendHigh');
 const accompanimentInput = document.getElementById('accompanimentInput');
 const playAccompanimentButton = document.getElementById('playAccompanimentButton');
 const pauseAccompanimentButton = document.getElementById('pauseAccompanimentButton');
@@ -120,6 +122,8 @@ const tiltHighBandHz = { min: 2000, max: 5000 };
 const breathFlowMinDb = -58;
 const breathFlowMaxDb = -18;
 const breathActiveThreshold = 0.08;
+const breathTargetMin = 0.45;
+const breathTargetMax = 0.75;
 const breathHistoryWindowSeconds = 12;
 const breathStabilityWindowSize = 18;
 const breathCalibrationDurationMs = 2000;
@@ -303,6 +307,10 @@ function setReadoutMode(mode) {
   });
   if (breathReport) {
     breathReport.hidden = !isBreath || !breathReport.dataset.hasReport;
+  }
+  if (chartLegendLow && chartLegendHigh) {
+    chartLegendLow.textContent = isBreath ? '弱' : '低音';
+    chartLegendHigh.textContent = isBreath ? '强' : '高音';
   }
 }
 
@@ -1638,46 +1646,65 @@ function drawPitchHistory() {
 
 function drawBreathHistory() {
   const padding = 28;
+  const plotHeight = canvas.height - padding * 2;
+  const minTime = performance.now() - breathHistoryWindowSeconds * 1000;
+  const durationMs = breathHistoryWindowSeconds * 1000;
+  const toX = (time) => ((time - minTime) / durationMs) * canvas.width;
+  const toY = (value) => canvas.height - padding - value * plotHeight;
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = '#e5e9f3';
+
+  ctx.fillStyle = '#f6fbf9';
+  ctx.fillRect(0, padding, canvas.width, plotHeight);
+
+  const targetTop = toY(breathTargetMax);
+  const targetBottom = toY(breathTargetMin);
+  ctx.fillStyle = 'rgba(15, 118, 110, 0.10)';
+  ctx.fillRect(0, targetTop, canvas.width, targetBottom - targetTop);
+  ctx.fillStyle = '#0b5d56';
+  ctx.font = '12px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('目标区间', 8, Math.max(targetTop - 6, 14));
+
+  const activeY = toY(breathActiveThreshold);
+  ctx.fillStyle = 'rgba(183, 121, 31, 0.08)';
+  ctx.fillRect(0, activeY, canvas.width, canvas.height - padding - activeY);
+
+  ctx.strokeStyle = '#d9ded6';
   ctx.lineWidth = 1;
 
   for (let i = 0; i <= 4; i += 1) {
-    const y = padding + (i / 4) * (canvas.height - padding * 2);
+    const y = padding + (i / 4) * plotHeight;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(canvas.width, y);
     ctx.stroke();
-    ctx.fillStyle = '#7b8198';
+    ctx.fillStyle = '#697167';
     ctx.font = '12px sans-serif';
     ctx.textBaseline = 'middle';
     ctx.fillText(`${100 - i * 25}%`, 8, y);
   }
 
-  const now = performance.now();
-  const minTime = now - breathHistoryWindowSeconds * 1000;
   const visibleHistory = breathHistory.filter((point) => point.time >= minTime);
   breathHistory = visibleHistory;
 
-  const thresholdY =
-    canvas.height - padding - breathActiveThreshold * (canvas.height - padding * 2);
   ctx.save();
-  ctx.strokeStyle = '#f97316';
+  ctx.strokeStyle = '#b7791f';
   ctx.setLineDash([6, 6]);
   ctx.beginPath();
-  ctx.moveTo(0, thresholdY);
-  ctx.lineTo(canvas.width, thresholdY);
+  ctx.moveTo(0, activeY);
+  ctx.lineTo(canvas.width, activeY);
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = '#f97316';
+  ctx.fillStyle = '#8a5a16';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('有效吹气线', 8, Math.max(thresholdY - 6, 14));
+  ctx.fillText('有效线', 8, Math.max(activeY - 6, 14));
   ctx.restore();
 
   if (visibleHistory.length < 2) {
-    ctx.fillStyle = '#8b91a8';
+    ctx.fillStyle = '#697167';
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1686,12 +1713,29 @@ function drawBreathHistory() {
     return;
   }
 
-  ctx.strokeStyle = '#0ea5e9';
+  ctx.beginPath();
+  visibleHistory.forEach((point, index) => {
+    const x = toX(point.time);
+    const y = toY(point.flow);
+    if (index === 0) {
+      ctx.moveTo(x, canvas.height - padding);
+      ctx.lineTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  const lastPoint = visibleHistory[visibleHistory.length - 1];
+  ctx.lineTo(toX(lastPoint.time), canvas.height - padding);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(15, 118, 110, 0.16)';
+  ctx.fill();
+
+  ctx.strokeStyle = '#0f766e';
   ctx.lineWidth = 3;
   ctx.beginPath();
   visibleHistory.forEach((point, index) => {
-    const x = ((point.time - minTime) / (breathHistoryWindowSeconds * 1000)) * canvas.width;
-    const y = canvas.height - padding - point.flow * (canvas.height - padding * 2);
+    const x = toX(point.time);
+    const y = toY(point.flow);
     if (index === 0) {
       ctx.moveTo(x, y);
     } else {
@@ -1700,9 +1744,26 @@ function drawBreathHistory() {
   });
   ctx.stroke();
 
+  ctx.save();
+  ctx.strokeStyle = '#b42318';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 5]);
+  for (let i = 1; i < visibleHistory.length; i += 1) {
+    const prev = visibleHistory[i - 1];
+    const point = visibleHistory[i];
+    if (prev.flow >= breathActiveThreshold && point.flow < breathActiveThreshold) {
+      const x = toX(point.time);
+      ctx.beginPath();
+      ctx.moveTo(x, padding);
+      ctx.lineTo(x, canvas.height - padding);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
   if (breathCurrentFlow !== null) {
-    const y = canvas.height - padding - breathCurrentFlow * (canvas.height - padding * 2);
-    ctx.fillStyle = '#0ea5e9';
+    const y = toY(breathCurrentFlow);
+    ctx.fillStyle = '#0f766e';
     ctx.beginPath();
     ctx.arc(canvas.width - 10, y, 5, 0, Math.PI * 2);
     ctx.fill();
