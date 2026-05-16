@@ -160,7 +160,8 @@ const pitchMaxJumpHz = 30;
 const pitchMaxJumpCents = 50;
 const pitchEmaAlpha = 0.25;
 const pitchFastTransitionCents = 250;
-const pitchFastTransitionConfirmFrames = 1;
+const pitchFastTransitionConfirmFrames = 2;
+const pitchOctaveSpikeToleranceCents = 90;
 const pitchTransitionConfirmFrames = 2;
 const pitchHoldFrames = 6;
 const pitchOnsetFrames = 1;
@@ -2685,6 +2686,11 @@ function getPitchDistanceCents(a, b) {
   return Math.abs(1200 * Math.log2(a / b));
 }
 
+function isNearOctaveJump(a, b) {
+  const distance = getPitchDistanceCents(a, b);
+  return Math.abs(distance - 1200) <= pitchOctaveSpikeToleranceCents;
+}
+
 function selectPitchCandidate(pitch, reference) {
   if (!pitch) return null;
   if (!reference) return pitch;
@@ -3387,9 +3393,16 @@ function update() {
         const displayPitch = median(recentPitchWindow);
         const rawCandidate = selectPitchCandidate(pitch, lastStablePitch);
         const medianCandidate = selectPitchCandidate(displayPitch, lastStablePitch);
+        const looksLikeOctaveSpike =
+          lastStablePitch &&
+          rawCandidate &&
+          medianCandidate &&
+          isNearOctaveJump(rawCandidate, lastStablePitch) &&
+          getPitchDistanceCents(medianCandidate, lastStablePitch) < pitchFastTransitionCents;
         const isFastTransition =
           lastStablePitch &&
           rawCandidate &&
+          !looksLikeOctaveSpike &&
           getPitchDistanceCents(rawCandidate, lastStablePitch) >= pitchFastTransitionCents;
         const candidate = isFastTransition ? rawCandidate : medianCandidate;
         const maxJump = getMaxJumpThresholdHz(lastStablePitch);
