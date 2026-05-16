@@ -401,6 +401,17 @@ function getRecordingDurationMs() {
   );
 }
 
+function getRecordingSyncedPitchHistory() {
+  if (offlineMode || !recordingTimelineFrames.length) {
+    return [];
+  }
+  return recordingTimelineFrames.map((frame) => ({
+    time: frame.timeMs,
+    recordingTimeMs: frame.timeMs,
+    pitch: frame.pitch || null,
+  }));
+}
+
 function findNearestRecordingFrame(timeMs) {
   if (!recordingTimelineFrames.length) {
     return null;
@@ -411,6 +422,21 @@ function findNearestRecordingFrame(timeMs) {
     }
     return Math.abs(frame.timeMs - timeMs) < Math.abs(nearest.timeMs - timeMs)
       ? frame
+      : nearest;
+  }, null);
+}
+
+function findNearestRecordingPitchPoint(timeMs) {
+  const pitchPoints = getRecordingSyncedPitchHistory().filter((point) => point.pitch);
+  if (!pitchPoints.length) {
+    return null;
+  }
+  return pitchPoints.reduce((nearest, point) => {
+    if (!nearest) {
+      return point;
+    }
+    return Math.abs(point.recordingTimeMs - timeMs) < Math.abs(nearest.recordingTimeMs - timeMs)
+      ? point
       : nearest;
   }, null);
 }
@@ -544,6 +570,10 @@ function selectRecordingTime(timeMs, shouldPlay = false) {
   }
   drawRecordingTimeline();
   drawWaveformPreview(frame);
+  if (!offlineMode && recordingTimelineFrames.length) {
+    updatePitchInspector(findNearestRecordingPitchPoint(recordingSelectedTimeMs));
+    drawPitchHistory();
+  }
   if (shouldPlay) {
     startRecordingPlayback(recordingSelectedTimeMs);
   }
@@ -601,14 +631,7 @@ function updateRecordingPlaybackProgress() {
     return;
   }
   const timeMs = recordingPlaybackAudio.currentTime * 1000;
-  recordingSelectedTimeMs = Math.min(getRecordingDurationMs(), timeMs);
-  const frame = findNearestRecordingFrame(recordingSelectedTimeMs);
-  if (waveformTimeValue) {
-    const pitchText = frame?.pitch ? ` · ${Math.round(frame.pitch)} Hz` : '';
-    waveformTimeValue.textContent = `${formatTimeSeconds(recordingSelectedTimeMs)}${pitchText}`;
-  }
-  drawRecordingTimeline();
-  drawWaveformPreview(frame);
+  selectRecordingTime(timeMs, false);
   recordingPlaybackRaf = requestAnimationFrame(updateRecordingPlaybackProgress);
 }
 
@@ -708,6 +731,9 @@ function resetPitchScoreDisplay() {
 function formatPitchPointTime(point) {
   if (!point) {
     return '--';
+  }
+  if (Number.isFinite(point.recordingTimeMs)) {
+    return formatTimeSeconds(point.recordingTimeMs);
   }
   if (offlineMode || sessionStartTime === 0) {
     return formatTimeSeconds(point.time);
@@ -2083,7 +2109,11 @@ function findNearestPitchPointByCanvasX(canvasX) {
 }
 
 function drawPitchHistory() {
-  if (pitchHistory.length < 2) {
+  const recordingSyncedHistory = getRecordingSyncedPitchHistory();
+  const useRecordingTimeline = !offlineMode && recordingSyncedHistory.length >= 2;
+  const sourceHistory = useRecordingTimeline ? recordingSyncedHistory : pitchHistory;
+
+  if (sourceHistory.length < 2) {
     pitchRenderState = null;
     if (pitchScaleMode === 'fixed') {
       drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
@@ -2123,18 +2153,21 @@ function drawPitchHistory() {
     return;
   }
 
-  let visibleHistory = pitchHistory;
+  let visibleHistory = sourceHistory;
   let minTime = 0;
   let durationMs = 0;
 
-  if (offlineMode) {
-    minTime = pitchHistory[0].time;
-    const maxTime = pitchHistory[pitchHistory.length - 1].time;
+  if (useRecordingTimeline) {
+    minTime = 0;
+    durationMs = getRecordingDurationMs();
+  } else if (offlineMode) {
+    minTime = sourceHistory[0].time;
+    const maxTime = sourceHistory[sourceHistory.length - 1].time;
     durationMs = Math.max(maxTime - minTime, 1);
   } else {
     const now = performance.now();
     minTime = now - maxHistorySeconds * 1000;
-    visibleHistory = pitchHistory.filter((point) => point.time >= minTime);
+    visibleHistory = sourceHistory.filter((point) => point.time >= minTime);
     pitchHistory = visibleHistory;
     durationMs = maxHistorySeconds * 1000;
   }
@@ -2176,6 +2209,7 @@ function drawPitchHistory() {
     padding,
     logMin,
     logRange,
+    useRecordingTimeline,
   };
 
   if (targetPitchEnabled) {
@@ -3647,6 +3681,16 @@ canvas.addEventListener('click', (event) => {
   const canvasX = ((event.clientX - rect.left) / rect.width) * canvas.width;
   const point = findNearestPitchPointByCanvasX(canvasX);
   updatePitchInspector(point);
+  if (point && pitchRenderState.useRecordingTimeline && Number.isFinite(point.recordingTimeMs)) {
+    recordingSelectedTimeMs = Math.max(0, Math.min(getRecordingDurationMs(), point.recordingTimeMs));
+    const frame = findNearestRecordingFrame(recordingSelectedTimeMs);
+    if (waveformTimeValue) {
+      const pitchText = frame?.pitch ? ` · ${Math.round(frame.pitch)} Hz` : '';
+      waveformTimeValue.textContent = `${formatTimeSeconds(recordingSelectedTimeMs)}${pitchText}`;
+    }
+    drawRecordingTimeline();
+    drawWaveformPreview(frame);
+  }
   drawPitchHistory();
 });
 volumeMeterToggle?.addEventListener('change', updateMeterVisibility);
