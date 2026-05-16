@@ -50,6 +50,13 @@ const breathReportLeakNoise = document.getElementById('breathReportLeakNoise');
 const breathReportVoiceType = document.getElementById('breathReportVoiceType');
 const breathReportBreaks = document.getElementById('breathReportBreaks');
 const breathReportFeedback = document.getElementById('breathReportFeedback');
+const pitchScoreDashboard = document.getElementById('pitchScoreDashboard');
+const pitchScoreValue = document.getElementById('pitchScoreValue');
+const pitchScoreCaption = document.getElementById('pitchScoreCaption');
+const pitchScoreTargetValue = document.getElementById('pitchScoreTargetValue');
+const pitchScoreCentsValue = document.getElementById('pitchScoreCentsValue');
+const pitchScoreStabilityValue = document.getElementById('pitchScoreStabilityValue');
+const pitchScoreHitRateValue = document.getElementById('pitchScoreHitRateValue');
 const chartLegendLow = document.getElementById('chartLegendLow');
 const chartLegendHigh = document.getElementById('chartLegendHigh');
 const accompanimentInput = document.getElementById('accompanimentInput');
@@ -76,6 +83,7 @@ const modeLauncher = document.getElementById('modeLauncher');
 const openPitchModeButton = document.getElementById('openPitchModeButton');
 const openSpectrogramModeButton = document.getElementById('openSpectrogramModeButton');
 const openBreathModeButton = document.getElementById('openBreathModeButton');
+const openPitchScoreModeButton = document.getElementById('openPitchScoreModeButton');
 const backToHomeButton = document.getElementById('backToHomeButton');
 const songSearchForm = document.getElementById('songSearchForm');
 const songSearchInput = document.getElementById('songSearchInput');
@@ -146,6 +154,10 @@ const pitchTransitionConfirmFrames = 2;
 const pitchHoldFrames = 6;
 const pitchOnsetFrames = 1;
 const pitchReleaseFrames = 10;
+const pitchScoreWindowSeconds = 6;
+const pitchScoreHitToleranceCents = 35;
+const pitchScoreGoodToleranceCents = 20;
+const pitchScoreMaxUsefulCents = 120;
 const formantUpdateIntervalMs = 150;
 const formantWindowSize = 5;
 const formantTauMs = 450;
@@ -219,6 +231,7 @@ let breathCalibration = {
   score: 0,
 };
 let breathCalibrationInProgress = false;
+let pitchScoreLastTone = 'neutral';
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -274,6 +287,135 @@ function setPitchAccuracyResult(text, tone = 'neutral') {
   }
 }
 
+function frequencyToCentsError(frequency, targetFrequency) {
+  if (!frequency || !targetFrequency || frequency <= 0 || targetFrequency <= 0) {
+    return null;
+  }
+  return 1200 * Math.log2(frequency / targetFrequency);
+}
+
+function formatSignedCents(cents) {
+  if (!Number.isFinite(cents)) {
+    return '-- cents';
+  }
+  const sign = cents > 0 ? '+' : '';
+  return `${sign}${cents.toFixed(1)} cents`;
+}
+
+function getPitchScoreWindow(now = performance.now()) {
+  const minTime = now - pitchScoreWindowSeconds * 1000;
+  return pitchHistory
+    .filter((point) => point.time >= minTime && point.pitch)
+    .map((point) => ({
+      ...point,
+      cents: frequencyToCentsError(point.pitch, targetPitchHz),
+    }))
+    .filter((point) => Number.isFinite(point.cents));
+}
+
+function computePitchScoreStats(now = performance.now()) {
+  const windowPoints = getPitchScoreWindow(now);
+  if (!windowPoints.length) {
+    return null;
+  }
+
+  const absErrors = windowPoints.map((point) => Math.abs(point.cents));
+  const averageAbsError =
+    absErrors.reduce((sum, value) => sum + value, 0) / absErrors.length;
+  const meanCents =
+    windowPoints.reduce((sum, point) => sum + point.cents, 0) / windowPoints.length;
+  const variance =
+    windowPoints.reduce((sum, point) => sum + (point.cents - meanCents) ** 2, 0) /
+    windowPoints.length;
+  const centsStdDev = Math.sqrt(variance);
+  const score = Math.round(
+    Math.max(0, 100 - (averageAbsError / pitchScoreMaxUsefulCents) * 100)
+  );
+  const stability = Math.round(
+    Math.max(0, 100 - (centsStdDev / pitchScoreMaxUsefulCents) * 100)
+  );
+  const hitRate = Math.round(
+    (windowPoints.filter((point) => Math.abs(point.cents) <= pitchScoreHitToleranceCents)
+      .length /
+      windowPoints.length) *
+      100
+  );
+
+  return {
+    score,
+    stability,
+    hitRate,
+    currentCents: frequencyToCentsError(currentPitch, targetPitchHz),
+    averageAbsError,
+  };
+}
+
+function setPitchScoreTone(tone) {
+  if (!pitchScoreDashboard || pitchScoreLastTone === tone) {
+    return;
+  }
+  pitchScoreDashboard.dataset.tone = tone;
+  pitchScoreLastTone = tone;
+}
+
+function resetPitchScoreDisplay() {
+  if (pitchScoreValue) {
+    pitchScoreValue.textContent = '--';
+  }
+  if (pitchScoreCaption) {
+    pitchScoreCaption.textContent = '开始检测后，对准目标音持续发声。';
+  }
+  if (pitchScoreTargetValue) {
+    pitchScoreTargetValue.textContent = `${Math.round(targetPitchHz)} Hz`;
+  }
+  if (pitchScoreCentsValue) {
+    pitchScoreCentsValue.textContent = '-- cents';
+  }
+  if (pitchScoreStabilityValue) {
+    pitchScoreStabilityValue.textContent = '--%';
+  }
+  if (pitchScoreHitRateValue) {
+    pitchScoreHitRateValue.textContent = '--%';
+  }
+  setPitchScoreTone('neutral');
+}
+
+function updatePitchScoreDisplay(now = performance.now()) {
+  if (trainingMode !== 'score') {
+    return;
+  }
+
+  if (pitchScoreTargetValue) {
+    pitchScoreTargetValue.textContent = `${Math.round(targetPitchHz)} Hz`;
+  }
+
+  const stats = computePitchScoreStats(now);
+  if (!stats || !Number.isFinite(stats.currentCents)) {
+    resetPitchScoreDisplay();
+    return;
+  }
+
+  const absCurrentCents = Math.abs(stats.currentCents);
+  const isGood = absCurrentCents <= pitchScoreGoodToleranceCents;
+  const isClose = absCurrentCents <= pitchScoreHitToleranceCents;
+  const direction =
+    absCurrentCents <= pitchScoreGoodToleranceCents
+      ? '保持'
+      : stats.currentCents > 0
+        ? '略低一点'
+        : '略高一点';
+  const tone = isGood ? 'good' : isClose ? 'close' : 'warn';
+
+  pitchScoreValue.textContent = `${stats.score}%`;
+  pitchScoreCaption.textContent = `${direction}，最近 ${pitchScoreWindowSeconds} 秒平均偏差 ${stats.averageAbsError.toFixed(
+    1
+  )} cents。`;
+  pitchScoreCentsValue.textContent = formatSignedCents(stats.currentCents);
+  pitchScoreStabilityValue.textContent = `${stats.stability}%`;
+  pitchScoreHitRateValue.textContent = `${stats.hitRate}%`;
+  setPitchScoreTone(tone);
+}
+
 
 function hideSidebarPanel() {
   sidebar.classList.remove('open');
@@ -288,8 +430,12 @@ function setReadoutMode(mode) {
   const breathControls = document.querySelectorAll('.breath-control');
   const readout = document.querySelector('.readout');
   const isBreath = mode === 'breath';
+  const isScore = mode === 'score';
   if (breathDashboard) {
     breathDashboard.hidden = !isBreath;
+  }
+  if (pitchScoreDashboard) {
+    pitchScoreDashboard.hidden = !isScore;
   }
   if (readout) {
     readout.classList.toggle('readout-breath-compact', isBreath);
@@ -318,6 +464,9 @@ function setTrainingCopy(mode) {
   if (mode === 'breath') {
     appTitle.textContent = '出气量测量';
     appDescription.textContent = '允许麦克风权限后，对准麦克风平稳吹气，软件会估算相对出气强度、稳定度和持续时间。';
+  } else if (mode === 'score') {
+    appTitle.textContent = '实时音准评分';
+    appDescription.textContent = '设置目标音高后开始检测，持续发声即可看到偏差、稳定度和命中率。';
   } else if (mode === 'spectrogram') {
     appTitle.textContent = '实时频谱图';
     appDescription.textContent = '允许麦克风权限后，可以观察声音在不同频率上的能量变化。';
@@ -343,6 +492,15 @@ function showTrainingView(mode = 'pitch') {
     displayModeSelect.value = 'breath';
     resetBreathMeter();
     drawBreathHistory();
+  } else if (mode === 'score') {
+    displayMode = 'pitch';
+    displayModeSelect.value = 'pitch';
+    targetPitchEnabled = true;
+    if (targetPitchToggle) {
+      targetPitchToggle.checked = true;
+    }
+    resetPitchScoreDisplay();
+    drawPitchHistory();
   } else {
     displayMode = 'pitch';
     displayModeSelect.value = 'pitch';
@@ -2928,6 +3086,7 @@ function update() {
       pitchValueEl.textContent = '-- Hz';
       noteValueEl.textContent = '--';
     }
+    updatePitchScoreDisplay(now);
     updateExportButtons();
   }
 
@@ -3061,6 +3220,7 @@ displayModeSelect.addEventListener('change', (event) => {
     resetBreathMeter();
     drawBreathHistory();
   } else {
+    resetPitchScoreDisplay();
     drawPitchHistory();
   }
 });
@@ -3084,6 +3244,7 @@ targetPitchInput?.addEventListener('input', (event) => {
   }
   targetPitchHz = Math.max(50, Math.min(1000, value));
   drawPitchHistory();
+  updatePitchScoreDisplay();
 });
 meterToggle.addEventListener('change', (event) => {
   const isVisible = event.target.checked;
@@ -3177,6 +3338,9 @@ openSpectrogramModeButton?.addEventListener('click', () => {
 });
 openBreathModeButton?.addEventListener('click', () => {
   showTrainingView('breath');
+});
+openPitchScoreModeButton?.addEventListener('click', () => {
+  showTrainingView('score');
 });
 backToHomeButton?.addEventListener('click', () => {
   showLauncherView();

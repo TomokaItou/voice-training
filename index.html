@@ -28,9 +28,9 @@
             <span class="mode-title">音域训练模式</span>
             <span class="mode-desc">暂无功能</span>
           </button>
-          <button class="mode-button mode-button-disabled" disabled>
+          <button id="openPitchScoreModeButton" class="mode-button score-mode">
             <span class="mode-title">音准评分</span>
-            <span class="mode-desc">暂无功能</span>
+            <span class="mode-desc">对照目标音实时显示偏差、稳定度和命中率</span>
           </button>
         </div>
         <div class="song-search-card">
@@ -152,6 +152,32 @@
         <div class="breath-readout" hidden>
           <span class="label">环境校准</span>
           <span class="value" id="breathCalibrationValue">未校准</span>
+        </div>
+      </section>
+
+      <section class="pitch-score-dashboard" id="pitchScoreDashboard" hidden>
+        <div class="pitch-score-main">
+          <span class="label">实时音准</span>
+          <span class="pitch-score-value" id="pitchScoreValue">--</span>
+          <span class="pitch-score-caption" id="pitchScoreCaption">开始检测后，对准目标音持续发声。</span>
+        </div>
+        <div class="pitch-score-grid">
+          <div>
+            <span class="label">目标音</span>
+            <span class="value" id="pitchScoreTargetValue">300 Hz</span>
+          </div>
+          <div>
+            <span class="label">当前偏差</span>
+            <span class="value" id="pitchScoreCentsValue">-- cents</span>
+          </div>
+          <div>
+            <span class="label">稳定度</span>
+            <span class="value" id="pitchScoreStabilityValue">--%</span>
+          </div>
+          <div>
+            <span class="label">命中率</span>
+            <span class="value" id="pitchScoreHitRateValue">--%</span>
+          </div>
         </div>
       </section>
 
