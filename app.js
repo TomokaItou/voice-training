@@ -159,6 +159,8 @@ const pitchMedianWindowSize = 5;
 const pitchMaxJumpHz = 30;
 const pitchMaxJumpCents = 50;
 const pitchEmaAlpha = 0.25;
+const pitchFastTransitionCents = 250;
+const pitchFastTransitionConfirmFrames = 1;
 const pitchTransitionConfirmFrames = 2;
 const pitchHoldFrames = 6;
 const pitchOnsetFrames = 1;
@@ -2676,6 +2678,13 @@ function getMaxJumpThresholdHz(reference) {
   return Math.min(pitchMaxJumpHz, centsJump);
 }
 
+function getPitchDistanceCents(a, b) {
+  if (!a || !b) {
+    return 0;
+  }
+  return Math.abs(1200 * Math.log2(a / b));
+}
+
 function selectPitchCandidate(pitch, reference) {
   if (!pitch) return null;
   if (!reference) return pitch;
@@ -3376,7 +3385,13 @@ function update() {
       } else {
         voicedStable = true;
         const displayPitch = median(recentPitchWindow);
-        const candidate = selectPitchCandidate(displayPitch, lastStablePitch);
+        const rawCandidate = selectPitchCandidate(pitch, lastStablePitch);
+        const medianCandidate = selectPitchCandidate(displayPitch, lastStablePitch);
+        const isFastTransition =
+          lastStablePitch &&
+          rawCandidate &&
+          getPitchDistanceCents(rawCandidate, lastStablePitch) >= pitchFastTransitionCents;
+        const candidate = isFastTransition ? rawCandidate : medianCandidate;
         const maxJump = getMaxJumpThresholdHz(lastStablePitch);
 
         if (!candidate) {
@@ -3398,11 +3413,17 @@ function update() {
             pendingPitchFrames = 1;
           }
 
-          if (pendingPitchFrames >= pitchTransitionConfirmFrames) {
+          const requiredTransitionFrames = isFastTransition
+            ? pitchFastTransitionConfirmFrames
+            : pitchTransitionConfirmFrames;
+
+          if (pendingPitchFrames >= requiredTransitionFrames) {
             lastStablePitch = pendingPitch;
             pendingPitch = null;
             pendingPitchFrames = 0;
-            smoothedPitch = applyPitchEma(smoothedPitch, lastStablePitch);
+            smoothedPitch = isFastTransition
+              ? lastStablePitch
+              : applyPitchEma(smoothedPitch, lastStablePitch);
             currentPitch = smoothedPitch;
             pitchHistory.push({ time: now, pitch: smoothedPitch });
           } else {
