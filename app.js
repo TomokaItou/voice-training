@@ -72,6 +72,9 @@ const tiltMeter = document.getElementById('tiltMeter');
 const tiltMeterBar = document.getElementById('tiltMeterBar');
 const canvas = document.getElementById('pitchCanvas');
 const ctx = canvas.getContext('2d');
+const pitchInspectorPanel = document.getElementById('pitchInspectorPanel');
+const selectedPitchValue = document.getElementById('selectedPitchValue');
+const selectedPitchHint = document.getElementById('selectedPitchHint');
 const recordingTimelinePanel = document.getElementById('recordingTimelinePanel');
 const recordingTimelineCanvas = document.getElementById('recordingTimelineCanvas');
 const recordingTimelineCtx = recordingTimelineCanvas?.getContext('2d');
@@ -191,6 +194,8 @@ let pitchHoldCounter = 0;
 let voicedStable = false;
 let voicedFrames = 0;
 let voicedLostFrames = 0;
+let selectedPitchPoint = null;
+let pitchRenderState = null;
 let adaptiveNoiseFloorRms = pitchMinEnergyThreshold;
 let adaptiveEnergyThreshold = pitchMinEnergyThreshold;
 let sessionStartTime = 0;
@@ -678,6 +683,37 @@ function resetPitchScoreDisplay() {
   setPitchScoreTone('neutral');
 }
 
+function formatPitchPointTime(point) {
+  if (!point) {
+    return '--';
+  }
+  if (offlineMode || sessionStartTime === 0) {
+    return formatTimeSeconds(point.time);
+  }
+  return formatTimeSeconds(Math.max(0, point.time - sessionStartTime));
+}
+
+function updatePitchInspector(point) {
+  selectedPitchPoint = point;
+  if (!pitchInspectorPanel || !selectedPitchValue || !selectedPitchHint) {
+    return;
+  }
+  if (!point?.pitch) {
+    pitchInspectorPanel.hidden = true;
+    selectedPitchValue.textContent = '--';
+    selectedPitchHint.textContent = '点击音高曲线查看对应时间点';
+    return;
+  }
+  pitchInspectorPanel.hidden = false;
+  selectedPitchValue.textContent = `${point.pitch.toFixed(1)} Hz · ${frequencyToNote(point.pitch)}`;
+  selectedPitchHint.textContent = `时间 ${formatPitchPointTime(point)}`;
+}
+
+function clearSelectedPitchPoint() {
+  updatePitchInspector(null);
+  drawPitchHistory();
+}
+
 function updatePitchScoreDisplay(now = performance.now()) {
   if (trainingMode !== 'score') {
     return;
@@ -729,6 +765,9 @@ function setReadoutMode(mode) {
   const readout = document.querySelector('.readout');
   const isBreath = mode === 'breath';
   const isScore = mode === 'score';
+  if (mode !== 'pitch' && mode !== 'score') {
+    updatePitchInspector(null);
+  }
   if (breathDashboard) {
     breathDashboard.hidden = !isBreath;
   }
@@ -1941,8 +1980,89 @@ function drawTargetPitchLine(targetPitch, minPitch, maxPitch, pitchRange, paddin
   ctx.restore();
 }
 
+function getPitchPointCoordinates(point, state) {
+  if (!point?.pitch || !state) {
+    return null;
+  }
+  const { minTime, durationMs, minPitch, maxPitch, pitchRange, padding, logMin, logRange } = state;
+  if (point.time < minTime || point.time > minTime + durationMs) {
+    return null;
+  }
+  if (point.pitch < minPitch || point.pitch > maxPitch) {
+    return null;
+  }
+  const x = ((point.time - minTime) / durationMs) * canvas.width;
+  const normalized =
+    pitchScaleMode === 'log'
+      ? (Math.log(point.pitch) - logMin) / logRange
+      : (point.pitch - minPitch) / pitchRange;
+  const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+  return { x, y };
+}
+
+function drawSelectedPitchMarker(state) {
+  if (!selectedPitchPoint?.pitch || !state) {
+    return;
+  }
+  const coordinates = getPitchPointCoordinates(selectedPitchPoint, state);
+  if (!coordinates) {
+    return;
+  }
+  const { x, y } = coordinates;
+  ctx.save();
+  ctx.strokeStyle = '#7c3aed';
+  ctx.fillStyle = '#7c3aed';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath();
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x, canvas.height);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  const label = `${selectedPitchPoint.pitch.toFixed(1)} Hz`;
+  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'middle';
+  const labelWidth = ctx.measureText(label).width + 16;
+  const labelX = Math.min(Math.max(x + 8, 6), canvas.width - labelWidth - 6);
+  const labelY = Math.min(Math.max(y - 18, 18), canvas.height - 18);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+  ctx.strokeStyle = '#7c3aed';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(labelX, labelY - 12, labelWidth, 24, 6);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#4c1d95';
+  ctx.fillText(label, labelX + 8, labelY);
+  ctx.restore();
+}
+
+function findNearestPitchPointByCanvasX(canvasX) {
+  if (!pitchRenderState?.visibleHistory?.length) {
+    return null;
+  }
+  const { visibleHistory, minTime, durationMs } = pitchRenderState;
+  const targetTime = minTime + (canvasX / canvas.width) * durationMs;
+  return visibleHistory.reduce((nearest, point) => {
+    if (!point.pitch) {
+      return nearest;
+    }
+    if (!nearest) {
+      return point;
+    }
+    return Math.abs(point.time - targetTime) < Math.abs(nearest.time - targetTime)
+      ? point
+      : nearest;
+  }, null);
+}
+
 function drawPitchHistory() {
   if (pitchHistory.length < 2) {
+    pitchRenderState = null;
     if (pitchScaleMode === 'fixed') {
       drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
       if (targetPitchEnabled) {
@@ -2009,6 +2129,7 @@ function drawPitchHistory() {
     maxPitch = pitchScaleLogMaxHz;
   } else {
     if (pitches.length === 0) {
+      pitchRenderState = null;
       drawAxes();
       return;
     }
@@ -2023,6 +2144,17 @@ function drawPitchHistory() {
 
   const logMin = Math.log(minPitch);
   const logRange = Math.max(Math.log(maxPitch) - logMin, 0.0001);
+  pitchRenderState = {
+    visibleHistory,
+    minTime,
+    durationMs,
+    minPitch,
+    maxPitch,
+    pitchRange,
+    padding,
+    logMin,
+    logRange,
+  };
 
   if (targetPitchEnabled) {
     drawTargetPitchLine(targetPitchHz, minPitch, maxPitch, pitchRange, padding, logMin, logRange);
@@ -2075,6 +2207,8 @@ function drawPitchHistory() {
   if (formantToggle.checked) {
     drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange, padding);
   }
+
+  drawSelectedPitchMarker(pitchRenderState);
 
   if (!offlineMode && currentPitch) {
     if (currentPitch < minPitch || currentPitch > maxPitch) {
@@ -2734,6 +2868,7 @@ function resetPitchStabilizer() {
   lastDisplayUpdate = 0;
   pitchValueEl.textContent = '-- Hz';
   noteValueEl.textContent = '--';
+  clearSelectedPitchPoint();
 }
 
 function formatTimestamp(date) {
@@ -3450,6 +3585,16 @@ targetPitchInput?.addEventListener('input', (event) => {
   targetPitchHz = Math.max(50, Math.min(1000, value));
   drawPitchHistory();
   updatePitchScoreDisplay();
+});
+canvas.addEventListener('click', (event) => {
+  if (displayMode !== 'pitch' || !pitchRenderState) {
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const canvasX = ((event.clientX - rect.left) / rect.width) * canvas.width;
+  const point = findNearestPitchPointByCanvasX(canvasX);
+  updatePitchInspector(point);
+  drawPitchHistory();
 });
 meterToggle.addEventListener('change', (event) => {
   const isVisible = event.target.checked;

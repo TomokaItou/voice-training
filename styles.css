@@ -716,6 +716,35 @@ canvas {
   margin-top: 8px;
 }
 
+.pitch-inspector {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.pitch-inspector .label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pitch-inspector .value {
+  font-size: 20px;
+  font-weight: 780;
+  color: #4c1d95;
+}
+
+.pitch-inspector .hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .recording-timeline {
   margin-top: 14px;
   border: 1px solid var(--border);
@@ -978,6 +1007,10 @@ input[type='range'] {
   .timeline-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .pitch-inspector {
+    grid-template-columns: 1fr;
   }
 
   .meter-column,
