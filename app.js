@@ -65,9 +65,12 @@ const accompanimentVolume = document.getElementById('accompanimentVolume');
 const accompanimentStatus = document.getElementById('accompanimentStatus');
 const pitchAccuracyButton = document.getElementById('pitchAccuracyButton');
 const pitchAccuracyResult = document.getElementById('pitchAccuracyResult');
-const meterToggle = document.getElementById('meterToggle');
+const volumeMeterToggle = document.getElementById('volumeMeterToggle');
+const tiltMeterToggle = document.getElementById('tiltMeterToggle');
+const volumeMeterColumn = document.getElementById('volumeMeterColumn');
 const volumeMeter = document.getElementById('volumeMeter');
 const volumeMeterBar = document.getElementById('volumeMeterBar');
+const tiltMeterColumn = document.getElementById('tiltMeterColumn');
 const tiltMeter = document.getElementById('tiltMeter');
 const tiltMeterBar = document.getElementById('tiltMeterBar');
 const canvas = document.getElementById('pitchCanvas');
@@ -258,10 +261,26 @@ let pitchScoreLastTone = 'neutral';
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
+function updateMeterVisibility() {
+  const chart = canvas?.closest('.chart');
+  const showVolume = volumeMeterToggle?.checked ?? true;
+  const showTilt = tiltMeterToggle?.checked ?? true;
+
+  if (volumeMeterColumn) {
+    volumeMeterColumn.hidden = !showVolume;
+  }
+  if (tiltMeterColumn) {
+    tiltMeterColumn.hidden = !showTilt;
+  }
+
+  chart?.classList.toggle('volume-meter-hidden', !showVolume);
+  chart?.classList.toggle('tilt-meter-hidden', !showTilt);
+}
+
 updateCanvasScale(canvasScale);
 initWindowResize();
 showLauncherView();
-volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !meterToggle?.checked);
+updateMeterVisibility();
 updateRecordingButtons();
 updateAccompanimentButtons(false);
 updatePitchAccuracyButton();
@@ -3630,11 +3649,8 @@ canvas.addEventListener('click', (event) => {
   updatePitchInspector(point);
   drawPitchHistory();
 });
-meterToggle.addEventListener('change', (event) => {
-  const isVisible = event.target.checked;
-  volumeMeter?.classList.toggle('meter-hidden', !isVisible);
-  volumeMeter?.closest('.chart')?.classList.toggle('meter-hidden', !isVisible);
-});
+volumeMeterToggle?.addEventListener('change', updateMeterVisibility);
+tiltMeterToggle?.addEventListener('change', updateMeterVisibility);
 breathCalibrateButton?.addEventListener('click', () => {
   calibrateBreathEnvironment();
 });

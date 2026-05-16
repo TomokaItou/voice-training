@@ -647,6 +647,18 @@ button.secondary:not(:disabled):hover {
   align-items: stretch;
 }
 
+.chart.volume-meter-hidden {
+  grid-template-columns: 1fr auto;
+}
+
+.chart.tilt-meter-hidden {
+  grid-template-columns: auto 1fr;
+}
+
+.chart.volume-meter-hidden.tilt-meter-hidden {
+  grid-template-columns: 1fr;
+}
+
 canvas {
   width: 100%;
   height: auto;
@@ -704,7 +716,7 @@ canvas {
   pointer-events: none;
 }
 
-.meter-hidden .meter-column {
+.meter-column[hidden] {
   display: none;
 }
 
