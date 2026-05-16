@@ -2,8 +2,6 @@ const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
 const recordButton = document.getElementById('recordButton');
 const stopRecordButton = document.getElementById('stopRecordButton');
-const exportCsvButton = document.getElementById('exportCsvButton');
-const exportPngButton = document.getElementById('exportPngButton');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebar = document.getElementById('sidebar');
 const formantToggle = document.getElementById('formantToggle');
@@ -2714,13 +2712,6 @@ function hasRecentPitchData() {
   return pitchHistory.some((point) => point.time >= minTime && point.pitch);
 }
 
-function updateExportButtons() {
-  const hasData = displayMode === 'breath' ? hasRecentBreathData() : hasRecentPitchData();
-  const hasSession = Boolean(audioContext) || offlineMode;
-  exportCsvButton.disabled = !hasSession || !hasData;
-  exportPngButton.disabled = !hasSession || !hasData;
-}
-
 function updateRecordingButtons() {
   const hasRecording = Boolean(lastRecordingBlob);
   analyzeRecordingButton.disabled = !hasRecording || offlineAnalysisInProgress;
@@ -2769,84 +2760,6 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-function exportCsv() {
-  if (displayMode === 'breath') {
-    if (!breathHistory.length) {
-      return;
-    }
-    const now = performance.now();
-    const minTime = now - breathHistoryWindowSeconds * 1000;
-    const rows = breathHistory
-      .filter((point) => point.time >= minTime)
-      .map((point) => {
-        const timestampMs = Math.max(0, Math.round(point.time - sessionStartTime));
-        const flowPercent = Math.round(point.flow * 100);
-        const effortPercent = Math.round((point.effort ?? 0) * 100);
-        const highFrequencyPercent = Math.round((point.highFrequency ?? 0) * 100);
-        const leakNoisePercent = Math.round((point.leakNoise ?? 0) * 100);
-        const voiceType = point.voiceType || '';
-        const stabilityPercent = point.stability === null ? '' : point.stability;
-        const durationSeconds = point.durationSeconds.toFixed(1);
-        return [
-          timestampMs,
-          flowPercent,
-          effortPercent,
-          highFrequencyPercent,
-          leakNoisePercent,
-          voiceType,
-          stabilityPercent,
-          durationSeconds,
-        ].join(',');
-      });
-
-    if (!rows.length) {
-      return;
-    }
-
-    const header =
-      'timestampMs,breathScorePercent,effortPercent,highFrequencyBreathPercent,leakNoisePercent,voiceType,stabilityPercent,durationSeconds';
-    const csvContent = [header, ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const filename = `voice-training_breath_${formatTimestamp(new Date())}.csv`;
-    downloadBlob(blob, filename);
-    return;
-  }
-
-  if (!pitchHistory.length) {
-    return;
-  }
-  const now = performance.now();
-  const minTime = now - maxHistorySeconds * 1000;
-  const rows = pitchHistory
-    .filter((point) => point.time >= minTime && point.pitch)
-    .map((point) => {
-      const timestampMs = Math.max(0, Math.round(point.time - sessionStartTime));
-      const frequencyHz = Number(point.pitch.toFixed(1));
-      const note = frequencyToNote(point.pitch);
-      return [timestampMs, frequencyHz, note].join(',');
-    });
-
-  if (!rows.length) {
-    return;
-  }
-
-  const header = 'timestampMs,frequencyHz,note';
-  const csvContent = [header, ...rows].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-  const filename = `voice-training_${formatTimestamp(new Date())}.csv`;
-  downloadBlob(blob, filename);
-}
-
-function exportPng() {
-  canvas.toBlob((blob) => {
-    if (!blob) {
-      return;
-    }
-    const filename = `voice-training_${formatTimestamp(new Date())}.png`;
-    downloadBlob(blob, filename);
-  });
-}
-
 function setOfflineMode(enabled) {
   offlineMode = enabled;
   clearFileButton.disabled = !offlineMode;
@@ -2866,7 +2779,6 @@ function setOfflineMode(enabled) {
     drawPitchHistory();
   }
   setDataSourceLabel(offlineMode ? '音频文件' : '实时麦克风');
-  updateExportButtons();
   updateRecordingButtons();
   updatePitchAccuracyButton();
 }
@@ -3063,7 +2975,6 @@ async function analyzeAudioFile(file) {
 
   setAnalysisStatus('完成');
   offlineAnalysisInProgress = false;
-  updateExportButtons();
   drawPitchHistory();
 }
 
@@ -3226,7 +3137,6 @@ async function analyzeRecordingBlob(blob) {
 
   setAnalysisStatus('完成');
   offlineAnalysisInProgress = false;
-  updateExportButtons();
   drawPitchHistory();
 }
 
@@ -3279,7 +3189,6 @@ function update() {
       breathSessionHistory.push(breathPoint);
       drawBreathHistory();
       captureRecordingFrame(now, rms, pitchResult.pitch);
-      updateExportButtons();
       animationId = requestAnimationFrame(update);
       return;
     }
@@ -3389,7 +3298,6 @@ function update() {
     }
     captureRecordingFrame(now, rms, currentPitch);
     updatePitchScoreDisplay(now);
-    updateExportButtons();
   }
 
   if (formantToggle.checked) {
@@ -3453,7 +3361,6 @@ async function start() {
 
     startButton.disabled = true;
     stopButton.disabled = false;
-    updateExportButtons();
 
     update();
   } catch (error) {
@@ -3487,7 +3394,6 @@ function stop() {
   }
   startButton.disabled = false;
   stopButton.disabled = true;
-  updateExportButtons();
   resetFormants();
   if (shouldRenderBreathReport) {
     renderBreathReport();
@@ -3496,15 +3402,12 @@ function stop() {
 
 startButton.addEventListener('click', start);
 stopButton.addEventListener('click', stop);
-exportCsvButton.addEventListener('click', exportCsv);
-exportPngButton.addEventListener('click', exportPng);
 pitchAlgorithmSelect.addEventListener('change', (event) => {
   pitchAlgorithm = event.target.value;
   resetPitchStabilizer();
   if (!offlineAnalysisInProgress) {
     pitchHistory = [];
     drawPitchHistory();
-    updateExportButtons();
   }
 });
 pitchScaleModeSelect.addEventListener('change', (event) => {
@@ -3705,7 +3608,6 @@ clearFileButton.addEventListener('click', () => {
   resetOfflineState();
   pitchHistory = [];
   drawPitchHistory();
-  updateExportButtons();
 });
 
 window.addEventListener('beforeunload', stop);
