@@ -74,6 +74,14 @@ const tiltMeter = document.getElementById('tiltMeter');
 const tiltMeterBar = document.getElementById('tiltMeterBar');
 const canvas = document.getElementById('pitchCanvas');
 const ctx = canvas.getContext('2d');
+const recordingTimelinePanel = document.getElementById('recordingTimelinePanel');
+const recordingTimelineCanvas = document.getElementById('recordingTimelineCanvas');
+const recordingTimelineCtx = recordingTimelineCanvas?.getContext('2d');
+const recordingTimelineStatus = document.getElementById('recordingTimelineStatus');
+const timelinePlayPauseButton = document.getElementById('timelinePlayPauseButton');
+const waveformPreviewCanvas = document.getElementById('waveformPreviewCanvas');
+const waveformPreviewCtx = waveformPreviewCanvas?.getContext('2d');
+const waveformTimeValue = document.getElementById('waveformTimeValue');
 const canvasScaleRange = document.getElementById('canvasScaleRange');
 const canvasScaleValue = document.getElementById('canvasScaleValue');
 const analyzeRecordingButton = document.getElementById('analyzeRecordingButton');
@@ -158,6 +166,8 @@ const pitchScoreWindowSeconds = 6;
 const pitchScoreHitToleranceCents = 35;
 const pitchScoreGoodToleranceCents = 20;
 const pitchScoreMaxUsefulCents = 120;
+const recordingWaveformSampleCount = 96;
+const recordingTimelineMinDurationMs = 1000;
 const formantUpdateIntervalMs = 150;
 const formantWindowSize = 5;
 const formantTauMs = 450;
@@ -207,6 +217,13 @@ let offlineAnalysisInProgress = false;
 let mediaRecorder = null;
 let recordedChunks = [];
 let lastRecordingBlob = null;
+let recordingStartTime = 0;
+let recordingTimelineFrames = [];
+let recordingTimelineDurationMs = 0;
+let recordingSelectedTimeMs = 0;
+let recordingPlaybackAudio = null;
+let recordingPlaybackUrl = null;
+let recordingPlaybackRaf = null;
 let accompanimentAudio = null;
 let accompanimentUrl = null;
 let accompanimentFile = null;
@@ -285,6 +302,289 @@ function setPitchAccuracyResult(text, tone = 'neutral') {
   } else {
     pitchAccuracyResult.style.color = '#1c1f2a';
   }
+}
+
+function setTimelineStatus(text) {
+  if (recordingTimelineStatus) {
+    recordingTimelineStatus.textContent = text;
+  }
+}
+
+function formatTimeSeconds(ms) {
+  return `${(Math.max(0, ms) / 1000).toFixed(2)}s`;
+}
+
+function downsampleWaveform(buffer, sampleCount = recordingWaveformSampleCount) {
+  const samples = [];
+  const bucketSize = Math.max(1, Math.floor(buffer.length / sampleCount));
+  for (let i = 0; i < sampleCount; i += 1) {
+    const startIndex = i * bucketSize;
+    const endIndex = Math.min(buffer.length, startIndex + bucketSize);
+    let peak = 0;
+    for (let j = startIndex; j < endIndex; j += 1) {
+      peak = Math.max(peak, Math.abs(buffer[j] || 0));
+    }
+    samples.push(Math.min(1, peak));
+  }
+  return samples;
+}
+
+function resetRecordingTimeline({ keepBlob = false } = {}) {
+  recordingStartTime = 0;
+  recordingTimelineFrames = [];
+  recordingTimelineDurationMs = 0;
+  recordingSelectedTimeMs = 0;
+  if (!keepBlob) {
+    lastRecordingBlob = null;
+  }
+  stopRecordingPlayback();
+  if (recordingTimelinePanel) {
+    recordingTimelinePanel.hidden = true;
+  }
+  if (timelinePlayPauseButton) {
+    timelinePlayPauseButton.disabled = true;
+    timelinePlayPauseButton.textContent = '播放';
+  }
+  if (waveformTimeValue) {
+    waveformTimeValue.textContent = '--';
+  }
+  drawRecordingTimeline();
+  drawWaveformPreview(null);
+}
+
+function captureRecordingFrame(now, rms, pitch) {
+  if (!mediaRecorder || mediaRecorder.state !== 'recording' || !recordingStartTime || !dataArray) {
+    return;
+  }
+  const timeMs = Math.max(0, now - recordingStartTime);
+  recordingTimelineDurationMs = Math.max(recordingTimelineDurationMs, timeMs);
+  recordingSelectedTimeMs = timeMs;
+  recordingTimelineFrames.push({
+    timeMs,
+    rms,
+    pitch: pitch || null,
+    samples: downsampleWaveform(dataArray),
+  });
+  drawRecordingTimeline();
+}
+
+function getRecordingDurationMs() {
+  return Math.max(
+    recordingTimelineDurationMs,
+    recordingTimelineFrames[recordingTimelineFrames.length - 1]?.timeMs || 0,
+    recordingTimelineMinDurationMs
+  );
+}
+
+function findNearestRecordingFrame(timeMs) {
+  if (!recordingTimelineFrames.length) {
+    return null;
+  }
+  return recordingTimelineFrames.reduce((nearest, frame) => {
+    if (!nearest) {
+      return frame;
+    }
+    return Math.abs(frame.timeMs - timeMs) < Math.abs(nearest.timeMs - timeMs)
+      ? frame
+      : nearest;
+  }, null);
+}
+
+function drawRecordingTimeline() {
+  if (!recordingTimelineCtx || !recordingTimelineCanvas) {
+    return;
+  }
+  const width = recordingTimelineCanvas.width;
+  const height = recordingTimelineCanvas.height;
+  const paddingX = 12;
+  const centerY = Math.round(height * 0.48);
+  const durationMs = getRecordingDurationMs();
+  const frames = recordingTimelineFrames;
+
+  recordingTimelineCtx.clearRect(0, 0, width, height);
+  recordingTimelineCtx.fillStyle = '#ffffff';
+  recordingTimelineCtx.fillRect(0, 0, width, height);
+
+  recordingTimelineCtx.strokeStyle = '#d9ded6';
+  recordingTimelineCtx.lineWidth = 1;
+  recordingTimelineCtx.beginPath();
+  recordingTimelineCtx.moveTo(paddingX, centerY);
+  recordingTimelineCtx.lineTo(width - paddingX, centerY);
+  recordingTimelineCtx.stroke();
+
+  if (frames.length) {
+    recordingTimelineCtx.strokeStyle = '#0f766e';
+    recordingTimelineCtx.lineWidth = 2;
+    recordingTimelineCtx.beginPath();
+    frames.forEach((frame) => {
+      const x = paddingX + (frame.timeMs / durationMs) * (width - paddingX * 2);
+      const amp = Math.max(2, Math.min(34, (frame.rms || 0) * 360));
+      recordingTimelineCtx.moveTo(x, centerY - amp);
+      recordingTimelineCtx.lineTo(x, centerY + amp);
+    });
+    recordingTimelineCtx.stroke();
+
+    recordingTimelineCtx.strokeStyle = 'rgba(15, 118, 110, 0.45)';
+    recordingTimelineCtx.lineWidth = 1.5;
+    recordingTimelineCtx.beginPath();
+    let hasPitchPath = false;
+    frames.forEach((frame) => {
+      if (!frame.pitch) {
+        hasPitchPath = false;
+        return;
+      }
+      const x = paddingX + (frame.timeMs / durationMs) * (width - paddingX * 2);
+      const y = height - 16 - Math.min(34, frame.pitch / 24);
+      if (!hasPitchPath) {
+        recordingTimelineCtx.moveTo(x, y);
+        hasPitchPath = true;
+      } else {
+        recordingTimelineCtx.lineTo(x, y);
+      }
+    });
+    recordingTimelineCtx.stroke();
+
+    recordingTimelineCtx.fillStyle = '#0b5d56';
+    frames.forEach((frame) => {
+      if (!frame.pitch) {
+        return;
+      }
+      const x = paddingX + (frame.timeMs / durationMs) * (width - paddingX * 2);
+      recordingTimelineCtx.beginPath();
+      recordingTimelineCtx.arc(x, centerY, 2.4, 0, Math.PI * 2);
+      recordingTimelineCtx.fill();
+    });
+  }
+
+  const selectedX = paddingX + (recordingSelectedTimeMs / durationMs) * (width - paddingX * 2);
+  recordingTimelineCtx.strokeStyle = '#ff7a59';
+  recordingTimelineCtx.lineWidth = 2;
+  recordingTimelineCtx.beginPath();
+  recordingTimelineCtx.moveTo(selectedX, 8);
+  recordingTimelineCtx.lineTo(selectedX, height - 8);
+  recordingTimelineCtx.stroke();
+
+  recordingTimelineCtx.fillStyle = '#697167';
+  recordingTimelineCtx.font = '12px sans-serif';
+  recordingTimelineCtx.textBaseline = 'top';
+  recordingTimelineCtx.fillText('0.00s', paddingX, height - 16);
+  recordingTimelineCtx.textAlign = 'right';
+  recordingTimelineCtx.fillText(formatTimeSeconds(durationMs), width - paddingX, height - 16);
+  recordingTimelineCtx.textAlign = 'left';
+}
+
+function drawWaveformPreview(frame) {
+  if (!waveformPreviewCtx || !waveformPreviewCanvas) {
+    return;
+  }
+  const width = waveformPreviewCanvas.width;
+  const height = waveformPreviewCanvas.height;
+  const centerY = height / 2;
+  waveformPreviewCtx.clearRect(0, 0, width, height);
+  waveformPreviewCtx.fillStyle = '#ffffff';
+  waveformPreviewCtx.fillRect(0, 0, width, height);
+  waveformPreviewCtx.strokeStyle = '#eef1ed';
+  waveformPreviewCtx.lineWidth = 1;
+  waveformPreviewCtx.beginPath();
+  waveformPreviewCtx.moveTo(0, centerY);
+  waveformPreviewCtx.lineTo(width, centerY);
+  waveformPreviewCtx.stroke();
+
+  if (!frame?.samples?.length) {
+    waveformPreviewCtx.fillStyle = '#8c9589';
+    waveformPreviewCtx.font = '13px sans-serif';
+    waveformPreviewCtx.textAlign = 'center';
+    waveformPreviewCtx.textBaseline = 'middle';
+    waveformPreviewCtx.fillText('点击录音时间轴查看当时波形', width / 2, centerY);
+    waveformPreviewCtx.textAlign = 'left';
+    return;
+  }
+
+  const barWidth = width / frame.samples.length;
+  waveformPreviewCtx.fillStyle = '#0f766e';
+  frame.samples.forEach((value, index) => {
+    const barHeight = Math.max(2, value * (height - 24));
+    const x = index * barWidth;
+    waveformPreviewCtx.fillRect(x, centerY - barHeight / 2, Math.max(1, barWidth - 1), barHeight);
+  });
+}
+
+function selectRecordingTime(timeMs, shouldPlay = false) {
+  const durationMs = getRecordingDurationMs();
+  recordingSelectedTimeMs = Math.max(0, Math.min(durationMs, timeMs));
+  const frame = findNearestRecordingFrame(recordingSelectedTimeMs);
+  if (waveformTimeValue) {
+    const pitchText = frame?.pitch ? ` · ${Math.round(frame.pitch)} Hz` : '';
+    waveformTimeValue.textContent = `${formatTimeSeconds(recordingSelectedTimeMs)}${pitchText}`;
+  }
+  drawRecordingTimeline();
+  drawWaveformPreview(frame);
+  if (shouldPlay) {
+    startRecordingPlayback(recordingSelectedTimeMs);
+  }
+}
+
+function prepareRecordingPlayback(blob) {
+  if (!blob) {
+    return;
+  }
+  if (recordingPlaybackUrl) {
+    URL.revokeObjectURL(recordingPlaybackUrl);
+  }
+  recordingPlaybackUrl = URL.createObjectURL(blob);
+  recordingPlaybackAudio = new Audio(recordingPlaybackUrl);
+  recordingPlaybackAudio.addEventListener('ended', () => {
+    stopRecordingPlayback();
+    selectRecordingTime(getRecordingDurationMs(), false);
+  });
+  if (timelinePlayPauseButton) {
+    timelinePlayPauseButton.disabled = false;
+  }
+}
+
+function startRecordingPlayback(timeMs = recordingSelectedTimeMs) {
+  if (!recordingPlaybackAudio) {
+    return;
+  }
+  recordingPlaybackAudio.currentTime = Math.max(0, timeMs / 1000);
+  recordingPlaybackAudio.play().then(() => {
+    if (timelinePlayPauseButton) {
+      timelinePlayPauseButton.textContent = '暂停';
+    }
+    updateRecordingPlaybackProgress();
+  }).catch((error) => {
+    console.error(error);
+    setTimelineStatus('无法播放录音，请重新录制后再试');
+  });
+}
+
+function stopRecordingPlayback(resetButton = true) {
+  if (recordingPlaybackRaf) {
+    cancelAnimationFrame(recordingPlaybackRaf);
+    recordingPlaybackRaf = null;
+  }
+  if (recordingPlaybackAudio && !recordingPlaybackAudio.paused) {
+    recordingPlaybackAudio.pause();
+  }
+  if (resetButton && timelinePlayPauseButton) {
+    timelinePlayPauseButton.textContent = '播放';
+  }
+}
+
+function updateRecordingPlaybackProgress() {
+  if (!recordingPlaybackAudio || recordingPlaybackAudio.paused) {
+    return;
+  }
+  const timeMs = recordingPlaybackAudio.currentTime * 1000;
+  recordingSelectedTimeMs = Math.min(getRecordingDurationMs(), timeMs);
+  const frame = findNearestRecordingFrame(recordingSelectedTimeMs);
+  if (waveformTimeValue) {
+    const pitchText = frame?.pitch ? ` · ${Math.round(frame.pitch)} Hz` : '';
+    waveformTimeValue.textContent = `${formatTimeSeconds(recordingSelectedTimeMs)}${pitchText}`;
+  }
+  drawRecordingTimeline();
+  drawWaveformPreview(frame);
+  recordingPlaybackRaf = requestAnimationFrame(updateRecordingPlaybackProgress);
 }
 
 function frequencyToCentsError(frequency, targetFrequency) {
@@ -2978,6 +3278,7 @@ function update() {
       breathHistory.push(breathPoint);
       breathSessionHistory.push(breathPoint);
       drawBreathHistory();
+      captureRecordingFrame(now, rms, pitchResult.pitch);
       updateExportButtons();
       animationId = requestAnimationFrame(update);
       return;
@@ -3086,6 +3387,7 @@ function update() {
       pitchValueEl.textContent = '-- Hz';
       noteValueEl.textContent = '--';
     }
+    captureRecordingFrame(now, rms, currentPitch);
     updatePitchScoreDisplay(now);
     updateExportButtons();
   }
@@ -3259,9 +3561,21 @@ recordButton.addEventListener('click', async () => {
     return;
   }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!audioContext || !sourceNode?.mediaStream) {
+      await start();
+    }
+    if (!sourceNode?.mediaStream) {
+      throw new Error('No microphone stream available');
+    }
+    const stream = sourceNode.mediaStream;
     const recorder = new MediaRecorder(stream);
     recordedChunks = [];
+    resetRecordingTimeline();
+    recordingStartTime = performance.now();
+    if (recordingTimelinePanel) {
+      recordingTimelinePanel.hidden = false;
+    }
+    setTimelineStatus('录音中，时间轴正在记录...');
     recorder.addEventListener('dataavailable', (event) => {
       if (event.data && event.data.size > 0) {
         recordedChunks.push(event.data);
@@ -3271,7 +3585,17 @@ recordButton.addEventListener('click', async () => {
       const blob = new Blob(recordedChunks, { type: recorder.mimeType });
       lastRecordingBlob = blob.size > 0 ? blob : null;
       recordedChunks = [];
-      stream.getTracks().forEach((track) => track.stop());
+      recordingTimelineDurationMs = Math.max(
+        recordingTimelineDurationMs,
+        performance.now() - recordingStartTime
+      );
+      if (lastRecordingBlob) {
+        prepareRecordingPlayback(lastRecordingBlob);
+        selectRecordingTime(0, false);
+        setTimelineStatus('点击时间轴可从任意位置播放，并查看当时波形');
+      } else {
+        setTimelineStatus('录音为空，请重新录制');
+      }
       updateRecordingButtons();
       updatePitchAccuracyButton();
     });
@@ -3291,6 +3615,25 @@ stopRecordButton.addEventListener('click', () => {
   }
   recordButton.disabled = false;
   stopRecordButton.disabled = true;
+});
+recordingTimelineCanvas?.addEventListener('click', (event) => {
+  if (!recordingTimelineFrames.length) {
+    return;
+  }
+  const rect = recordingTimelineCanvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const ratio = Math.max(0, Math.min(1, x / rect.width));
+  selectRecordingTime(ratio * getRecordingDurationMs(), Boolean(lastRecordingBlob));
+});
+timelinePlayPauseButton?.addEventListener('click', () => {
+  if (!recordingPlaybackAudio) {
+    return;
+  }
+  if (recordingPlaybackAudio.paused) {
+    startRecordingPlayback(recordingSelectedTimeMs);
+  } else {
+    stopRecordingPlayback();
+  }
 });
 analyzeRecordingButton.addEventListener('click', () => {
   if (lastRecordingBlob) {

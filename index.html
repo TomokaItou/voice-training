@@ -251,6 +251,24 @@
         </div>
       </section>
 
+      <section class="recording-timeline" id="recordingTimelinePanel" hidden>
+        <div class="timeline-header">
+          <div>
+            <h2>录音时间轴</h2>
+            <span id="recordingTimelineStatus">录音后可点击时间轴回放</span>
+          </div>
+          <button id="timelinePlayPauseButton" class="secondary" disabled>播放</button>
+        </div>
+        <canvas id="recordingTimelineCanvas" width="720" height="96"></canvas>
+        <div class="waveform-detail">
+          <div>
+            <span class="label">当前片段</span>
+            <span class="value" id="waveformTimeValue">--</span>
+          </div>
+          <canvas id="waveformPreviewCanvas" width="720" height="120"></canvas>
+        </div>
+      </section>
+
       <div class="resize-handle resize-handle-top" data-resize="n" aria-hidden="true"></div>
       <div class="resize-handle resize-handle-right" data-resize="e" aria-hidden="true"></div>
       <div class="resize-handle resize-handle-bottom" data-resize="s" aria-hidden="true"></div>
