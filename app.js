@@ -93,6 +93,7 @@ const downloadRecordingButton = document.getElementById('downloadRecordingButton
 const appWindow = document.getElementById('appWindow');
 const modeLauncher = document.getElementById('modeLauncher');
 const openPitchModeButton = document.getElementById('openPitchModeButton');
+const openVolumeModeButton = document.getElementById('openVolumeModeButton');
 const openSpectrogramModeButton = document.getElementById('openSpectrogramModeButton');
 const openBreathModeButton = document.getElementById('openBreathModeButton');
 const openPitchScoreModeButton = document.getElementById('openPitchScoreModeButton');
@@ -112,6 +113,7 @@ let frequencyData;
 let sourceNode;
 let animationId;
 let pitchHistory = [];
+let volumeHistory = [];
 const maxHistorySeconds = 12;
 const displayUpdateIntervalMs = 150;
 const baseCanvasWidth = 720;
@@ -202,6 +204,7 @@ let voicedFrames = 0;
 let voicedLostFrames = 0;
 let selectedPitchPoint = null;
 let pitchRenderState = null;
+let volumeRenderState = null;
 let adaptiveNoiseFloorRms = pitchMinEnergyThreshold;
 let adaptiveEnergyThreshold = pitchMinEnergyThreshold;
 let sessionStartTime = 0;
@@ -412,6 +415,22 @@ function getRecordingSyncedPitchHistory() {
   }));
 }
 
+function rmsToDb(rms) {
+  return 20 * Math.log10(Math.max(rms || 0, 1e-5));
+}
+
+function getRecordingSyncedVolumeHistory() {
+  if (offlineMode || !recordingTimelineFrames.length) {
+    return [];
+  }
+  return recordingTimelineFrames.map((frame) => ({
+    time: frame.timeMs,
+    recordingTimeMs: frame.timeMs,
+    rms: frame.rms || 0,
+    db: rmsToDb(frame.rms || 0),
+  }));
+}
+
 function findNearestRecordingFrame(timeMs) {
   if (!recordingTimelineFrames.length) {
     return null;
@@ -570,9 +589,11 @@ function selectRecordingTime(timeMs, shouldPlay = false) {
   }
   drawRecordingTimeline();
   drawWaveformPreview(frame);
-  if (!offlineMode && recordingTimelineFrames.length) {
+  if (!offlineMode && recordingTimelineFrames.length && displayMode === 'pitch') {
     updatePitchInspector(findNearestRecordingPitchPoint(recordingSelectedTimeMs));
     drawPitchHistory();
+  } else if (!offlineMode && recordingTimelineFrames.length && displayMode === 'volume') {
+    drawVolumeHistory();
   }
   if (shouldPlay) {
     startRecordingPlayback(recordingSelectedTimeMs);
@@ -813,6 +834,7 @@ function setReadoutMode(mode) {
   const readout = document.querySelector('.readout');
   const isBreath = mode === 'breath';
   const isScore = mode === 'score';
+  const isVolume = mode === 'volume';
   if (mode !== 'pitch' && mode !== 'score') {
     updatePitchInspector(null);
   }
@@ -823,11 +845,12 @@ function setReadoutMode(mode) {
     pitchScoreDashboard.hidden = !isScore;
   }
   if (readout) {
+    readout.hidden = isVolume;
     readout.classList.toggle('readout-breath-compact', isBreath);
   }
   pitchReadouts.forEach((el) => {
     if (el) {
-      el.hidden = isBreath;
+      el.hidden = isBreath || isVolume;
     }
   });
   breathReadouts.forEach((el) => {
@@ -840,8 +863,8 @@ function setReadoutMode(mode) {
     breathReport.hidden = !isBreath || !breathReport.dataset.hasReport;
   }
   if (chartLegendLow && chartLegendHigh) {
-    chartLegendLow.textContent = isBreath ? '弱' : '低音';
-    chartLegendHigh.textContent = isBreath ? '强' : '高音';
+    chartLegendLow.textContent = isBreath ? '弱' : mode === 'volume' ? '安静' : '低音';
+    chartLegendHigh.textContent = isBreath ? '强' : mode === 'volume' ? '响亮' : '高音';
   }
 }
 
@@ -855,6 +878,9 @@ function setTrainingCopy(mode) {
   } else if (mode === 'spectrogram') {
     appTitle.textContent = '实时频谱图';
     appDescription.textContent = '允许麦克风权限后，可以观察声音在不同频率上的能量变化。';
+  } else if (mode === 'volume') {
+    appTitle.textContent = '实时音量曲线';
+    appDescription.textContent = '允许麦克风权限后，可以看到声音音量随时间变化。';
   } else {
     appTitle.textContent = '实时音高曲线';
     appDescription.textContent = '允许麦克风权限后，对着手机唱歌即可看到音高变化。';
@@ -877,6 +903,10 @@ function showTrainingView(mode = 'pitch') {
     displayModeSelect.value = 'breath';
     resetBreathMeter();
     drawBreathHistory();
+  } else if (mode === 'volume') {
+    displayMode = 'volume';
+    displayModeSelect.value = 'volume';
+    drawVolumeHistory();
   } else if (mode === 'score') {
     displayMode = 'pitch';
     displayModeSelect.value = 'pitch';
@@ -1131,6 +1161,18 @@ function updateVolumeMeter(rms) {
   const clamped = Math.max(volumeMeterMinDb, Math.min(volumeMeterMaxDb, db));
   const ratio = (clamped - volumeMeterMinDb) / (volumeMeterMaxDb - volumeMeterMinDb);
   volumeMeterBar.style.height = `${Math.round(ratio * 100)}%`;
+}
+
+function appendVolumePoint(time, rms) {
+  volumeHistory.push({
+    time,
+    rms,
+    db: rmsToDb(rms),
+  });
+  if (!offlineMode && volumeHistory.length > 2) {
+    const minTime = time - maxHistorySeconds * 1000;
+    volumeHistory = volumeHistory.filter((point) => point.time >= minTime);
+  }
 }
 
 function clamp01(value) {
@@ -2290,6 +2332,80 @@ function drawPitchHistory() {
   }
 }
 
+function drawVolumeAxes() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const padding = 20;
+  const ticks = [0, -20, -40, -60];
+  ctx.strokeStyle = '#eef1ed';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#9aa7bd';
+  ctx.font = '12px sans-serif';
+  ctx.textBaseline = 'middle';
+
+  ticks.forEach((tick) => {
+    const ratio = (tick - volumeMeterMinDb) / (volumeMeterMaxDb - volumeMeterMinDb);
+    const y = canvas.height - padding - ratio * (canvas.height - padding * 2);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+    ctx.fillText(`${tick} dB`, 8, y - 8);
+  });
+}
+
+function drawVolumeHistory() {
+  const recordingSyncedHistory = getRecordingSyncedVolumeHistory();
+  const useRecordingTimeline = !offlineMode && recordingSyncedHistory.length >= 2;
+  let visibleHistory = useRecordingTimeline ? recordingSyncedHistory : volumeHistory;
+
+  volumeRenderState = null;
+  drawVolumeAxes();
+
+  if (visibleHistory.length < 2) {
+    return;
+  }
+
+  let minTime = 0;
+  let durationMs = 0;
+  if (useRecordingTimeline) {
+    minTime = 0;
+    durationMs = getRecordingDurationMs();
+  } else {
+    const now = performance.now();
+    minTime = now - maxHistorySeconds * 1000;
+    visibleHistory = visibleHistory.filter((point) => point.time >= minTime);
+    volumeHistory = visibleHistory;
+    durationMs = maxHistorySeconds * 1000;
+  }
+
+  const padding = 20;
+  volumeRenderState = {
+    visibleHistory,
+    minTime,
+    durationMs,
+    useRecordingTimeline,
+  };
+
+  ctx.strokeStyle = '#2563eb';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  visibleHistory.forEach((point, index) => {
+    const clamped = Math.max(volumeMeterMinDb, Math.min(volumeMeterMaxDb, point.db));
+    const ratio = (clamped - volumeMeterMinDb) / (volumeMeterMaxDb - volumeMeterMinDb);
+    const x = ((point.time - minTime) / durationMs) * canvas.width;
+    const y = canvas.height - padding - ratio * (canvas.height - padding * 2);
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.stroke();
+}
+
 function drawBreathHistory() {
   const padding = 28;
   const plotHeight = canvas.height - padding * 2;
@@ -2972,7 +3088,7 @@ function setOfflineMode(enabled) {
   recordButton.disabled = offlineMode || offlineAnalysisInProgress;
   stopRecordButton.disabled = offlineMode || offlineAnalysisInProgress;
   pitchAlgorithmSelect.disabled = offlineAnalysisInProgress;
-  displayModeSelect.disabled = offlineMode || offlineAnalysisInProgress;
+  displayModeSelect.disabled = offlineAnalysisInProgress;
   canvasScaleRange.disabled = offlineAnalysisInProgress;
   if (offlineMode && (displayMode === 'spectrogram' || displayMode === 'breath')) {
     displayMode = 'pitch';
@@ -3059,6 +3175,7 @@ async function analyzeAudioFile(file) {
   setAnalysisStatus('分析中... 0%');
   sessionStartTime = 0;
   pitchHistory = [];
+  volumeHistory = [];
   formantHistory = { f1: [], f2: [] };
   smoothedFormants = { f1: null, f2: null };
   stableFormants = { f1: null, f2: null };
@@ -3128,6 +3245,7 @@ async function analyzeAudioFile(file) {
       );
       const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
       pitchHistory.push({ time: timeMs, pitch });
+      appendVolumePoint(timeMs, computeRms(frame));
       frameOffsetSamples += hopLength;
       frame = readFrame();
     }
@@ -3178,7 +3296,11 @@ async function analyzeAudioFile(file) {
 
   setAnalysisStatus('完成');
   offlineAnalysisInProgress = false;
-  drawPitchHistory();
+  if (displayMode === 'volume') {
+    drawVolumeHistory();
+  } else {
+    drawPitchHistory();
+  }
 }
 
 async function analyzeRecordingBlob(blob) {
@@ -3221,6 +3343,7 @@ async function analyzeRecordingBlob(blob) {
   setAnalysisStatus('分析中... 0%');
   sessionStartTime = 0;
   pitchHistory = [];
+  volumeHistory = [];
   formantHistory = { f1: [], f2: [] };
   smoothedFormants = { f1: null, f2: null };
   stableFormants = { f1: null, f2: null };
@@ -3290,6 +3413,7 @@ async function analyzeRecordingBlob(blob) {
       );
       const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
       pitchHistory.push({ time: timeMs, pitch });
+      appendVolumePoint(timeMs, computeRms(frame));
       frameOffsetSamples += hopLength;
       frame = readFrame();
     }
@@ -3340,7 +3464,11 @@ async function analyzeRecordingBlob(blob) {
 
   setAnalysisStatus('完成');
   offlineAnalysisInProgress = false;
-  drawPitchHistory();
+  if (displayMode === 'volume') {
+    drawVolumeHistory();
+  } else {
+    drawPitchHistory();
+  }
 }
 
 function update() {
@@ -3348,6 +3476,7 @@ function update() {
   analyser.getFloatTimeDomainData(dataArray);
   const rms = computeRms(dataArray);
   updateVolumeMeter(rms);
+  appendVolumePoint(now, rms);
   updateSpectralTilt();
 
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
@@ -3507,7 +3636,9 @@ function update() {
       }
     }
 
-    if (displayMode !== 'spectrogram') {
+    if (displayMode === 'volume') {
+      drawVolumeHistory();
+    } else if (displayMode !== 'spectrogram') {
       drawPitchHistory();
     }
 
@@ -3562,6 +3693,7 @@ async function start() {
     sourceNode.connect(analyser);
 
     pitchHistory = [];
+    volumeHistory = [];
     resetPitchStabilizer();
     resetBreathMeter();
     clearBreathReport();
@@ -3629,6 +3761,7 @@ pitchAlgorithmSelect.addEventListener('change', (event) => {
   resetPitchStabilizer();
   if (!offlineAnalysisInProgress) {
     pitchHistory = [];
+    volumeHistory = [];
     drawPitchHistory();
   }
 });
@@ -3638,6 +3771,10 @@ pitchScaleModeSelect.addEventListener('change', (event) => {
 });
 displayModeSelect.addEventListener('change', (event) => {
   displayMode = event.target.value;
+  if (offlineMode && (displayMode === 'spectrogram' || displayMode === 'breath')) {
+    displayMode = 'pitch';
+    displayModeSelect.value = 'pitch';
+  }
   trainingMode = displayMode;
   setReadoutMode(displayMode);
   setTrainingCopy(displayMode);
@@ -3646,6 +3783,8 @@ displayModeSelect.addEventListener('change', (event) => {
   } else if (displayMode === 'breath') {
     resetBreathMeter();
     drawBreathHistory();
+  } else if (displayMode === 'volume') {
+    drawVolumeHistory();
   } else {
     resetPitchScoreDisplay();
     drawPitchHistory();
@@ -3818,6 +3957,9 @@ songSearchForm?.addEventListener('submit', (event) => {
 openPitchModeButton?.addEventListener('click', () => {
   showTrainingView('pitch');
 });
+openVolumeModeButton?.addEventListener('click', () => {
+  showTrainingView('volume');
+});
 openSpectrogramModeButton?.addEventListener('click', () => {
   showTrainingView('spectrogram');
 });
@@ -3846,6 +3988,7 @@ clearFileButton.addEventListener('click', () => {
   setOfflineMode(false);
   resetOfflineState();
   pitchHistory = [];
+  volumeHistory = [];
   drawPitchHistory();
 });
 
