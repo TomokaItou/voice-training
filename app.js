@@ -65,6 +65,12 @@ const accompanimentVolume = document.getElementById('accompanimentVolume');
 const accompanimentStatus = document.getElementById('accompanimentStatus');
 const pitchAccuracyButton = document.getElementById('pitchAccuracyButton');
 const pitchAccuracyResult = document.getElementById('pitchAccuracyResult');
+const songPitchInput = document.getElementById('songPitchInput');
+const songPitchToggle = document.getElementById('songPitchToggle');
+const clearSongPitchButton = document.getElementById('clearSongPitchButton');
+const songPitchStatus = document.getElementById('songPitchStatus');
+const songPitchStats = document.getElementById('songPitchStats');
+const songTrainingResult = document.getElementById('songTrainingResult');
 const volumeMeterToggle = document.getElementById('volumeMeterToggle');
 const tiltMeterToggle = document.getElementById('tiltMeterToggle');
 const volumeMeterColumn = document.getElementById('volumeMeterColumn');
@@ -189,6 +195,11 @@ const pitchScoreWindowSeconds = 6;
 const pitchScoreHitToleranceCents = 35;
 const pitchScoreGoodToleranceCents = 20;
 const pitchScoreMaxUsefulCents = 120;
+const songPitchMinConfidence = 0.18;
+const songPitchMaxGapMs = 180;
+const songPitchMatchWindowMs = 120;
+const songPitchRenderColor = '#2563eb';
+const songPitchRenderSoftColor = 'rgba(37, 99, 235, 0.18)';
 const recordingWaveformSampleCount = 96;
 const recordingTimelineMinDurationMs = 1000;
 const formantUpdateIntervalMs = 150;
@@ -255,6 +266,10 @@ let accompanimentUrl = null;
 let accompanimentFile = null;
 let targetPitchEnabled = targetPitchToggle?.checked ?? true;
 let targetPitchHz = Number(targetPitchInput?.value || 300);
+let songPitchTrack = [];
+let songPitchFileName = '';
+let songPitchEnabled = songPitchToggle?.checked ?? true;
+let songPitchAnalysisInProgress = false;
 let songSearchAbortController = null;
 let breathHistory = [];
 let breathSessionHistory = [];
@@ -345,9 +360,10 @@ function updateAccompanimentButtons(hasSource) {
 }
 
 function updatePitchAccuracyButton() {
-  const hasReference = Boolean(accompanimentFile);
+  const hasReference = Boolean(accompanimentFile || songPitchTrack.length);
   const hasVocal = Boolean(lastRecordingBlob);
-  pitchAccuracyButton.disabled = !(hasReference && hasVocal) || offlineAnalysisInProgress;
+  pitchAccuracyButton.disabled =
+    !(hasReference && hasVocal) || offlineAnalysisInProgress || songPitchAnalysisInProgress;
 }
 
 function setPitchAccuracyResult(text, tone = 'neutral') {
@@ -358,6 +374,34 @@ function setPitchAccuracyResult(text, tone = 'neutral') {
     pitchAccuracyResult.style.color = '#dc2626';
   } else {
     pitchAccuracyResult.style.color = '#1c1f2a';
+  }
+}
+
+function setSongPitchStatus(text, tone = 'neutral') {
+  if (!songPitchStatus) {
+    return;
+  }
+  songPitchStatus.textContent = text;
+  if (tone === 'good') {
+    songPitchStatus.style.color = '#16a34a';
+  } else if (tone === 'bad') {
+    songPitchStatus.style.color = '#dc2626';
+  } else {
+    songPitchStatus.style.color = '#1c1f2a';
+  }
+}
+
+function setSongTrainingResult(text, tone = 'neutral') {
+  if (!songTrainingResult) {
+    return;
+  }
+  songTrainingResult.textContent = text;
+  if (tone === 'good') {
+    songTrainingResult.style.color = '#16a34a';
+  } else if (tone === 'bad') {
+    songTrainingResult.style.color = '#dc2626';
+  } else {
+    songTrainingResult.style.color = '#1c1f2a';
   }
 }
 
@@ -700,14 +744,83 @@ function formatSignedCents(cents) {
   return `${sign}${cents.toFixed(1)} cents`;
 }
 
+function hasSongPitchTarget() {
+  return songPitchEnabled && songPitchTrack.length > 0;
+}
+
+function getSongPracticeTimeMs(now = performance.now()) {
+  if (accompanimentAudio && !accompanimentAudio.paused && Number.isFinite(accompanimentAudio.currentTime)) {
+    return accompanimentAudio.currentTime * 1000;
+  }
+  if (sessionStartTime > 0) {
+    return Math.max(0, now - sessionStartTime);
+  }
+  return 0;
+}
+
+function findSongPitchAt(timeMs, maxDistanceMs = songPitchMatchWindowMs) {
+  if (!songPitchTrack.length || !Number.isFinite(timeMs)) {
+    return null;
+  }
+
+  let left = 0;
+  let right = songPitchTrack.length - 1;
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    if (songPitchTrack[mid].timeMs < timeMs) {
+      left = mid + 1;
+    } else {
+      right = mid - 1;
+    }
+  }
+
+  const candidates = [songPitchTrack[left], songPitchTrack[left - 1]].filter(Boolean);
+  const nearest = candidates.reduce((best, point) => {
+    if (!best) {
+      return point;
+    }
+    return Math.abs(point.timeMs - timeMs) < Math.abs(best.timeMs - timeMs) ? point : best;
+  }, null);
+
+  if (!nearest || Math.abs(nearest.timeMs - timeMs) > maxDistanceMs || !nearest.pitch) {
+    return null;
+  }
+  return nearest;
+}
+
+function getTargetPitchForTime(timeMs) {
+  const songPoint = hasSongPitchTarget() ? findSongPitchAt(timeMs) : null;
+  return songPoint?.pitch || targetPitchHz;
+}
+
+function getTargetPitchForNow(now = performance.now()) {
+  return getTargetPitchForTime(getSongPracticeTimeMs(now));
+}
+
+function getSongPracticeTimeForPoint(pointTime, now = performance.now()) {
+  if (
+    accompanimentAudio &&
+    Number.isFinite(accompanimentAudio.currentTime) &&
+    accompanimentAudio.currentTime > 0
+  ) {
+    const elapsedFromPointMs = Math.max(0, now - pointTime);
+    return Math.max(0, accompanimentAudio.currentTime * 1000 - elapsedFromPointMs);
+  }
+  return Math.max(0, pointTime - sessionStartTime);
+}
+
 function getPitchScoreWindow(now = performance.now()) {
   const minTime = now - pitchScoreWindowSeconds * 1000;
   return pitchHistory
     .filter((point) => point.time >= minTime && point.pitch)
-    .map((point) => ({
-      ...point,
-      cents: frequencyToCentsError(point.pitch, targetPitchHz),
-    }))
+    .map((point) => {
+      const targetPitch = getTargetPitchForTime(getSongPracticeTimeForPoint(point.time, now));
+      return {
+        ...point,
+        targetPitch,
+        cents: frequencyToCentsError(point.pitch, targetPitch),
+      };
+    })
     .filter((point) => Number.isFinite(point.cents));
 }
 
@@ -743,7 +856,8 @@ function computePitchScoreStats(now = performance.now()) {
     score,
     stability,
     hitRate,
-    currentCents: frequencyToCentsError(currentPitch, targetPitchHz),
+    currentCents: frequencyToCentsError(currentPitch, getTargetPitchForNow(now)),
+    currentTargetPitch: getTargetPitchForNow(now),
     averageAbsError,
   };
 }
@@ -764,7 +878,9 @@ function resetPitchScoreDisplay() {
     pitchScoreCaption.textContent = '开始检测后，对准目标音持续发声。';
   }
   if (pitchScoreTargetValue) {
-    pitchScoreTargetValue.textContent = `${Math.round(targetPitchHz)} Hz`;
+    pitchScoreTargetValue.textContent = hasSongPitchTarget()
+      ? '歌曲曲线'
+      : `${Math.round(targetPitchHz)} Hz`;
   }
   if (pitchScoreCentsValue) {
     pitchScoreCentsValue.textContent = '-- cents';
@@ -818,7 +934,9 @@ function updatePitchScoreDisplay(now = performance.now()) {
   }
 
   if (pitchScoreTargetValue) {
-    pitchScoreTargetValue.textContent = `${Math.round(targetPitchHz)} Hz`;
+    pitchScoreTargetValue.textContent = hasSongPitchTarget()
+      ? '歌曲曲线'
+      : `${Math.round(targetPitchHz)} Hz`;
   }
 
   const stats = computePitchScoreStats(now);
@@ -843,8 +961,17 @@ function updatePitchScoreDisplay(now = performance.now()) {
     1
   )} cents。`;
   pitchScoreCentsValue.textContent = formatSignedCents(stats.currentCents);
+  if (pitchScoreTargetValue && hasSongPitchTarget() && stats.currentTargetPitch) {
+    pitchScoreTargetValue.textContent = `${Math.round(stats.currentTargetPitch)} Hz`;
+  }
   pitchScoreStabilityValue.textContent = `${stats.stability}%`;
   pitchScoreHitRateValue.textContent = `${stats.hitRate}%`;
+  if (hasSongPitchTarget()) {
+    setSongTrainingResult(
+      `${stats.score}% / 平均偏差 ${stats.averageAbsError.toFixed(1)} cents`,
+      tone === 'warn' ? 'bad' : 'good'
+    );
+  }
   setPitchScoreTone(tone);
 }
 
@@ -1280,17 +1407,213 @@ function extractPitchTrack(audioBuffer) {
   return track;
 }
 
+function getMonoChannelData(audioBuffer) {
+  if (audioBuffer.numberOfChannels === 1) {
+    return audioBuffer.getChannelData(0);
+  }
+  const mono = new Float32Array(audioBuffer.length);
+  for (let channel = 0; channel < audioBuffer.numberOfChannels; channel += 1) {
+    const data = audioBuffer.getChannelData(channel);
+    for (let i = 0; i < data.length; i += 1) {
+      mono[i] += data[i] / audioBuffer.numberOfChannels;
+    }
+  }
+  return mono;
+}
+
+function smoothSongPitchTrack(rawTrack) {
+  const voiced = rawTrack.filter((point) => point.pitch);
+  if (!voiced.length) {
+    return [];
+  }
+
+  return rawTrack.map((point, index) => {
+    if (!point.pitch) {
+      return point;
+    }
+    const nearby = [];
+    for (let i = Math.max(0, index - 2); i <= Math.min(rawTrack.length - 1, index + 2); i += 1) {
+      if (rawTrack[i].pitch) {
+        nearby.push(rawTrack[i].pitch);
+      }
+    }
+    const smoothedPitch = median(nearby);
+    return {
+      ...point,
+      pitch: selectPitchCandidate(smoothedPitch, point.pitch) || smoothedPitch,
+    };
+  });
+}
+
+function extractSongPitchTrack(audioBuffer, onProgress = () => {}) {
+  const sampleRate = audioBuffer.sampleRate;
+  const data = getMonoChannelData(audioBuffer);
+  const frameLength = Math.round((sampleRate * offlineFrameDurationMs) / 1000);
+  const hopLength = Math.round((sampleRate * offlineHopDurationMs) / 1000);
+  const totalFrames = Math.max(1, Math.floor((data.length - frameLength) / hopLength));
+  const rawTrack = [];
+  let lastPitch = null;
+  let lastProgress = -1;
+
+  for (let offset = 0, frameIndex = 0; offset + frameLength <= data.length; offset += hopLength, frameIndex += 1) {
+    const frame = data.subarray(offset, offset + frameLength);
+    const rms = computeRms(frame);
+    const { pitch, confidence } = autoCorrelateWithConfidence(frame, sampleRate, rms);
+    const timeMs = (offset / sampleRate) * 1000;
+    let stablePitch = null;
+
+    if (
+      pitch &&
+      confidence >= songPitchMinConfidence &&
+      pitch >= pitchMinHz &&
+      pitch <= pitchMaxHz
+    ) {
+      stablePitch = selectPitchCandidate(pitch, lastPitch) || pitch;
+      lastPitch = stablePitch;
+    } else if (lastPitch && rawTrack.length) {
+      const lastVoiced = rawTrack[rawTrack.length - 1];
+      if (lastVoiced.pitch && timeMs - lastVoiced.timeMs <= songPitchMaxGapMs) {
+        stablePitch = lastPitch;
+      } else {
+        lastPitch = null;
+      }
+    }
+
+    rawTrack.push({
+      time: timeMs,
+      timeMs,
+      pitch: stablePitch,
+      confidence,
+    });
+
+    const progress = Math.round((frameIndex / totalFrames) * 100);
+    if (progress !== lastProgress && progress % 5 === 0) {
+      lastProgress = progress;
+      onProgress(Math.min(99, progress));
+    }
+  }
+
+  return smoothSongPitchTrack(rawTrack);
+}
+
+function summarizeSongPitchTrack(track, audioBuffer) {
+  const voiced = track.filter((point) => point.pitch);
+  if (!voiced.length) {
+    return null;
+  }
+  const pitches = voiced.map((point) => point.pitch);
+  return {
+    durationSeconds: audioBuffer.duration,
+    voicedCount: voiced.length,
+    coverage: voiced.length / Math.max(track.length, 1),
+    minPitch: Math.min(...pitches),
+    maxPitch: Math.max(...pitches),
+  };
+}
+
+async function analyzeSongPitchFile(file) {
+  if (!file || songPitchAnalysisInProgress) {
+    return;
+  }
+
+  songPitchAnalysisInProgress = true;
+  updatePitchAccuracyButton();
+  setSongPitchStatus('解码中...');
+  setSongTrainingResult('--');
+  if (songPitchStats) {
+    songPitchStats.textContent = '--';
+  }
+
+  let audioBuffer;
+  try {
+    audioBuffer = await decodeAudioFile(file);
+  } catch (error) {
+    console.error(error);
+    setSongPitchStatus('解码失败', 'bad');
+    songPitchAnalysisInProgress = false;
+    updatePitchAccuracyButton();
+    return;
+  }
+
+  try {
+    setSongPitchStatus('提取中... 0%');
+    const track = extractSongPitchTrack(audioBuffer, (progress) => {
+      setSongPitchStatus(`提取中... ${progress}%`);
+    });
+    const summary = summarizeSongPitchTrack(track, audioBuffer);
+    if (!summary || summary.coverage < 0.02) {
+      songPitchTrack = [];
+      songPitchFileName = '';
+      setSongPitchStatus('有效音高不足', 'bad');
+      if (songPitchStats) {
+        songPitchStats.textContent = '--';
+      }
+      drawPitchHistory();
+      return;
+    }
+
+    songPitchTrack = track;
+    songPitchFileName = file.name;
+    songPitchEnabled = true;
+    if (songPitchToggle) {
+      songPitchToggle.checked = true;
+    }
+    if (clearSongPitchButton) {
+      clearSongPitchButton.disabled = false;
+    }
+    setSongPitchStatus('已生成目标曲线', 'good');
+    if (songPitchStats) {
+      songPitchStats.textContent = `${Math.round(summary.durationSeconds)}s / ${Math.round(
+        summary.minPitch
+      )}-${Math.round(summary.maxPitch)} Hz`;
+    }
+    setOfflineMode(true);
+    setDataSourceLabel('歌曲目标曲线');
+    setAnalysisStatus('歌曲目标已生成');
+    pitchHistory = track.map((point) => ({ time: point.timeMs, pitch: point.pitch }));
+    volumeHistory = [];
+    resetPitchScoreDisplay();
+    drawPitchHistory();
+  } finally {
+    songPitchAnalysisInProgress = false;
+    updatePitchAccuracyButton();
+  }
+}
+
+function clearSongPitchTrack() {
+  songPitchTrack = [];
+  songPitchFileName = '';
+  setSongPitchStatus('未加载');
+  setSongTrainingResult('--');
+  if (songPitchStats) {
+    songPitchStats.textContent = '--';
+  }
+  if (songPitchInput) {
+    songPitchInput.value = '';
+  }
+  if (clearSongPitchButton) {
+    clearSongPitchButton.disabled = true;
+  }
+  if (offlineMode) {
+    setOfflineMode(false);
+    resetOfflineState();
+    pitchHistory = [];
+    volumeHistory = [];
+  }
+  resetPitchScoreDisplay();
+  drawPitchHistory();
+  updatePitchAccuracyButton();
+}
+
 async function runPitchAccuracyAnalysis() {
-  if (!accompanimentFile || !lastRecordingBlob || offlineAnalysisInProgress) {
+  if (!(accompanimentFile || songPitchTrack.length) || !lastRecordingBlob || offlineAnalysisInProgress) {
     return;
   }
 
   pitchAccuracyButton.disabled = true;
   setPitchAccuracyResult('分析中...');
-  let referenceBuffer;
   let vocalBuffer;
   try {
-    referenceBuffer = await decodeAudioFile(accompanimentFile);
     vocalBuffer = await decodeAudioBlob(lastRecordingBlob);
   } catch (error) {
     console.error(error);
@@ -1299,7 +1622,20 @@ async function runPitchAccuracyAnalysis() {
     return;
   }
 
-  const referenceTrack = extractPitchTrack(referenceBuffer);
+  let referenceTrack = null;
+  if (songPitchTrack.length) {
+    referenceTrack = songPitchTrack.map((point) => point.pitch);
+  } else {
+    try {
+      const referenceBuffer = await decodeAudioFile(accompanimentFile);
+      referenceTrack = extractPitchTrack(referenceBuffer);
+    } catch (error) {
+      console.error(error);
+      setPitchAccuracyResult('解码失败');
+      updatePitchAccuracyButton();
+      return;
+    }
+  }
   const vocalTrack = extractPitchTrack(vocalBuffer);
   const compareLength = Math.min(referenceTrack.length, vocalTrack.length);
   const centsErrors = [];
@@ -1326,6 +1662,12 @@ async function runPitchAccuracyAnalysis() {
   const label = meanError <= 35 ? '音高准确' : '跑调';
   const tone = meanError <= 35 ? 'good' : 'bad';
   setPitchAccuracyResult(`${label}（偏差 ${meanError.toFixed(1)} cents）`, tone);
+  setSongTrainingResult(
+    songPitchTrack.length
+      ? `${meanError <= 35 ? '命中' : '需修正'}，平均偏差 ${meanError.toFixed(1)} cents`
+      : '--',
+    tone
+  );
   updatePitchAccuracyButton();
 }
 
@@ -2270,6 +2612,121 @@ function drawTargetPitchLine(targetPitch, minPitch, maxPitch, pitchRange, paddin
   ctx.restore();
 }
 
+function mapSongPitchTimeToCanvasTime(point, state) {
+  if (state.useRecordingTimeline || offlineMode || sessionStartTime === 0) {
+    return point.timeMs;
+  }
+  if (
+    accompanimentAudio &&
+    Number.isFinite(accompanimentAudio.currentTime) &&
+    accompanimentAudio.currentTime > 0
+  ) {
+    return performance.now() - (accompanimentAudio.currentTime * 1000 - point.timeMs);
+  }
+  return sessionStartTime + point.timeMs;
+}
+
+function getVisibleSongPitchPoints(state) {
+  if (!hasSongPitchTarget() || !state) {
+    return [];
+  }
+  const maxTime = state.minTime + state.durationMs;
+  return songPitchTrack
+    .map((point) => ({
+      ...point,
+      time: mapSongPitchTimeToCanvasTime(point, state),
+    }))
+    .filter((point) => point.time >= state.minTime && point.time <= maxTime);
+}
+
+function drawSongPitchTrack(state) {
+  const visibleTargets = getVisibleSongPitchPoints(state);
+  if (visibleTargets.length < 2) {
+    return;
+  }
+
+  const {
+    minTime,
+    durationMs,
+    minPitch,
+    maxPitch,
+    pitchRange,
+    padding,
+    logMin,
+    logRange,
+  } = state;
+
+  ctx.save();
+  ctx.strokeStyle = songPitchRenderSoftColor;
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  let hasSoftPath = false;
+
+  visibleTargets.forEach((point) => {
+    if (!point.pitch || point.pitch < minPitch || point.pitch > maxPitch) {
+      if (hasSoftPath) {
+        ctx.stroke();
+        ctx.beginPath();
+        hasSoftPath = false;
+      }
+      return;
+    }
+    const x = ((point.time - minTime) / durationMs) * canvas.width;
+    const normalized =
+      pitchScaleMode === 'log'
+        ? (Math.log(point.pitch) - logMin) / logRange
+        : (point.pitch - minPitch) / pitchRange;
+    const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+    if (!hasSoftPath) {
+      ctx.moveTo(x, y);
+      hasSoftPath = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  if (hasSoftPath) {
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = songPitchRenderColor;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 5]);
+  ctx.beginPath();
+  let hasPath = false;
+  visibleTargets.forEach((point) => {
+    if (!point.pitch || point.pitch < minPitch || point.pitch > maxPitch) {
+      if (hasPath) {
+        ctx.stroke();
+        ctx.beginPath();
+        hasPath = false;
+      }
+      return;
+    }
+    const x = ((point.time - minTime) / durationMs) * canvas.width;
+    const normalized =
+      pitchScaleMode === 'log'
+        ? (Math.log(point.pitch) - logMin) / logRange
+        : (point.pitch - minPitch) / pitchRange;
+    const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+    if (!hasPath) {
+      ctx.moveTo(x, y);
+      hasPath = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  if (hasPath) {
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.fillStyle = songPitchRenderColor;
+  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.fillText('歌曲目标', 8, 8);
+  ctx.restore();
+}
+
 function getPitchPointCoordinates(point, state) {
   if (!point?.pitch || !state) {
     return null;
@@ -2414,7 +2871,12 @@ function drawPitchHistory() {
     durationMs = maxHistorySeconds * 1000;
   }
 
-  const pitches = visibleHistory.map((point) => point.pitch).filter(Boolean);
+  const previewState = { minTime, durationMs, useRecordingTimeline };
+  const visibleSongTargets = getVisibleSongPitchPoints(previewState);
+  const pitches = [
+    ...visibleHistory.map((point) => point.pitch).filter(Boolean),
+    ...visibleSongTargets.map((point) => point.pitch).filter(Boolean),
+  ];
   let minPitch = null;
   let maxPitch = null;
 
@@ -2454,7 +2916,9 @@ function drawPitchHistory() {
     useRecordingTimeline,
   };
 
-  if (targetPitchEnabled) {
+  if (hasSongPitchTarget()) {
+    drawSongPitchTrack(pitchRenderState);
+  } else if (targetPitchEnabled) {
     drawTargetPitchLine(targetPitchHz, minPitch, maxPitch, pitchRange, padding, logMin, logRange);
   }
 
@@ -4133,6 +4597,20 @@ downloadRecordingButton.addEventListener('click', () => {
 });
 pitchAccuracyButton.addEventListener('click', () => {
   runPitchAccuracyAnalysis();
+});
+songPitchInput?.addEventListener('change', (event) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    analyzeSongPitchFile(file);
+  }
+});
+songPitchToggle?.addEventListener('change', (event) => {
+  songPitchEnabled = event.target.checked;
+  resetPitchScoreDisplay();
+  drawPitchHistory();
+});
+clearSongPitchButton?.addEventListener('click', () => {
+  clearSongPitchTrack();
 });
 memoryAnalyzeButton?.addEventListener('click', () => {
   analyzeMemoryPath();
