@@ -469,6 +469,29 @@
         </div>
       </div>
       <div class="sidebar-card">
+        <h2>歌曲目标曲线</h2>
+        <input type="file" id="songPitchInput" accept="audio/*" class="file-input" />
+        <label class="toggle">
+          <input type="checkbox" id="songPitchToggle" checked />
+          <span class="toggle-pill"></span>
+          <span class="toggle-text">显示歌曲曲线</span>
+        </label>
+        <button id="clearSongPitchButton" class="secondary" disabled>清除歌曲曲线</button>
+        <div class="file-status">
+          <span class="label">提取状态</span>
+          <span class="value" id="songPitchStatus">未加载</span>
+        </div>
+        <div class="file-status">
+          <span class="label">曲线信息</span>
+          <span class="value" id="songPitchStats">--</span>
+        </div>
+        <div class="file-status">
+          <span class="label">训练结果</span>
+          <span class="value" id="songTrainingResult">--</span>
+        </div>
+        <p class="hint">上传一首歌后会自动提取主音高曲线；练习时优先按这条曲线判断音准。</p>
+      </div>
+      <div class="sidebar-card">
         <h2>伴奏播放</h2>
         <input type="file" id="accompanimentInput" accept="audio/*" class="file-input" />
         <div class="controls-inline">
