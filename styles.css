@@ -101,6 +101,11 @@ body {
   border-color: #d7cbe7;
 }
 
+.mode-button.memory-mode {
+  background: #f1f7f4;
+  border-color: #bcd6ca;
+}
+
 .mode-button-disabled {
   background: #f1f2ef;
   color: var(--faint);
@@ -575,6 +580,107 @@ button.secondary:not(:disabled):hover {
   color: var(--warning);
 }
 
+.memory-dashboard {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.memory-zone-card,
+.memory-controls,
+.memory-metrics,
+.memory-recommendation {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.memory-zone-card {
+  min-height: 150px;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: 1fr 92px;
+  gap: 14px;
+  align-items: center;
+}
+
+.memory-zone-card.zone-1 {
+  border-color: #d6b079;
+  background: #fffaf1;
+}
+
+.memory-zone-card.zone-2 {
+  border-color: #e0a39f;
+  background: #fff7f5;
+}
+
+.memory-zone-card.zone-3 {
+  border-color: #9fcdb0;
+  background: #f6fbf7;
+}
+
+.memory-zone-title {
+  display: block;
+  margin: 6px 0;
+  font-size: 30px;
+  font-weight: 820;
+}
+
+.memory-zone-copy {
+  display: block;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.memory-zone-badge {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  display: grid;
+  place-items: center;
+  font-size: 38px;
+  font-weight: 860;
+}
+
+.memory-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+}
+
+.memory-controls .field {
+  margin: 0;
+}
+
+.memory-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.memory-metrics > div {
+  background: var(--surface);
+  padding: 12px 14px;
+}
+
+.memory-metrics .value {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.memory-recommendation {
+  padding: 14px;
+  color: #263129;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
 .breath-report {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -999,6 +1105,9 @@ input[type='range'] {
 
   .breath-dashboard,
   .pitch-score-dashboard,
+  .memory-zone-card,
+  .memory-controls,
+  .memory-metrics,
   .breath-state-meta,
   .breath-metric-strip {
     grid-template-columns: 1fr;

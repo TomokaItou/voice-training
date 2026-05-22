@@ -97,6 +97,7 @@ const openVolumeModeButton = document.getElementById('openVolumeModeButton');
 const openSpectrogramModeButton = document.getElementById('openSpectrogramModeButton');
 const openBreathModeButton = document.getElementById('openBreathModeButton');
 const openPitchScoreModeButton = document.getElementById('openPitchScoreModeButton');
+const openMemoryModeButton = document.getElementById('openMemoryModeButton');
 const backToHomeButton = document.getElementById('backToHomeButton');
 const songSearchForm = document.getElementById('songSearchForm');
 const songSearchInput = document.getElementById('songSearchInput');
@@ -105,6 +106,19 @@ const songSearchStatus = document.getElementById('songSearchStatus');
 const songSearchResults = document.getElementById('songSearchResults');
 const targetPitchToggle = document.getElementById('targetPitchToggle');
 const targetPitchInput = document.getElementById('targetPitchInput');
+const memoryDashboard = document.getElementById('memoryDashboard');
+const memoryZoneCard = document.getElementById('memoryZoneCard');
+const memoryZoneTitle = document.getElementById('memoryZoneTitle');
+const memoryZoneCopy = document.getElementById('memoryZoneCopy');
+const memoryZoneBadge = document.getElementById('memoryZoneBadge');
+const memoryTargetSelect = document.getElementById('memoryTargetSelect');
+const memoryPathSelect = document.getElementById('memoryPathSelect');
+const memoryAnalyzeButton = document.getElementById('memoryAnalyzeButton');
+const memorySoundError = document.getElementById('memorySoundError');
+const memoryHiddenLoad = document.getElementById('memoryHiddenLoad');
+const memoryRank = document.getElementById('memoryRank');
+const memoryRecovery = document.getElementById('memoryRecovery');
+const memoryRecommendation = document.getElementById('memoryRecommendation');
 
 let audioContext;
 let analyser;
@@ -263,6 +277,21 @@ let breathCalibrationInProgress = false;
 let pitchScoreLastTone = 'neutral';
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const memoryTargets = {
+  brightStable: { pitch: 0.55, loudness: 0.58, brightness: 0.72, breathiness: 0.18, stability: 0.82 },
+  clearSoft: { pitch: 0.48, loudness: 0.42, brightness: 0.5, breathiness: 0.16, stability: 0.86 },
+  darkWarm: { pitch: 0.45, loudness: 0.52, brightness: 0.32, breathiness: 0.2, stability: 0.78 },
+  lightBreathy: { pitch: 0.5, loudness: 0.34, brightness: 0.46, breathiness: 0.55, stability: 0.62 },
+};
+const memoryPathClasses = {
+  neutralBright: { label: 'neutral → bright', soundBias: 0.96, hiddenBias: 0.96, advice: '保留这条路径，观察保持段是否能不增加压力地维持明亮度。' },
+  breathyClear: { label: 'breathy → clear', soundBias: 1.02, hiddenBias: 1.02, advice: '从气声进入清晰闭合，适合寻找闭合平衡；如果负荷升高，放慢收束速度。' },
+  darkBright: { label: 'dark → bright', soundBias: 1, hiddenBias: 1.06, advice: '暗到亮路径容易出现舌位或下颌补偿，优先降低响度并缩短保持段。' },
+  pressedRelease: { label: 'pressed → release', soundBias: 0.98, hiddenBias: 1.24, advice: '避免从压紧感进入目标，改用释放或半闭合重置会更稳。' },
+  softLoud: { label: 'soft → loud', soundBias: 0.94, hiddenBias: 1.18, advice: '弱到强可以接近目标，但要控制响度爬升；恢复拖尾明显时先降动态。' },
+  sovtReset: { label: 'SOVT reset', soundBias: 1.08, hiddenBias: 0.72, advice: '半闭合重置可能牺牲一点目标相似度，但通常更能降低隐藏负荷。' },
+  siren: { label: 'siren approach', soundBias: 1.04, hiddenBias: 0.84, advice: '滑音路径能约束音高变化，适合把目标接回更平滑的动作轨迹。' },
+};
 
 function updateMeterVisibility() {
   const chart = canvas?.closest('.chart');
@@ -819,6 +848,160 @@ function updatePitchScoreDisplay(now = performance.now()) {
   setPitchScoreTone(tone);
 }
 
+function mean(values) {
+  const clean = values.filter((value) => Number.isFinite(value));
+  if (!clean.length) {
+    return 0;
+  }
+  return clean.reduce((sum, value) => sum + value, 0) / clean.length;
+}
+
+function normalizeRange(value, min, max) {
+  return (value - min) / Math.max(max - min, 1e-9);
+}
+
+function memoryNeutralVector() {
+  return { pitch: 0.45, loudness: 0.22, brightness: 0.42, breathiness: 0.24, stability: 0.62 };
+}
+
+function memoryDistance(a, b) {
+  const keys = Object.keys(b);
+  const sum = keys.reduce((acc, key) => acc + (a[key] - b[key]) ** 2, 0);
+  return Math.sqrt(sum / keys.length);
+}
+
+function memoryFrameVector(frame, index, frames) {
+  const pitch = frame.pitch
+    ? clamp01(normalizeRange(Math.log2(frame.pitch), Math.log2(90), Math.log2(700)))
+    : 0.35;
+  const loudness = clamp01(normalizeRange(rmsToDb(frame.rms || 0), -58, -16));
+  const previous = frames[Math.max(0, index - 1)];
+  const pitchDelta = frame.pitch && previous?.pitch ? Math.abs(getPitchDistanceCents(frame.pitch, previous.pitch)) : 0;
+  const stability = clamp01(1 - normalizeRange(pitchDelta, 20, 180));
+  const brightness = clamp01(0.35 + pitch * 0.35 + loudness * 0.2);
+  const breathiness = clamp01(0.55 - stability * 0.28 + Math.max(0, loudness - 0.65) * 0.22);
+  return { pitch, loudness, brightness, breathiness, stability };
+}
+
+function memoryEffectiveRank(rows) {
+  if (!rows.length) {
+    return 1;
+  }
+  const dims = rows[0].length;
+  const means = Array.from({ length: dims }, (_, dim) => mean(rows.map((row) => row[dim])));
+  const variances = means.map((m, dim) => mean(rows.map((row) => (row[dim] - m) ** 2)));
+  const total = variances.reduce((sum, value) => sum + value, 0);
+  if (total <= 1e-9) {
+    return 1;
+  }
+  const sorted = [...variances].sort((a, b) => b - a);
+  let acc = 0;
+  for (let i = 0; i < sorted.length; i += 1) {
+    acc += sorted[i];
+    if (acc / total >= 0.9) {
+      return i + 1;
+    }
+  }
+  return dims;
+}
+
+function analyzeMemoryPath() {
+  if (!recordingTimelineFrames.length) {
+    setMemoryEmptyState('请先录制一段音频，再分析最近录音。');
+    return;
+  }
+  const durationMs = getRecordingDurationMs();
+  const target = memoryTargets[memoryTargetSelect?.value || 'brightStable'] || memoryTargets.brightStable;
+  const path = memoryPathClasses[memoryPathSelect?.value || 'neutralBright'] || memoryPathClasses.neutralBright;
+  const frames = recordingTimelineFrames.map((frame, index) => ({
+    time: frame.timeMs / 1000,
+    vector: memoryFrameVector(frame, index, recordingTimelineFrames),
+  }));
+  const duration = Math.max(durationMs / 1000, frames[frames.length - 1]?.time || 0.1);
+  const holdStart = duration * 0.4;
+  const holdEnd = duration * 0.75;
+  const holdFrames = frames.filter((frame) => frame.time >= holdStart && frame.time <= holdEnd);
+  const recoveryFrames = frames.filter((frame) => frame.time > holdEnd);
+  const activeFrames = holdFrames.length ? holdFrames : frames;
+  const residualRows = frames.map((frame, index) => {
+    const localTarget = frame.time > holdEnd ? memoryNeutralVector() : target;
+    const residual = memoryDistance(frame.vector, localTarget);
+    const lag2 = frames[Math.max(0, index - 2)];
+    const lag5 = frames[Math.max(0, index - 5)];
+    const velocity = index > 0 ? memoryDistance(frame.vector, frames[index - 1].vector) : 0;
+    const components = [
+      residual,
+      memoryDistance(lag2.vector, localTarget),
+      memoryDistance(lag5.vector, localTarget),
+      velocity,
+      Math.abs(frame.vector.breathiness - target.breathiness),
+    ];
+    return { residual, components, energy: clamp01(0.5 * components.reduce((sum, value) => sum + value * value, 0)) };
+  });
+  const soundError = mean(activeFrames.map((frame) => memoryDistance(frame.vector, target))) * path.soundBias;
+  const hiddenLoad = mean(residualRows.map((row) => row.energy)) * path.hiddenBias;
+  const rank = memoryEffectiveRank(residualRows.map((row) => row.components));
+  const recoveryValues = recoveryFrames.map((frame) => memoryDistance(frame.vector, memoryNeutralVector()));
+  const recovery = recoveryValues.length
+    ? clamp01(0.65 * mean(recoveryValues.map((value, index) => value * ((index + 1) / recoveryValues.length))) + 0.35 * mean(recoveryValues.slice(-4)))
+    : 0.5;
+  const total = clamp01(0.45 * soundError + 0.3 * hiddenLoad + 0.15 * normalizeRange(rank, 1, 5) + 0.1 * recovery);
+  const zone = classifyMemoryZone(soundError, hiddenLoad, recovery);
+  renderMemoryResult({ zone, soundError, hiddenLoad, rank, recovery, total, path });
+}
+
+function classifyMemoryZone(soundError, hiddenLoad, recovery) {
+  if (soundError > 0.34) {
+    return {
+      id: 1,
+      title: '目标未匹配',
+      badge: '1',
+      copy: '当前声音和目标音色还有明显距离。先调整音高、响度、明暗、气声比例或元音形状。',
+    };
+  }
+  if (hiddenLoad > 0.2 || recovery > 0.36) {
+    return {
+      id: 2,
+      title: '补偿性匹配',
+      badge: '2',
+      copy: '声音已经接近目标，但路径成本偏高。建议降低响度、放慢过渡、加入恢复段或换用重置练习。',
+    };
+  }
+  return {
+    id: 3,
+    title: '稳定匹配',
+    badge: '3',
+    copy: '目标接近且隐藏负荷较低。可以逐步增加保持时长、音高范围或转换速度。',
+  };
+}
+
+function renderMemoryResult(result) {
+  memoryZoneCard.className = `memory-zone-card zone-${result.zone.id}`;
+  memoryZoneTitle.textContent = result.zone.title;
+  memoryZoneCopy.textContent = result.zone.copy;
+  memoryZoneBadge.textContent = result.zone.badge;
+  memorySoundError.textContent = result.soundError.toFixed(3);
+  memoryHiddenLoad.textContent = result.hiddenLoad.toFixed(3);
+  memoryRank.textContent = result.rank.toFixed(1);
+  memoryRecovery.textContent = result.recovery.toFixed(3);
+  memoryRecommendation.textContent = `${result.path.label}：${result.path.advice}  估计总分 Ĵ = ${result.total.toFixed(3)}。`;
+}
+
+function setMemoryEmptyState(message) {
+  if (!memoryZoneCard) {
+    return;
+  }
+  memoryZoneCard.className = 'memory-zone-card';
+  memoryZoneTitle.textContent = '等待分析';
+  memoryZoneCopy.textContent = message;
+  memoryZoneBadge.textContent = '--';
+  memorySoundError.textContent = '--';
+  memoryHiddenLoad.textContent = '--';
+  memoryRank.textContent = '--';
+  memoryRecovery.textContent = '--';
+  memoryRecommendation.textContent = '暂无路径推荐。';
+}
+
 
 function hideSidebarPanel() {
   sidebar.classList.remove('open');
@@ -835,7 +1018,8 @@ function setReadoutMode(mode) {
   const isBreath = mode === 'breath';
   const isScore = mode === 'score';
   const isVolume = mode === 'volume';
-  if (mode !== 'pitch' && mode !== 'score') {
+  const isMemory = mode === 'memory';
+  if (mode !== 'pitch' && mode !== 'score' && mode !== 'memory') {
     updatePitchInspector(null);
   }
   if (breathDashboard) {
@@ -844,8 +1028,11 @@ function setReadoutMode(mode) {
   if (pitchScoreDashboard) {
     pitchScoreDashboard.hidden = !isScore;
   }
+  if (memoryDashboard) {
+    memoryDashboard.hidden = !isMemory;
+  }
   if (readout) {
-    readout.hidden = isVolume;
+    readout.hidden = isVolume || isMemory;
     readout.classList.toggle('readout-breath-compact', isBreath);
   }
   pitchReadouts.forEach((el) => {
@@ -875,6 +1062,9 @@ function setTrainingCopy(mode) {
   } else if (mode === 'score') {
     appTitle.textContent = '实时音准评分';
     appDescription.textContent = '设置目标音高后开始检测，持续发声即可看到偏差、稳定度和命中率。';
+  } else if (mode === 'memory') {
+    appTitle.textContent = '记忆感知音色训练';
+    appDescription.textContent = '录制“接近目标 → 保持目标 → 回到中性/安静”的片段，分析目标匹配和隐藏路径成本。';
   } else if (mode === 'spectrogram') {
     appTitle.textContent = '实时频谱图';
     appDescription.textContent = '允许麦克风权限后，可以观察声音在不同频率上的能量变化。';
@@ -915,6 +1105,16 @@ function showTrainingView(mode = 'pitch') {
       targetPitchToggle.checked = true;
     }
     resetPitchScoreDisplay();
+    drawPitchHistory();
+  } else if (mode === 'memory') {
+    displayMode = 'pitch';
+    displayModeSelect.value = 'pitch';
+    setMemoryEmptyState(
+      recordingTimelineFrames.length
+        ? '可以分析最近录音，也可以重新录制一段“接近-保持-恢复”的片段。'
+        : '请先录制一段“接近-保持-恢复”的片段。'
+    );
+    updateRecordingButtons();
     drawPitchHistory();
   } else {
     displayMode = 'pitch';
@@ -3034,6 +3234,9 @@ function updateRecordingButtons() {
   const hasRecording = Boolean(lastRecordingBlob);
   analyzeRecordingButton.disabled = !hasRecording || offlineAnalysisInProgress;
   downloadRecordingButton.disabled = !hasRecording;
+  if (memoryAnalyzeButton) {
+    memoryAnalyzeButton.disabled = !hasRecording || !recordingTimelineFrames.length;
+  }
 }
 
 function resetPitchStabilizer() {
@@ -3931,6 +4134,9 @@ downloadRecordingButton.addEventListener('click', () => {
 pitchAccuracyButton.addEventListener('click', () => {
   runPitchAccuracyAnalysis();
 });
+memoryAnalyzeButton?.addEventListener('click', () => {
+  analyzeMemoryPath();
+});
 formantToggle.addEventListener('change', () => {
   if (!formantToggle.checked) {
     resetFormants();
@@ -3968,6 +4174,9 @@ openBreathModeButton?.addEventListener('click', () => {
 });
 openPitchScoreModeButton?.addEventListener('click', () => {
   showTrainingView('score');
+});
+openMemoryModeButton?.addEventListener('click', () => {
+  showTrainingView('memory');
 });
 backToHomeButton?.addEventListener('click', () => {
   showLauncherView();
