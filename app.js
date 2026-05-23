@@ -107,6 +107,7 @@ const backToHomeButton = document.getElementById('backToHomeButton');
 const curveSwitcher = document.getElementById('curveSwitcher');
 const curvePitchButton = document.getElementById('curvePitchButton');
 const curveVolumeButton = document.getElementById('curveVolumeButton');
+const curveFormantButton = document.getElementById('curveFormantButton');
 const songSearchForm = document.getElementById('songSearchForm');
 const songSearchInput = document.getElementById('songSearchInput');
 const songSearchButton = document.getElementById('songSearchButton');
@@ -1147,6 +1148,7 @@ function setReadoutMode(mode) {
   const isBreath = mode === 'breath';
   const isScore = mode === 'score';
   const isVolume = mode === 'volume';
+  const isFormants = mode === 'formants';
   const isMemory = mode === 'memory';
   if (mode !== 'pitch' && mode !== 'score' && mode !== 'memory') {
     updatePitchInspector(null);
@@ -1161,12 +1163,12 @@ function setReadoutMode(mode) {
     memoryDashboard.hidden = !isMemory;
   }
   if (readout) {
-    readout.hidden = isVolume || isMemory;
+    readout.hidden = isVolume || isFormants || isMemory;
     readout.classList.toggle('readout-breath-compact', isBreath);
   }
   pitchReadouts.forEach((el) => {
     if (el) {
-      el.hidden = isBreath || isVolume;
+      el.hidden = isBreath || isVolume || isFormants;
     }
   });
   breathReadouts.forEach((el) => {
@@ -1181,6 +1183,10 @@ function setReadoutMode(mode) {
   if (chartLegendLow && chartLegendHigh) {
     chartLegendLow.textContent = isBreath ? '弱' : mode === 'volume' ? '安静' : '低音';
     chartLegendHigh.textContent = isBreath ? '强' : mode === 'volume' ? '响亮' : '高音';
+  }
+  if (chartLegendLow && chartLegendHigh && isFormants) {
+    chartLegendLow.textContent = 'F1';
+    chartLegendHigh.textContent = 'F2';
   }
 }
 
@@ -1197,6 +1203,9 @@ function setTrainingCopy(mode) {
   } else if (mode === 'spectrogram') {
     appTitle.textContent = '实时频谱图';
     appDescription.textContent = '允许麦克风权限后，可以观察声音在不同频率上的能量变化。';
+  } else if (mode === 'formants') {
+    appTitle.textContent = '实时共振峰曲线';
+    appDescription.textContent = '允许麦克风权限后，可以查看 F1/F2 共振峰随时间变化的曲线。';
   } else if (mode === 'volume') {
     appTitle.textContent = '实时音量曲线';
     appDescription.textContent = '允许麦克风权限后，可以看到声音音量随时间变化。';
@@ -1212,10 +1221,11 @@ function setCurveSwitcherMode(mode) {
   }
   curvePitchButton?.classList.toggle('active', mode === 'pitch');
   curveVolumeButton?.classList.toggle('active', mode === 'volume');
+  curveFormantButton?.classList.toggle('active', mode === 'formants');
 }
 
 function setCurveDisplayMode(mode) {
-  displayMode = mode === 'volume' ? 'volume' : 'pitch';
+  displayMode = mode === 'volume' || mode === 'formants' ? mode : 'pitch';
   trainingMode = 'curve';
   if (displayModeSelect) {
     displayModeSelect.value = displayMode;
@@ -1225,6 +1235,8 @@ function setCurveDisplayMode(mode) {
   setCurveSwitcherMode(displayMode);
   if (displayMode === 'volume') {
     drawVolumeHistory();
+  } else if (displayMode === 'formants') {
+    drawFormantCurveHistory();
   } else {
     resetPitchScoreDisplay();
     drawPitchHistory();
@@ -3490,6 +3502,104 @@ function drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange,
   drawCurve('f2', '#f97316');
 }
 
+function drawFormantAxes(minFrequency = formantValidRanges.f1.min, maxFrequency = formantValidRanges.f2.max) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const padding = 20;
+  const ticks = [300, 700, 1200, 2000, 3000].filter(
+    (tick) => tick >= minFrequency && tick <= maxFrequency
+  );
+  ctx.strokeStyle = '#eef1ed';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '12px sans-serif';
+  ctx.textBaseline = 'middle';
+
+  ticks.forEach((tick) => {
+    const ratio =
+      (Math.log(tick) - Math.log(minFrequency)) /
+      Math.max(Math.log(maxFrequency) - Math.log(minFrequency), 0.0001);
+    const y = canvas.height - padding - ratio * (canvas.height - padding * 2);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+    ctx.fillText(`${tick} Hz`, 8, y);
+  });
+}
+
+function drawFormantCurveHistory() {
+  const sourceHistory = offlineMode ? offlineFormantHistory : formantCurveHistory;
+  drawFormantAxes();
+
+  if (sourceHistory.length < 2) {
+    return;
+  }
+
+  let visibleHistory = sourceHistory;
+  let minTime = 0;
+  let durationMs = 0;
+
+  if (offlineMode) {
+    minTime = sourceHistory[0].time;
+    const maxTime = sourceHistory[sourceHistory.length - 1].time;
+    durationMs = Math.max(maxTime - minTime, 1);
+  } else {
+    const now = performance.now();
+    minTime = now - maxHistorySeconds * 1000;
+    visibleHistory = sourceHistory.filter((point) => point.time >= minTime);
+    formantCurveHistory = visibleHistory;
+    durationMs = maxHistorySeconds * 1000;
+  }
+
+  const padding = 20;
+  const minFrequency = formantValidRanges.f1.min;
+  const maxFrequency = formantValidRanges.f2.max;
+  const logMin = Math.log(minFrequency);
+  const logRange = Math.max(Math.log(maxFrequency) - logMin, 0.0001);
+
+  const drawCurve = (key, color, label) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    let hasActivePath = false;
+    visibleHistory.forEach((point) => {
+      const value = point[key];
+      if (!value || value < minFrequency || value > maxFrequency) {
+        if (hasActivePath) {
+          ctx.stroke();
+          ctx.beginPath();
+          hasActivePath = false;
+        }
+        return;
+      }
+      const x = ((point.time - minTime) / durationMs) * canvas.width;
+      const normalized = (Math.log(value) - logMin) / logRange;
+      const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+      if (!hasActivePath) {
+        ctx.moveTo(x, y);
+        hasActivePath = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    if (hasActivePath) {
+      ctx.stroke();
+    }
+    ctx.fillStyle = color;
+    ctx.font = '13px sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText(label, key === 'f1' ? 8 : 48, 8);
+    ctx.restore();
+  };
+
+  drawCurve('f1', '#22c55e', 'F1');
+  drawCurve('f2', '#f97316', 'F2');
+}
+
 function setFormantDisplay(f1, f2) {
   formantF1El.textContent = f1 ? `${Math.round(f1)} Hz` : '— Hz';
   formantF2El.textContent = f2 ? `${Math.round(f2)} Hz` : '— Hz';
@@ -3961,7 +4071,10 @@ async function analyzeAudioFile(file) {
       setAnalysisStatus(`分析中... ${formatPercent(percent)}`);
     }
 
-    if (formantToggle.checked && nowMs - lastFormantUpdate >= formantUpdateIntervalMs) {
+    if (
+      (formantToggle.checked || displayMode === 'formants') &&
+      nowMs - lastFormantUpdate >= formantUpdateIntervalMs
+    ) {
       lastFormantUpdate = nowMs;
       offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
       const { f1, f2 } = estimateFormantsFromSpectrum(
@@ -4002,6 +4115,8 @@ async function analyzeAudioFile(file) {
   offlineAnalysisInProgress = false;
   if (displayMode === 'volume') {
     drawVolumeHistory();
+  } else if (displayMode === 'formants') {
+    drawFormantCurveHistory();
   } else {
     drawPitchHistory();
   }
@@ -4129,7 +4244,10 @@ async function analyzeRecordingBlob(blob) {
       setAnalysisStatus(`分析中... ${formatPercent(percent)}`);
     }
 
-    if (formantToggle.checked && nowMs - lastFormantUpdate >= formantUpdateIntervalMs) {
+    if (
+      (formantToggle.checked || displayMode === 'formants') &&
+      nowMs - lastFormantUpdate >= formantUpdateIntervalMs
+    ) {
       lastFormantUpdate = nowMs;
       offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
       const { f1, f2 } = estimateFormantsFromSpectrum(
@@ -4170,6 +4288,8 @@ async function analyzeRecordingBlob(blob) {
   offlineAnalysisInProgress = false;
   if (displayMode === 'volume') {
     drawVolumeHistory();
+  } else if (displayMode === 'formants') {
+    drawFormantCurveHistory();
   } else {
     drawPitchHistory();
   }
@@ -4342,6 +4462,8 @@ function update() {
 
     if (displayMode === 'volume') {
       drawVolumeHistory();
+    } else if (displayMode === 'formants') {
+      drawFormantCurveHistory();
     } else if (displayMode !== 'spectrogram') {
       drawPitchHistory();
     }
@@ -4357,7 +4479,7 @@ function update() {
     updatePitchScoreDisplay(now);
   }
 
-  if (formantToggle.checked) {
+  if (formantToggle.checked || displayMode === 'formants') {
     if (now - lastFormantUpdate >= formantUpdateIntervalMs) {
       lastFormantUpdate = now;
       const { f1, f2 } = estimateFormants();
@@ -4365,6 +4487,9 @@ function update() {
       formantCurveHistory.push({ time: now, f1: stabilized.f1, f2: stabilized.f2 });
       setFormantDisplay(stabilized.f1, stabilized.f2);
       lastFormantTimestamp = now;
+      if (displayMode === 'formants') {
+        drawFormantCurveHistory();
+      }
     }
   } else {
     setFormantStatus('');
@@ -4480,7 +4605,9 @@ displayModeSelect.addEventListener('change', (event) => {
     displayModeSelect.value = 'pitch';
   }
   trainingMode =
-    displayMode === 'pitch' || displayMode === 'volume' ? 'curve' : displayMode;
+    displayMode === 'pitch' || displayMode === 'volume' || displayMode === 'formants'
+      ? 'curve'
+      : displayMode;
   setReadoutMode(displayMode);
   setTrainingCopy(displayMode);
   setCurveSwitcherMode(displayMode);
@@ -4491,6 +4618,8 @@ displayModeSelect.addEventListener('change', (event) => {
     drawBreathHistory();
   } else if (displayMode === 'volume') {
     drawVolumeHistory();
+  } else if (displayMode === 'formants') {
+    drawFormantCurveHistory();
   } else {
     resetPitchScoreDisplay();
     drawPitchHistory();
@@ -4685,6 +4814,9 @@ curvePitchButton?.addEventListener('click', () => {
 });
 curveVolumeButton?.addEventListener('click', () => {
   setCurveDisplayMode('volume');
+});
+curveFormantButton?.addEventListener('click', () => {
+  setCurveDisplayMode('formants');
 });
 openSpectrogramModeButton?.addEventListener('click', () => {
   showTrainingView('spectrogram');
