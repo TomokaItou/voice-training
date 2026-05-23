@@ -98,13 +98,15 @@ const analyzeRecordingButton = document.getElementById('analyzeRecordingButton')
 const downloadRecordingButton = document.getElementById('downloadRecordingButton');
 const appWindow = document.getElementById('appWindow');
 const modeLauncher = document.getElementById('modeLauncher');
-const openPitchModeButton = document.getElementById('openPitchModeButton');
-const openVolumeModeButton = document.getElementById('openVolumeModeButton');
+const openCurveModeButton = document.getElementById('openCurveModeButton');
 const openSpectrogramModeButton = document.getElementById('openSpectrogramModeButton');
 const openBreathModeButton = document.getElementById('openBreathModeButton');
 const openPitchScoreModeButton = document.getElementById('openPitchScoreModeButton');
 const openMemoryModeButton = document.getElementById('openMemoryModeButton');
 const backToHomeButton = document.getElementById('backToHomeButton');
+const curveSwitcher = document.getElementById('curveSwitcher');
+const curvePitchButton = document.getElementById('curvePitchButton');
+const curveVolumeButton = document.getElementById('curveVolumeButton');
 const songSearchForm = document.getElementById('songSearchForm');
 const songSearchInput = document.getElementById('songSearchInput');
 const songSearchButton = document.getElementById('songSearchButton');
@@ -1204,6 +1206,31 @@ function setTrainingCopy(mode) {
   }
 }
 
+function setCurveSwitcherMode(mode) {
+  if (curveSwitcher) {
+    curveSwitcher.hidden = trainingMode !== 'curve';
+  }
+  curvePitchButton?.classList.toggle('active', mode === 'pitch');
+  curveVolumeButton?.classList.toggle('active', mode === 'volume');
+}
+
+function setCurveDisplayMode(mode) {
+  displayMode = mode === 'volume' ? 'volume' : 'pitch';
+  trainingMode = 'curve';
+  if (displayModeSelect) {
+    displayModeSelect.value = displayMode;
+  }
+  setReadoutMode(displayMode);
+  setTrainingCopy(displayMode);
+  setCurveSwitcherMode(displayMode);
+  if (displayMode === 'volume') {
+    drawVolumeHistory();
+  } else {
+    resetPitchScoreDisplay();
+    drawPitchHistory();
+  }
+}
+
 function showTrainingView(mode = 'pitch') {
   modeLauncher.hidden = true;
   appWindow.hidden = false;
@@ -1211,20 +1238,28 @@ function showTrainingView(mode = 'pitch') {
   setReadoutMode(mode);
   setTrainingCopy(mode);
 
-  if (mode === 'spectrogram') {
+  if (mode === 'curve') {
+    setCurveDisplayMode('pitch');
+  } else if (mode === 'spectrogram') {
+    setCurveSwitcherMode(null);
     displayMode = 'spectrogram';
     displayModeSelect.value = 'spectrogram';
     resetSpectrogram();
   } else if (mode === 'breath') {
+    setCurveSwitcherMode(null);
     displayMode = 'breath';
     displayModeSelect.value = 'breath';
     resetBreathMeter();
     drawBreathHistory();
   } else if (mode === 'volume') {
-    displayMode = 'volume';
-    displayModeSelect.value = 'volume';
-    drawVolumeHistory();
+    setCurveDisplayMode('volume');
+  } else if (mode === 'pitch') {
+    setCurveDisplayMode('pitch');
   } else if (mode === 'score') {
+    setCurveSwitcherMode(null);
+    trainingMode = mode;
+    setReadoutMode(mode);
+    setTrainingCopy(mode);
     displayMode = 'pitch';
     displayModeSelect.value = 'pitch';
     targetPitchEnabled = true;
@@ -1234,6 +1269,10 @@ function showTrainingView(mode = 'pitch') {
     resetPitchScoreDisplay();
     drawPitchHistory();
   } else if (mode === 'memory') {
+    setCurveSwitcherMode(null);
+    trainingMode = mode;
+    setReadoutMode(mode);
+    setTrainingCopy(mode);
     displayMode = 'pitch';
     displayModeSelect.value = 'pitch';
     setMemoryEmptyState(
@@ -1244,9 +1283,7 @@ function showTrainingView(mode = 'pitch') {
     updateRecordingButtons();
     drawPitchHistory();
   } else {
-    displayMode = 'pitch';
-    displayModeSelect.value = 'pitch';
-    drawPitchHistory();
+    setCurveDisplayMode('pitch');
   }
 }
 
@@ -4442,9 +4479,11 @@ displayModeSelect.addEventListener('change', (event) => {
     displayMode = 'pitch';
     displayModeSelect.value = 'pitch';
   }
-  trainingMode = displayMode;
+  trainingMode =
+    displayMode === 'pitch' || displayMode === 'volume' ? 'curve' : displayMode;
   setReadoutMode(displayMode);
   setTrainingCopy(displayMode);
+  setCurveSwitcherMode(displayMode);
   if (displayMode === 'spectrogram') {
     resetSpectrogram();
   } else if (displayMode === 'breath') {
@@ -4638,11 +4677,14 @@ songSearchForm?.addEventListener('submit', (event) => {
   searchSongs(songSearchInput?.value || '');
 });
 
-openPitchModeButton?.addEventListener('click', () => {
-  showTrainingView('pitch');
+openCurveModeButton?.addEventListener('click', () => {
+  showTrainingView('curve');
 });
-openVolumeModeButton?.addEventListener('click', () => {
-  showTrainingView('volume');
+curvePitchButton?.addEventListener('click', () => {
+  setCurveDisplayMode('pitch');
+});
+curveVolumeButton?.addEventListener('click', () => {
+  setCurveDisplayMode('volume');
 });
 openSpectrogramModeButton?.addEventListener('click', () => {
   showTrainingView('spectrogram');
