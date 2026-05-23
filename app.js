@@ -210,6 +210,8 @@ const formantWindowSize = 5;
 const formantTauMs = 450;
 const formantSmoothingHz = 120;
 const formantMaxJumpHz = { f1: 90, f2: 160 };
+const formantVoiceConfidenceThreshold = 0.24;
+const formantVoiceEnergyMultiplier = 1.35;
 const formantValidRanges = {
   f1: { min: 200, max: 1000 },
   f2: { min: 700, max: 3000 },
@@ -3806,6 +3808,14 @@ function isValidFormantPair(f1, f2) {
   return true;
 }
 
+function isReliableFormantVoice(pitchResult, rms) {
+  return Boolean(
+    pitchResult?.pitch &&
+      pitchResult.confidence >= formantVoiceConfidenceThreshold &&
+      rms >= Math.max(pitchMinEnergyThreshold, adaptiveEnergyThreshold * formantVoiceEnergyMultiplier)
+  );
+}
+
 function stabilizeFormants(rawF1, rawF2, now) {
   if (!isValidFormantPair(rawF1, rawF2)) {
     setFormantStatus('信号不稳定/无声');
@@ -3847,6 +3857,12 @@ function updateRecordingButtons() {
   downloadRecordingButton.disabled = !hasRecording;
   if (memoryAnalyzeButton) {
     memoryAnalyzeButton.disabled = !hasRecording || !recordingTimelineFrames.length;
+  }
+}
+
+function appendFormantBreak(history, time) {
+  if (!history.length || history[history.length - 1].f1 !== null || history[history.length - 1].f2 !== null) {
+    history.push({ time, f1: null, f2: null });
   }
 }
 
@@ -4050,16 +4066,21 @@ async function analyzeAudioFile(file) {
     appendSamples(input);
 
     let frame = readFrame();
+    let lastFramePitchResult = null;
+    let lastFrameRms = 0;
     while (frame) {
-      const { pitch } = detectPitchForAlgorithm(
+      const pitchResult = detectPitchForAlgorithm(
         frame,
         audioBuffer.sampleRate,
         offlineAnalyser,
         offlineFrequencyData
       );
+      const { pitch } = pitchResult;
       const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
       pitchHistory.push({ time: timeMs, pitch });
-      appendVolumePoint(timeMs, computeRms(frame));
+      lastFrameRms = computeRms(frame);
+      lastFramePitchResult = pitchResult;
+      appendVolumePoint(timeMs, lastFrameRms);
       frameOffsetSamples += hopLength;
       frame = readFrame();
     }
@@ -4076,6 +4097,13 @@ async function analyzeAudioFile(file) {
       nowMs - lastFormantUpdate >= formantUpdateIntervalMs
     ) {
       lastFormantUpdate = nowMs;
+      if (!isReliableFormantVoice(lastFramePitchResult, lastFrameRms)) {
+        appendFormantBreak(offlineFormantHistory, nowMs);
+        setFormantDisplay(null, null);
+        setFormantStatus('未检测到稳定人声');
+        lastFormantTimestamp = nowMs;
+        return;
+      }
       offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
       const { f1, f2 } = estimateFormantsFromSpectrum(
         offlineFrequencyData,
@@ -4223,16 +4251,21 @@ async function analyzeRecordingBlob(blob) {
     appendSamples(input);
 
     let frame = readFrame();
+    let lastFramePitchResult = null;
+    let lastFrameRms = 0;
     while (frame) {
-      const { pitch } = detectPitchForAlgorithm(
+      const pitchResult = detectPitchForAlgorithm(
         frame,
         audioBuffer.sampleRate,
         offlineAnalyser,
         offlineFrequencyData
       );
+      const { pitch } = pitchResult;
       const timeMs = (frameOffsetSamples / audioBuffer.sampleRate) * 1000;
       pitchHistory.push({ time: timeMs, pitch });
-      appendVolumePoint(timeMs, computeRms(frame));
+      lastFrameRms = computeRms(frame);
+      lastFramePitchResult = pitchResult;
+      appendVolumePoint(timeMs, lastFrameRms);
       frameOffsetSamples += hopLength;
       frame = readFrame();
     }
@@ -4249,6 +4282,13 @@ async function analyzeRecordingBlob(blob) {
       nowMs - lastFormantUpdate >= formantUpdateIntervalMs
     ) {
       lastFormantUpdate = nowMs;
+      if (!isReliableFormantVoice(lastFramePitchResult, lastFrameRms)) {
+        appendFormantBreak(offlineFormantHistory, nowMs);
+        setFormantDisplay(null, null);
+        setFormantStatus('未检测到稳定人声');
+        lastFormantTimestamp = nowMs;
+        return;
+      }
       offlineAnalyser.getFloatFrequencyData(offlineFrequencyData);
       const { f1, f2 } = estimateFormantsFromSpectrum(
         offlineFrequencyData,
@@ -4482,6 +4522,23 @@ function update() {
   if (formantToggle.checked || displayMode === 'formants') {
     if (now - lastFormantUpdate >= formantUpdateIntervalMs) {
       lastFormantUpdate = now;
+      const formantPitchResult = estimatePitchWithConfidence(
+        dataArray,
+        audioContext.sampleRate,
+        analyser,
+        frequencyData
+      );
+      if (!isReliableFormantVoice(formantPitchResult, rms)) {
+        appendFormantBreak(formantCurveHistory, now);
+        setFormantDisplay(null, null);
+        setFormantStatus('未检测到稳定人声');
+        lastFormantTimestamp = now;
+        if (displayMode === 'formants') {
+          drawFormantCurveHistory();
+        }
+        animationId = requestAnimationFrame(update);
+        return;
+      }
       const { f1, f2 } = estimateFormants();
       const stabilized = stabilizeFormants(f1, f2, now);
       formantCurveHistory.push({ time: now, f1: stabilized.f1, f2: stabilized.f2 });
