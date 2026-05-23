@@ -210,8 +210,11 @@ const formantWindowSize = 5;
 const formantTauMs = 450;
 const formantSmoothingHz = 120;
 const formantMaxJumpHz = { f1: 90, f2: 160 };
-const formantVoiceConfidenceThreshold = 0.24;
-const formantVoiceEnergyMultiplier = 1.35;
+const formantVoiceConfidenceThreshold = 0.5;
+const formantVoiceEnergyMultiplier = 3;
+const formantVoiceMinRms = 0.012;
+const formantVoiceRequiredFrames = 3;
+const formantVoiceMaxPitchJumpCents = 90;
 const formantValidRanges = {
   f1: { min: 200, max: 1000 },
   f2: { min: 700, max: 3000 },
@@ -250,6 +253,7 @@ let smoothedFormants = { f1: null, f2: null };
 let stableFormants = { f1: null, f2: null };
 let formantHistory = { f1: [], f2: [] };
 let formantCurveHistory = [];
+let formantVoiceGate = { frames: 0, lastPitch: null };
 let spectrogramOverlayState = { pitch: null, f1: null, f2: null };
 let offlineMode = false;
 let offlineAbort = false;
@@ -3616,6 +3620,7 @@ function resetFormants() {
   stableFormants = { f1: null, f2: null };
   formantHistory = { f1: [], f2: [] };
   formantCurveHistory = [];
+  resetFormantVoiceGate();
   setFormantDisplay(null, null);
   setFormantStatus('');
 }
@@ -3808,12 +3813,37 @@ function isValidFormantPair(f1, f2) {
   return true;
 }
 
-function isReliableFormantVoice(pitchResult, rms) {
-  return Boolean(
-    pitchResult?.pitch &&
-      pitchResult.confidence >= formantVoiceConfidenceThreshold &&
-      rms >= Math.max(pitchMinEnergyThreshold, adaptiveEnergyThreshold * formantVoiceEnergyMultiplier)
-  );
+function resetFormantVoiceGate(gate = formantVoiceGate) {
+  gate.frames = 0;
+  gate.lastPitch = null;
+}
+
+function isReliableFormantVoice(pitchResult, rms, gate = formantVoiceGate) {
+  const pitch = pitchResult?.pitch;
+  const hasEnoughEnergy =
+    rms >=
+    Math.max(
+      formantVoiceMinRms,
+      pitchMinEnergyThreshold * formantVoiceEnergyMultiplier,
+      adaptiveEnergyThreshold * formantVoiceEnergyMultiplier
+    );
+  const hasReliablePitch =
+    pitch &&
+    pitch >= hnrMinFrequencyHz &&
+    pitch <= hnrMaxFrequencyHz &&
+    pitchResult.confidence >= formantVoiceConfidenceThreshold;
+  const pitchIsStable =
+    !gate.lastPitch ||
+    getPitchDistanceCents(pitch, gate.lastPitch) <= formantVoiceMaxPitchJumpCents;
+
+  if (!hasEnoughEnergy || !hasReliablePitch || !pitchIsStable) {
+    resetFormantVoiceGate(gate);
+    return false;
+  }
+
+  gate.frames += 1;
+  gate.lastPitch = pitch;
+  return gate.frames >= formantVoiceRequiredFrames;
 }
 
 function stabilizeFormants(rawF1, rawF2, now) {
@@ -4036,6 +4066,7 @@ async function analyzeAudioFile(file) {
   let bufferLength = 0;
   let frameOffsetSamples = 0;
   let lastProgressUpdate = 0;
+  const offlineFormantVoiceGate = { frames: 0, lastPitch: null };
 
   const appendSamples = (input) => {
     if (bufferLength + input.length > buffer.length) {
@@ -4097,7 +4128,7 @@ async function analyzeAudioFile(file) {
       nowMs - lastFormantUpdate >= formantUpdateIntervalMs
     ) {
       lastFormantUpdate = nowMs;
-      if (!isReliableFormantVoice(lastFramePitchResult, lastFrameRms)) {
+      if (!isReliableFormantVoice(lastFramePitchResult, lastFrameRms, offlineFormantVoiceGate)) {
         appendFormantBreak(offlineFormantHistory, nowMs);
         setFormantDisplay(null, null);
         setFormantStatus('未检测到稳定人声');
@@ -4221,6 +4252,7 @@ async function analyzeRecordingBlob(blob) {
   let bufferLength = 0;
   let frameOffsetSamples = 0;
   let lastProgressUpdate = 0;
+  const offlineFormantVoiceGate = { frames: 0, lastPitch: null };
 
   const appendSamples = (input) => {
     if (bufferLength + input.length > buffer.length) {
@@ -4282,7 +4314,7 @@ async function analyzeRecordingBlob(blob) {
       nowMs - lastFormantUpdate >= formantUpdateIntervalMs
     ) {
       lastFormantUpdate = nowMs;
-      if (!isReliableFormantVoice(lastFramePitchResult, lastFrameRms)) {
+      if (!isReliableFormantVoice(lastFramePitchResult, lastFrameRms, offlineFormantVoiceGate)) {
         appendFormantBreak(offlineFormantHistory, nowMs);
         setFormantDisplay(null, null);
         setFormantStatus('未检测到稳定人声');
