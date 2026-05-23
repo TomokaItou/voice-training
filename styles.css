@@ -365,6 +365,35 @@ button.secondary:not(:disabled):hover {
   font-size: 13px;
 }
 
+.curve-switcher {
+  display: inline-flex;
+  width: fit-content;
+  gap: 4px;
+  padding: 4px;
+  margin: 0 0 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.curve-tab {
+  min-width: 104px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.curve-tab.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.curve-tab:not(.active):hover {
+  background: var(--surface-strong);
+  color: var(--accent-strong);
+  border-color: transparent;
+}
+
 .breath-dashboard {
   display: grid;
   grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.1fr);

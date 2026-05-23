@@ -12,13 +12,9 @@
         <h1>选择训练模式</h1>
         <p>请选择要进入的功能模块。</p>
         <div class="mode-grid">
-          <button id="openPitchModeButton" class="mode-button">
-            <span class="mode-title">音高曲线</span>
-            <span class="mode-desc">进入实时音高曲线检测与可视化</span>
-          </button>
-          <button id="openVolumeModeButton" class="mode-button">
-            <span class="mode-title">音量曲线</span>
-            <span class="mode-desc">查看音量随时间变化的曲线</span>
+          <button id="openCurveModeButton" class="mode-button">
+            <span class="mode-title">曲线</span>
+            <span class="mode-desc">进入后选择音高曲线或音量曲线</span>
           </button>
           <button id="openSpectrogramModeButton" class="mode-button secondary-mode">
             <span class="mode-title">频谱图</span>
@@ -78,6 +74,11 @@
           <button id="backToHomeButton" class="secondary sidebar-toggle">← 返回</button>
           <button id="sidebarToggle" class="secondary sidebar-toggle" aria-expanded="false">设置</button>
         </div>
+      </section>
+
+      <section class="curve-switcher" id="curveSwitcher" hidden>
+        <button id="curvePitchButton" class="curve-tab active" type="button">音高曲线</button>
+        <button id="curveVolumeButton" class="curve-tab" type="button">音量曲线</button>
       </section>
 
       <section class="breath-dashboard" id="breathDashboard" hidden>
