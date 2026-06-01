@@ -3807,7 +3807,7 @@ function drawSpectrogramFrame() {
     layout.specHeight
   );
   ctx.save();
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.075)';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.0018)';
   ctx.fillRect(layout.specLeft, layout.top, layout.specWidth - 1, layout.specHeight);
   ctx.restore();
   ctx.fillStyle = '#080b0d';
