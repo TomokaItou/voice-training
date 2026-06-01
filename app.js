@@ -3840,6 +3840,7 @@ function drawSpectrogramFrame() {
       rowDb[row] = Math.max(rowDb[row], value);
     }
   }
+  const candidates = [];
   for (let row = 0; row < rowDb.length; row += 1) {
     const value = rowDb[row];
     if (value <= adaptiveFloorDb) {
@@ -3858,11 +3859,11 @@ function drawSpectrogramFrame() {
     }
     localValues.sort((a, b) => a - b);
     const localFloorDb = localValues.length
-      ? localValues[Math.floor(localValues.length * 0.35)]
+      ? localValues[Math.floor(localValues.length * 0.65)]
       : noiseFloorDb;
     const localLift = value - localFloorDb;
     const floorLift = value - adaptiveFloorDb;
-    if (localLift < 3.5 || floorLift < 1.5) {
+    if (localLift < 6 || floorLift < 5) {
       continue;
     }
     const peakContrast = Math.max(0, Math.min(1, (localLift - 5.5) / 18));
@@ -3871,9 +3872,20 @@ function drawSpectrogramFrame() {
     if (intensity <= 0.12) {
       continue;
     }
+    candidates.push({ row, intensity });
+  }
+
+  const intensityValues = candidates.map((candidate) => candidate.intensity).sort((a, b) => a - b);
+  const adaptiveIntensityFloor = intensityValues.length
+    ? Math.max(0.24, intensityValues[Math.floor(intensityValues.length * 0.82)])
+    : 1;
+  candidates.forEach(({ row, intensity }) => {
+    if (intensity < adaptiveIntensityFloor && intensity < 0.72) {
+      return;
+    }
     ctx.fillStyle = spectrogramColor(intensity);
     ctx.fillRect(layout.specRight - 1, layout.top + row, 1, 1);
-  }
+  });
 
   drawSpectrogramStaticOverlays(layout);
   drawSpectrogramProfile(layout);
