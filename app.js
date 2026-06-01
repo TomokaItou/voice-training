@@ -3806,6 +3806,10 @@ function drawSpectrogramFrame() {
     layout.specWidth - 1,
     layout.specHeight
   );
+  ctx.save();
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.075)';
+  ctx.fillRect(layout.specLeft, layout.top, layout.specWidth - 1, layout.specHeight);
+  ctx.restore();
   ctx.fillStyle = '#080b0d';
   ctx.fillRect(layout.specRight - 1, layout.top, 1, layout.specHeight);
 
@@ -3859,17 +3863,17 @@ function drawSpectrogramFrame() {
     }
     localValues.sort((a, b) => a - b);
     const localFloorDb = localValues.length
-      ? localValues[Math.floor(localValues.length * 0.65)]
+      ? localValues[Math.floor(localValues.length * 0.4)]
       : noiseFloorDb;
     const localLift = value - localFloorDb;
     const floorLift = value - adaptiveFloorDb;
-    if (localLift < 6 || floorLift < 5) {
+    if (localLift < 3.5 || floorLift < 2) {
       continue;
     }
-    const peakContrast = Math.max(0, Math.min(1, (localLift - 5.5) / 18));
-    const floorContrast = Math.max(0, Math.min(1, (floorLift - 4) / Math.max(framePeakDb - adaptiveFloorDb - 4, 1)));
+    const peakContrast = Math.max(0, Math.min(1, (localLift - 3.5) / 17));
+    const floorContrast = Math.max(0, Math.min(1, (floorLift - 2) / Math.max(framePeakDb - adaptiveFloorDb - 2, 1)));
     const intensity = Math.max(0, Math.min(1, Math.sqrt(peakContrast * floorContrast)));
-    if (intensity <= 0.12) {
+    if (intensity <= 0.08) {
       continue;
     }
     candidates.push({ row, intensity });
@@ -3877,10 +3881,10 @@ function drawSpectrogramFrame() {
 
   const intensityValues = candidates.map((candidate) => candidate.intensity).sort((a, b) => a - b);
   const adaptiveIntensityFloor = intensityValues.length
-    ? Math.max(0.24, intensityValues[Math.floor(intensityValues.length * 0.82)])
+    ? Math.max(0.1, intensityValues[Math.floor(intensityValues.length * 0.45)])
     : 1;
   candidates.forEach(({ row, intensity }) => {
-    if (intensity < adaptiveIntensityFloor && intensity < 0.72) {
+    if (intensity < adaptiveIntensityFloor && intensity < 0.5) {
       return;
     }
     ctx.fillStyle = spectrogramColor(intensity);
@@ -3895,10 +3899,10 @@ function drawSpectrogramFrame() {
 
 function spectrogramColor(intensity) {
   const visible = Math.max(0, Math.min(1, intensity));
-  if (visible < 0.18) {
+  if (visible < 0.12) {
     return 'rgb(2, 4, 8)';
   }
-  const shaped = ((visible - 0.18) / 0.82) ** 1.45;
+  const shaped = ((visible - 0.12) / 0.88) ** 1.28;
   const stops = [
     [0, 2, 4, 8],
     [0.24, 0, 34, 112],
