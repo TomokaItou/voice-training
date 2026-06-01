@@ -3823,6 +3823,12 @@ function drawSpectrogramFrame() {
   const noiseFloorDb = sortedDbValues.length
     ? sortedDbValues[Math.floor(sortedDbValues.length * 0.42)]
     : spectrogramMinDb;
+  const framePeakDb = sortedDbValues.length ? sortedDbValues[sortedDbValues.length - 1] : spectrogramMinDb;
+  const frameRangeDb = Math.max(framePeakDb - noiseFloorDb, 1);
+  const adaptiveFloorDb = Math.max(
+    spectrogramMinDb + 10,
+    noiseFloorDb + Math.min(12, frameRangeDb * 0.34)
+  );
   for (let i = 1; i < frequencyData.length; i += 1) {
     const freq = i * binHz;
     if (freq < spectrogramDisplayMinHz || freq > spectrogramDisplayMaxHz) {
@@ -3836,11 +3842,10 @@ function drawSpectrogramFrame() {
   }
   for (let row = 0; row < rowDb.length; row += 1) {
     const value = rowDb[row];
-    if (value <= -130) {
+    if (value <= adaptiveFloorDb) {
       continue;
     }
-    let localSum = 0;
-    let localCount = 0;
+    const localValues = [];
     const localRadius = 10;
     for (let offset = -localRadius; offset <= localRadius; offset += 1) {
       if (Math.abs(offset) <= 2) {
@@ -3848,15 +3853,22 @@ function drawSpectrogramFrame() {
       }
       const neighbor = rowDb[row + offset];
       if (Number.isFinite(neighbor) && neighbor > -130) {
-        localSum += neighbor;
-        localCount += 1;
+        localValues.push(neighbor);
       }
     }
-    const localFloorDb = localCount ? localSum / localCount : noiseFloorDb;
-    const peakContrast = Math.max(0, Math.min(1, (value - localFloorDb - 2.5) / 22));
-    const absoluteGate = Math.max(0, Math.min(1, (value - spectrogramMinDb) / (spectrogramMaxDb - spectrogramMinDb)));
-    const intensity = Math.max(0, Math.min(1, peakContrast * 0.86 + absoluteGate * 0.14));
-    if (intensity <= 0.035) {
+    localValues.sort((a, b) => a - b);
+    const localFloorDb = localValues.length
+      ? localValues[Math.floor(localValues.length * 0.35)]
+      : noiseFloorDb;
+    const localLift = value - localFloorDb;
+    const floorLift = value - adaptiveFloorDb;
+    if (localLift < 3.5 || floorLift < 1.5) {
+      continue;
+    }
+    const peakContrast = Math.max(0, Math.min(1, (localLift - 3.5) / 20));
+    const floorContrast = Math.max(0, Math.min(1, floorLift / Math.max(framePeakDb - adaptiveFloorDb, 1)));
+    const intensity = Math.max(0, Math.min(1, peakContrast * 0.72 + floorContrast * 0.28));
+    if (intensity <= 0.045) {
       continue;
     }
     ctx.fillStyle = spectrogramColor(intensity);
