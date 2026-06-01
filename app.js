@@ -3810,6 +3810,7 @@ function drawSpectrogramFrame() {
   ctx.fillRect(layout.specRight - 1, layout.top, 1, layout.specHeight);
 
   const binHz = (audioContext.sampleRate / 2) / frequencyData.length;
+  const rowLevels = new Float32Array(Math.ceil(layout.specHeight) + 2);
   for (let i = 1; i < frequencyData.length; i += 1) {
     const freq = i * binHz;
     if (freq < spectrogramDisplayMinHz || freq > spectrogramDisplayMaxHz) {
@@ -3819,9 +3820,18 @@ function drawSpectrogramFrame() {
     const normalized = Math.max(0, Math.min(1, (value - spectrogramMinDb) / (spectrogramMaxDb - spectrogramMinDb)));
     const frequencyLift = 0.1 * Math.min(1, Math.log2(freq / spectrogramDisplayMinHz) / Math.log2(1800 / spectrogramDisplayMinHz));
     const intensity = Math.max(0, Math.min(1, (normalized - 0.08) / 0.88 + frequencyLift));
-    const y = Math.round(spectrogramFreqToY(freq, layout));
+    const row = Math.round(spectrogramFreqToY(freq, layout) - layout.top);
+    if (row >= 0 && row < rowLevels.length) {
+      rowLevels[row] = Math.max(rowLevels[row], intensity);
+    }
+  }
+  for (let row = 0; row < rowLevels.length; row += 1) {
+    const intensity = rowLevels[row];
+    if (intensity <= 0.01) {
+      continue;
+    }
     ctx.fillStyle = spectrogramColor(intensity);
-    ctx.fillRect(layout.specRight - 1, y, 1, 2);
+    ctx.fillRect(layout.specRight - 1, layout.top + row, 1, 1);
   }
 
   drawSpectrogramStaticOverlays(layout);
