@@ -220,6 +220,16 @@
               <option value="siren">siren approach</option>
             </select>
           </label>
+          <label class="field">
+            <span class="label">教学控制指令</span>
+            <select id="memoryInstructionSelect" class="select">
+              <option value="auto">自动选择</option>
+              <option value="reduceBreathiness">减少气声 / 提高声源稳定</option>
+              <option value="healthyClosure">增加健康闭合</option>
+              <option value="releasePressed">释放压紧闭合</option>
+              <option value="keepBreathy">保留气声色彩</option>
+            </select>
+          </label>
           <button id="memoryAnalyzeButton" class="secondary" disabled>分析最近录音</button>
         </div>
         <div class="memory-metrics">
@@ -239,6 +249,32 @@
             <span class="label">恢复延迟 R[K]</span>
             <span class="value" id="memoryRecovery">--</span>
           </div>
+          <div>
+            <span class="label">声源稳定 ΦSN</span>
+            <span class="value" id="memoryPhiSn">--</span>
+          </div>
+          <div>
+            <span class="label">包络纹理 ΦEtex</span>
+            <span class="value" id="memoryPhiEtex">--</span>
+          </div>
+          <div>
+            <span class="label">估计气声</span>
+            <span class="value" id="memoryBreathiness">--</span>
+          </div>
+          <div>
+            <span class="label">估计闭合</span>
+            <span class="value" id="memoryClosure">--</span>
+          </div>
+        </div>
+        <div class="memory-control-field" id="memoryControlField">
+          <div>
+            <span class="label">控制场判断</span>
+            <span class="memory-field-title" id="memoryControlTitle">等待控制场分析</span>
+            <span class="memory-field-copy" id="memoryControlCopy">
+              S84 思路：比较目标差距和教学指令的预计移动方向，而不只判断当前声音像不像目标。
+            </span>
+          </div>
+          <span class="memory-field-score" id="memoryControlScore">--</span>
         </div>
         <div class="memory-recommendation" id="memoryRecommendation">暂无路径推荐。</div>
       </section>

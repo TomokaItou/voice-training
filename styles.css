@@ -618,6 +618,7 @@ button.secondary:not(:disabled):hover {
 .memory-zone-card,
 .memory-controls,
 .memory-metrics,
+.memory-control-field,
 .memory-recommendation {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -674,7 +675,7 @@ button.secondary:not(:disabled):hover {
 
 .memory-controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(180px, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(170px, 1fr)) auto;
   gap: 12px;
   align-items: end;
   padding: 14px;
@@ -701,6 +702,40 @@ button.secondary:not(:disabled):hover {
   display: block;
   font-size: 22px;
   font-weight: 800;
+}
+
+.memory-control-field {
+  padding: 15px;
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  gap: 14px;
+  align-items: center;
+  background: linear-gradient(180deg, #f8fbf9 0%, #ffffff 100%);
+}
+
+.memory-field-title {
+  display: block;
+  margin: 4px 0 6px;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.memory-field-copy {
+  display: block;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.memory-field-score {
+  min-height: 72px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-muted);
+  color: var(--accent-strong);
+  font-size: 28px;
+  font-weight: 850;
 }
 
 .memory-recommendation {
@@ -1136,6 +1171,7 @@ input[type='range'] {
   .pitch-score-dashboard,
   .memory-zone-card,
   .memory-controls,
+  .memory-control-field,
   .memory-metrics,
   .breath-state-meta,
   .breath-metric-strip {

@@ -122,11 +122,19 @@ const memoryZoneCopy = document.getElementById('memoryZoneCopy');
 const memoryZoneBadge = document.getElementById('memoryZoneBadge');
 const memoryTargetSelect = document.getElementById('memoryTargetSelect');
 const memoryPathSelect = document.getElementById('memoryPathSelect');
+const memoryInstructionSelect = document.getElementById('memoryInstructionSelect');
 const memoryAnalyzeButton = document.getElementById('memoryAnalyzeButton');
 const memorySoundError = document.getElementById('memorySoundError');
 const memoryHiddenLoad = document.getElementById('memoryHiddenLoad');
 const memoryRank = document.getElementById('memoryRank');
 const memoryRecovery = document.getElementById('memoryRecovery');
+const memoryPhiSn = document.getElementById('memoryPhiSn');
+const memoryPhiEtex = document.getElementById('memoryPhiEtex');
+const memoryBreathiness = document.getElementById('memoryBreathiness');
+const memoryClosure = document.getElementById('memoryClosure');
+const memoryControlTitle = document.getElementById('memoryControlTitle');
+const memoryControlCopy = document.getElementById('memoryControlCopy');
+const memoryControlScore = document.getElementById('memoryControlScore');
 const memoryRecommendation = document.getElementById('memoryRecommendation');
 
 let audioContext;
@@ -302,10 +310,10 @@ let pitchScoreLastTone = 'neutral';
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const memoryTargets = {
-  brightStable: { pitch: 0.55, loudness: 0.58, brightness: 0.72, breathiness: 0.18, stability: 0.82 },
-  clearSoft: { pitch: 0.48, loudness: 0.42, brightness: 0.5, breathiness: 0.16, stability: 0.86 },
-  darkWarm: { pitch: 0.45, loudness: 0.52, brightness: 0.32, breathiness: 0.2, stability: 0.78 },
-  lightBreathy: { pitch: 0.5, loudness: 0.34, brightness: 0.46, breathiness: 0.55, stability: 0.62 },
+  brightStable: { pitch: 0.55, loudness: 0.58, brightness: 0.72, breathiness: 0.18, stability: 0.82, phiSn: 0.84, phiEtex: 0.5, closure: 0.58 },
+  clearSoft: { pitch: 0.48, loudness: 0.42, brightness: 0.5, breathiness: 0.16, stability: 0.86, phiSn: 0.88, phiEtex: 0.43, closure: 0.54 },
+  darkWarm: { pitch: 0.45, loudness: 0.52, brightness: 0.32, breathiness: 0.2, stability: 0.78, phiSn: 0.76, phiEtex: 0.36, closure: 0.48 },
+  lightBreathy: { pitch: 0.5, loudness: 0.34, brightness: 0.46, breathiness: 0.55, stability: 0.62, phiSn: 0.52, phiEtex: 0.6, closure: 0.3 },
 };
 const memoryPathClasses = {
   neutralBright: { label: 'neutral → bright', soundBias: 0.96, hiddenBias: 0.96, advice: '保留这条路径，观察保持段是否能不增加压力地维持明亮度。' },
@@ -315,6 +323,28 @@ const memoryPathClasses = {
   softLoud: { label: 'soft → loud', soundBias: 0.94, hiddenBias: 1.18, advice: '弱到强可以接近目标，但要控制响度爬升；恢复拖尾明显时先降动态。' },
   sovtReset: { label: 'SOVT reset', soundBias: 1.08, hiddenBias: 0.72, advice: '半闭合重置可能牺牲一点目标相似度，但通常更能降低隐藏负荷。' },
   siren: { label: 'siren approach', soundBias: 1.04, hiddenBias: 0.84, advice: '滑音路径能约束音高变化，适合把目标接回更平滑的动作轨迹。' },
+};
+const memoryControlInstructions = {
+  reduceBreathiness: {
+    label: '减少气声 / 提高声源稳定',
+    vector: { phiSn: 0.26, phiEtex: -0.03, breathiness: -0.28, closure: 0.08, loudness: 0.02 },
+    advice: '优先做更清晰的起音和更连续的声源，注意不要靠提高响度硬顶。S84 中气声最稳定的控制方向是 ΦSN 下降/上升这一维，所以这里把声源稳定作为主反馈。',
+  },
+  healthyClosure: {
+    label: '增加健康闭合',
+    vector: { phiSn: 0.12, phiEtex: 0.16, breathiness: -0.08, closure: 0.22, loudness: 0.08 },
+    advice: '尝试更连贯的闭合，但把它当作协调动作，不要当成“越紧越好”。论文提示闭合不是气声的反方向，过度闭合可能带来压紧或恢复拖尾。',
+  },
+  releasePressed: {
+    label: '释放压紧闭合',
+    vector: { phiSn: 0.08, phiEtex: -0.12, breathiness: 0.04, closure: -0.22, loudness: -0.22 },
+    advice: '如果当前接近目标但响度、闭合或恢复成本偏高，先释放压力、降低响度，再重新接近目标。',
+  },
+  keepBreathy: {
+    label: '保留气声色彩',
+    vector: { phiSn: -0.18, phiEtex: 0.11, breathiness: 0.2, closure: -0.08, loudness: -0.04 },
+    advice: '目标本身偏气声时，低 ΦSN 不一定是错误。重点是让气声保持可控、稳定，并避免音高和响度一起漂移。',
+  },
 };
 
 function updateMeterVisibility() {
@@ -469,13 +499,64 @@ function captureRecordingFrame(now, rms, pitch) {
   const timeMs = Math.max(0, now - recordingStartTime);
   recordingTimelineDurationMs = Math.max(recordingTimelineDurationMs, timeMs);
   recordingSelectedTimeMs = timeMs;
+  const timbreFeatures = extractRecordingTimbreFeatures();
   recordingTimelineFrames.push({
     timeMs,
     rms,
     pitch: pitch || null,
+    ...timbreFeatures,
     samples: downsampleWaveform(dataArray),
   });
   drawRecordingTimeline();
+}
+
+function extractRecordingTimbreFeatures() {
+  const features = {
+    zcr: null,
+    waveformRoughness: null,
+    spectralFlatness: null,
+    highFrequencyRatio: null,
+    spectralCentroid: null,
+  };
+  if (dataArray?.length) {
+    let crossings = 0;
+    let diff = 0;
+    for (let i = 1; i < dataArray.length; i += 1) {
+      if ((dataArray[i - 1] < 0 && dataArray[i] >= 0) || (dataArray[i - 1] >= 0 && dataArray[i] < 0)) {
+        crossings += 1;
+      }
+      diff += Math.abs(dataArray[i] - dataArray[i - 1]);
+    }
+    features.zcr = crossings / Math.max(1, dataArray.length - 1);
+    features.waveformRoughness = clamp01(normalizeRange(diff / Math.max(1, dataArray.length - 1), 0.002, 0.08));
+  }
+  if (analyser && frequencyData && audioContext) {
+    analyser.getFloatFrequencyData(frequencyData);
+    const sampleRate = audioContext.sampleRate;
+    const binHz = (sampleRate / 2) / Math.max(1, frequencyData.length);
+    let total = 0;
+    let weighted = 0;
+    let high = 0;
+    const powers = [];
+    for (let i = 0; i < frequencyData.length; i += 1) {
+      const hz = i * binHz;
+      const power = 10 ** (frequencyData[i] / 10);
+      if (hz >= 80) {
+        total += power;
+        weighted += hz * power;
+        powers.push(Math.max(power, 1e-12));
+      }
+      if (hz >= 3000) {
+        high += power;
+      }
+    }
+    const geo = powers.length ? Math.exp(mean(powers.map((value) => Math.log(value)))) : 0;
+    const arith = powers.length ? mean(powers) : 0;
+    features.spectralFlatness = arith ? clamp01(geo / arith) : 0;
+    features.highFrequencyRatio = total ? clamp01(high / total) : 0;
+    features.spectralCentroid = total ? weighted / total : 0;
+  }
+  return features;
 }
 
 function getRecordingDurationMs() {
@@ -997,7 +1078,7 @@ function normalizeRange(value, min, max) {
 }
 
 function memoryNeutralVector() {
-  return { pitch: 0.45, loudness: 0.22, brightness: 0.42, breathiness: 0.24, stability: 0.62 };
+  return { pitch: 0.45, loudness: 0.22, brightness: 0.42, breathiness: 0.24, stability: 0.62, phiSn: 0.62, phiEtex: 0.44, closure: 0.42 };
 }
 
 function memoryDistance(a, b) {
@@ -1014,9 +1095,31 @@ function memoryFrameVector(frame, index, frames) {
   const previous = frames[Math.max(0, index - 1)];
   const pitchDelta = frame.pitch && previous?.pitch ? Math.abs(getPitchDistanceCents(frame.pitch, previous.pitch)) : 0;
   const stability = clamp01(1 - normalizeRange(pitchDelta, 20, 180));
-  const brightness = clamp01(0.35 + pitch * 0.35 + loudness * 0.2);
-  const breathiness = clamp01(0.55 - stability * 0.28 + Math.max(0, loudness - 0.65) * 0.22);
-  return { pitch, loudness, brightness, breathiness, stability };
+  const zcr = Number.isFinite(frame.zcr) ? clamp01(normalizeRange(frame.zcr, 0.015, 0.16)) : 0.28;
+  const flatness = Number.isFinite(frame.spectralFlatness) ? clamp01(normalizeRange(frame.spectralFlatness, 0.02, 0.42)) : 0.32;
+  const highFrequency = Number.isFinite(frame.highFrequencyRatio) ? clamp01(normalizeRange(frame.highFrequencyRatio, 0.02, 0.42)) : 0.25;
+  const roughness = Number.isFinite(frame.waveformRoughness)
+    ? frame.waveformRoughness
+    : clamp01(normalizeRange(pitchDelta, 25, 220));
+  const centroidBrightness = Number.isFinite(frame.spectralCentroid)
+    ? clamp01(normalizeRange(frame.spectralCentroid, 700, 4200))
+    : 0.35 + pitch * 0.35 + loudness * 0.2;
+  const brightness = clamp01(0.62 * centroidBrightness + 0.24 * pitch + 0.14 * loudness);
+  const continuity = frame.pitch ? 1 : 0.15;
+  const harmonicityProxy = clamp01(0.55 * stability + 0.25 * continuity + 0.2 * (1 - roughness));
+  const phiSn = clamp01(
+    0.32 * harmonicityProxy +
+      0.26 * stability +
+      0.18 * continuity +
+      0.12 * (1 - flatness) +
+      0.12 * (1 - zcr)
+  );
+  const phiEtex = clamp01(0.38 * brightness + 0.22 * flatness + 0.2 * highFrequency + 0.2 * roughness);
+  const breathiness = clamp01(0.56 * (1 - phiSn) + 0.24 * flatness + 0.2 * highFrequency);
+  const closureRaw = 0.58 * phiSn + 0.18 * loudness + 0.16 * (1 - breathiness) + 0.08 * phiEtex;
+  const pressedPenalty = Math.max(0, loudness - 0.72) * 0.22 + Math.max(0, roughness - 0.62) * 0.16;
+  const closure = clamp01(closureRaw - pressedPenalty);
+  return { pitch, loudness, brightness, breathiness, stability, phiSn, phiEtex, closure };
 }
 
 function memoryEffectiveRank(rows) {
@@ -1039,6 +1142,62 @@ function memoryEffectiveRank(rows) {
     }
   }
   return dims;
+}
+
+function meanMemoryVector(frames) {
+  const keys = ['pitch', 'loudness', 'brightness', 'breathiness', 'stability', 'phiSn', 'phiEtex', 'closure'];
+  return Object.fromEntries(keys.map((key) => [key, mean(frames.map((frame) => frame.vector[key]))]));
+}
+
+function memoryVectorNeed(current, target) {
+  return {
+    phiSn: target.phiSn - current.phiSn,
+    phiEtex: target.phiEtex - current.phiEtex,
+    breathiness: target.breathiness - current.breathiness,
+    closure: target.closure - current.closure,
+    loudness: target.loudness - current.loudness,
+  };
+}
+
+function memoryInstructionScore(need, instruction, current, hiddenLoad, recovery) {
+  const next = {
+    phiSn: current.phiSn + instruction.vector.phiSn,
+    phiEtex: current.phiEtex + instruction.vector.phiEtex,
+    breathiness: current.breathiness + instruction.vector.breathiness,
+    closure: current.closure + instruction.vector.closure,
+    loudness: current.loudness + instruction.vector.loudness,
+  };
+  const afterDistance = Math.sqrt(
+    ['phiSn', 'phiEtex', 'breathiness', 'closure', 'loudness'].reduce(
+      (sum, key) => sum + (need[key] - instruction.vector[key]) ** 2,
+      0
+    ) / 5
+  );
+  const pressedRisk = clamp01(
+    Math.max(0, current.closure - 0.72) * 1.6 +
+      Math.max(0, current.loudness - 0.72) * 1.2 +
+      Math.max(0, recovery - 0.34) * 0.8
+  );
+  const closureOvershoot = Math.max(0, next.closure - 0.76);
+  const instabilityPenalty = Math.max(0, 0.38 - next.phiSn) * 0.6;
+  return clamp01(1 - afterDistance - closureOvershoot * 0.45 - instabilityPenalty - hiddenLoad * 0.14 - pressedRisk * 0.18);
+}
+
+function recommendMemoryInstruction(current, target, hiddenLoad, recovery) {
+  const need = memoryVectorNeed(current, target);
+  const selectedId = memoryInstructionSelect?.value || 'auto';
+  const ranked = Object.entries(memoryControlInstructions)
+    .map(([id, instruction]) => ({
+      id,
+      ...instruction,
+      score: memoryInstructionScore(need, instruction, current, hiddenLoad, recovery),
+    }))
+    .sort((a, b) => b.score - a.score);
+  if (selectedId !== 'auto' && memoryControlInstructions[selectedId]) {
+    const selected = ranked.find((item) => item.id === selectedId);
+    return { selected, best: ranked[0], need };
+  }
+  return { selected: ranked[0], best: ranked[0], need };
 }
 
 function analyzeMemoryPath() {
@@ -1083,7 +1242,9 @@ function analyzeMemoryPath() {
     : 0.5;
   const total = clamp01(0.45 * soundError + 0.3 * hiddenLoad + 0.15 * normalizeRange(rank, 1, 5) + 0.1 * recovery);
   const zone = classifyMemoryZone(soundError, hiddenLoad, recovery);
-  renderMemoryResult({ zone, soundError, hiddenLoad, rank, recovery, total, path });
+  const controlState = meanMemoryVector(activeFrames);
+  const instruction = recommendMemoryInstruction(controlState, target, hiddenLoad, recovery);
+  renderMemoryResult({ zone, soundError, hiddenLoad, rank, recovery, total, path, controlState, instruction });
 }
 
 function classifyMemoryZone(soundError, hiddenLoad, recovery) {
@@ -1120,7 +1281,28 @@ function renderMemoryResult(result) {
   memoryHiddenLoad.textContent = result.hiddenLoad.toFixed(3);
   memoryRank.textContent = result.rank.toFixed(1);
   memoryRecovery.textContent = result.recovery.toFixed(3);
-  memoryRecommendation.textContent = `${result.path.label}：${result.path.advice}  估计总分 Ĵ = ${result.total.toFixed(3)}。`;
+  memoryPhiSn.textContent = result.controlState.phiSn.toFixed(3);
+  memoryPhiEtex.textContent = result.controlState.phiEtex.toFixed(3);
+  memoryBreathiness.textContent = `${Math.round(result.controlState.breathiness * 100)}%`;
+  memoryClosure.textContent = `${Math.round(result.controlState.closure * 100)}%`;
+  const selected = result.instruction.selected;
+  const best = result.instruction.best;
+  const isManual = memoryInstructionSelect?.value && memoryInstructionSelect.value !== 'auto';
+  memoryControlTitle.textContent = isManual
+    ? `当前指令：${selected.label}`
+    : `推荐指令：${selected.label}`;
+  memoryControlCopy.textContent =
+    selected.id === best.id
+      ? selected.advice
+      : `${selected.advice} 当前自动评分最高的是“${best.label}”，可作为下一轮对照。`;
+  memoryControlScore.textContent = `${Math.round(selected.score * 100)}%`;
+  memoryRecommendation.textContent = `${result.path.label}：${result.path.advice}  控制场总分 Ĵ = ${result.total.toFixed(
+    3
+  )}。目标差距：ΦSN ${formatSignedUnit(result.instruction.need.phiSn)}，ΦEtex ${formatSignedUnit(
+    result.instruction.need.phiEtex
+  )}，气声 ${formatSignedUnit(result.instruction.need.breathiness)}，闭合 ${formatSignedUnit(
+    result.instruction.need.closure
+  )}。`;
 }
 
 function setMemoryEmptyState(message) {
@@ -1135,7 +1317,19 @@ function setMemoryEmptyState(message) {
   memoryHiddenLoad.textContent = '--';
   memoryRank.textContent = '--';
   memoryRecovery.textContent = '--';
+  memoryPhiSn.textContent = '--';
+  memoryPhiEtex.textContent = '--';
+  memoryBreathiness.textContent = '--';
+  memoryClosure.textContent = '--';
+  memoryControlTitle.textContent = '等待控制场分析';
+  memoryControlCopy.textContent = 'S84 思路：比较目标差距和教学指令的预计移动方向，而不只判断当前声音像不像目标。';
+  memoryControlScore.textContent = '--';
   memoryRecommendation.textContent = '暂无路径推荐。';
+}
+
+function formatSignedUnit(value) {
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)}`;
 }
 
 
