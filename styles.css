@@ -829,6 +829,22 @@ button.secondary:not(:disabled):hover {
   grid-template-columns: 1fr;
 }
 
+.chart.spectrogram-analyzer {
+  background: #202322;
+  border-color: #2e3431;
+  padding: 10px;
+  column-gap: 0;
+}
+
+.chart.spectrogram-analyzer canvas {
+  border-color: #343a37;
+  background: #070909;
+}
+
+.chart.spectrogram-analyzer .chart-legend {
+  color: #c4cec8;
+}
+
 canvas {
   width: 100%;
   height: auto;
