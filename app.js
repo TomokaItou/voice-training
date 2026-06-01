@@ -1364,6 +1364,9 @@ function setReadoutMode(mode) {
   const isMemory = mode === 'memory';
   chart?.classList.toggle('spectrogram-analyzer', mode === 'spectrogram');
   updateMeterVisibility(mode);
+  if (stopButton) {
+    stopButton.textContent = mode === 'spectrogram' ? '暂停' : '停止';
+  }
   if (mode !== 'pitch' && mode !== 'score' && mode !== 'memory') {
     updatePitchInspector(null);
   }
@@ -3597,6 +3600,24 @@ function resetSpectrogram() {
   spectrogramOverlayState = { pitch: null, f1: null, f2: null };
 }
 
+function captureSpectrogramSnapshot() {
+  if (displayMode !== 'spectrogram' || !canvas.width || !canvas.height) {
+    return null;
+  }
+  try {
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function restoreSpectrogramSnapshot(snapshot) {
+  if (!snapshot || displayMode !== 'spectrogram') {
+    return;
+  }
+  ctx.putImageData(snapshot, 0, 0);
+}
+
 function getSpectrogramLayout() {
   const scale = Math.max(0.7, canvas.width / spectrogramCanvasWidth);
   const pianoWidth = Math.round(spectrogramPianoWidth * scale);
@@ -5136,6 +5157,8 @@ async function start() {
 }
 
 function stop() {
+  const wasSpectrogram = displayMode === 'spectrogram';
+  const spectrogramSnapshot = captureSpectrogramSnapshot();
   const shouldRenderBreathReport = displayMode === 'breath' && breathSessionHistory.length > 0;
   if (animationId) {
     cancelAnimationFrame(animationId);
@@ -5153,7 +5176,7 @@ function stop() {
     mediaRecorder.stop();
   }
   resetPitchStabilizer();
-  setStatus('已停止');
+  setStatus(wasSpectrogram ? '已暂停，频谱图已冻结' : '已停止');
   updateVolumeMeter(0);
   if (tiltMeterBar) {
     tiltMeterBar.style.height = '0%';
@@ -5163,6 +5186,10 @@ function stop() {
   resetFormants();
   if (shouldRenderBreathReport) {
     renderBreathReport();
+  }
+  if (wasSpectrogram) {
+    restoreSpectrogramSnapshot(spectrogramSnapshot);
+    requestAnimationFrame(() => restoreSpectrogramSnapshot(spectrogramSnapshot));
   }
 }
 
