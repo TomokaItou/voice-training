@@ -3811,15 +3811,30 @@ function drawSpectrogramFrame() {
 
   const binHz = (audioContext.sampleRate / 2) / frequencyData.length;
   const rowLevels = new Float32Array(Math.ceil(layout.specHeight) + 2);
+  const visibleDbValues = [];
+  for (let i = 1; i < frequencyData.length; i += 1) {
+    const freq = i * binHz;
+    if (freq >= spectrogramDisplayMinHz && freq <= spectrogramDisplayMaxHz && Number.isFinite(frequencyData[i])) {
+      visibleDbValues.push(frequencyData[i]);
+    }
+  }
+  const sortedDbValues = visibleDbValues.sort((a, b) => a - b);
+  const noiseFloorDb = sortedDbValues.length
+    ? sortedDbValues[Math.floor(sortedDbValues.length * 0.42)]
+    : spectrogramMinDb;
   for (let i = 1; i < frequencyData.length; i += 1) {
     const freq = i * binHz;
     if (freq < spectrogramDisplayMinHz || freq > spectrogramDisplayMaxHz) {
       continue;
     }
     const value = frequencyData[i];
-    const normalized = Math.max(0, Math.min(1, (value - spectrogramMinDb) / (spectrogramMaxDb - spectrogramMinDb)));
-    const frequencyLift = 0.1 * Math.min(1, Math.log2(freq / spectrogramDisplayMinHz) / Math.log2(1800 / spectrogramDisplayMinHz));
-    const intensity = Math.max(0, Math.min(1, (normalized - 0.08) / 0.88 + frequencyLift));
+    const aboveFloorDb = value - noiseFloorDb;
+    const absoluteGate = Math.max(0, Math.min(1, (value - spectrogramMinDb) / (spectrogramMaxDb - spectrogramMinDb)));
+    const localContrast = Math.max(0, Math.min(1, (aboveFloorDb - 5) / 34));
+    const frequencyLift = localContrast > 0.05
+      ? 0.06 * Math.min(1, Math.log2(freq / spectrogramDisplayMinHz) / Math.log2(1800 / spectrogramDisplayMinHz))
+      : 0;
+    const intensity = Math.max(0, Math.min(1, localContrast * 0.92 + absoluteGate * 0.08 + frequencyLift));
     const row = Math.round(spectrogramFreqToY(freq, layout) - layout.top);
     if (row >= 0 && row < rowLevels.length) {
       rowLevels[row] = Math.max(rowLevels[row], intensity);
