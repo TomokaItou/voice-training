@@ -3670,7 +3670,7 @@ function drawSpectrogramStaticFrame() {
   ctx.fillStyle = '#101111';
   ctx.fillRect(layout.specLeft, layout.waveTop, layout.specWidth, layout.waveBottom - layout.waveTop);
   drawSpectrogramPiano(layout);
-  drawSpectrogramGrid(layout);
+  drawSpectrogramFrequencyLabels(layout);
   drawSpectrogramTimeAxis(layout);
   drawSpectrogramProfileGrid(layout);
   ctx.restore();
@@ -3705,16 +3705,7 @@ function drawSpectrogramPiano(layout) {
   }
 }
 
-function drawSpectrogramGrid(layout) {
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  ctx.lineWidth = 1;
-  for (let x = layout.specLeft; x <= layout.specRight; x += Math.max(36, 42 * layout.scale)) {
-    ctx.beginPath();
-    ctx.moveTo(x, layout.top);
-    ctx.lineTo(x, layout.bottom);
-    ctx.stroke();
-  }
-
+function drawSpectrogramFrequencyLabels(layout) {
   const labeled = [70, 90, 100, 200, 300, 400, 500, 600, 800, 1000, 2000, 3000, 4000];
   ctx.font = `${Math.max(10, Math.round(11 * layout.scale))}px Segoe UI, sans-serif`;
   ctx.textAlign = 'right';
@@ -3722,10 +3713,10 @@ function drawSpectrogramGrid(layout) {
   labeled.forEach((freq) => {
     const y = spectrogramFreqToY(freq, layout);
     const major = freq === 100 || freq === 200 || freq === 500 || freq === 1000 || freq === 2000 || freq === 3000;
-    ctx.strokeStyle = major ? 'rgba(202, 218, 200, 0.42)' : 'rgba(255, 255, 255, 0.13)';
+    ctx.strokeStyle = major ? 'rgba(202, 218, 200, 0.28)' : 'rgba(255, 255, 255, 0.08)';
     ctx.beginPath();
-    ctx.moveTo(layout.specLeft, y);
-    ctx.lineTo(layout.profileRight, y);
+    ctx.moveTo(layout.specLeft - 4, y);
+    ctx.lineTo(layout.specLeft, y);
     ctx.stroke();
     ctx.fillStyle = '#cbd5d1';
     ctx.fillText(String(freq), layout.specLeft - 6, y);
@@ -3735,6 +3726,28 @@ function drawSpectrogramGrid(layout) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText('频率 (Hz)', layout.pianoWidth + 4, layout.top + 3);
+}
+
+function drawSpectrogramGuideLines(layout) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(210, 224, 218, 0.12)';
+  ctx.lineWidth = 1;
+  const labeled = [100, 200, 500, 800, 1000, 2000, 3000, 4000];
+  labeled.forEach((freq) => {
+    const y = spectrogramFreqToY(freq, layout);
+    ctx.beginPath();
+    ctx.moveTo(layout.specLeft, y);
+    ctx.lineTo(layout.specRight, y);
+    ctx.stroke();
+  });
+  ctx.strokeStyle = 'rgba(210, 224, 218, 0.06)';
+  for (let x = layout.specLeft; x <= layout.specRight; x += Math.max(72, 84 * layout.scale)) {
+    ctx.beginPath();
+    ctx.moveTo(x, layout.top);
+    ctx.lineTo(x, layout.bottom);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawSpectrogramTimeAxis(layout) {
@@ -3810,12 +3823,14 @@ function drawSpectrogramFrame() {
   }
 
   drawSpectrogramStaticOverlays(layout);
+  drawSpectrogramGuideLines(layout);
   drawSpectrogramProfile(layout);
   drawSpectrogramEnergyHistory(layout);
   drawSpectrogramOverlay();
 }
 
 function spectrogramColor(intensity) {
+  const shaped = Math.max(0, Math.min(1, intensity)) ** 1.45;
   const stops = [
     [0, 3, 5, 18],
     [0.18, 0, 36, 150],
@@ -3825,10 +3840,10 @@ function spectrogramColor(intensity) {
     [1, 185, 24, 42],
   ];
   for (let i = 1; i < stops.length; i += 1) {
-    if (intensity <= stops[i][0]) {
+    if (shaped <= stops[i][0]) {
       const prev = stops[i - 1];
       const next = stops[i];
-      const ratio = (intensity - prev[0]) / Math.max(next[0] - prev[0], 1e-9);
+      const ratio = (shaped - prev[0]) / Math.max(next[0] - prev[0], 1e-9);
       const r = Math.round(prev[1] + (next[1] - prev[1]) * ratio);
       const g = Math.round(prev[2] + (next[2] - prev[2]) * ratio);
       const b = Math.round(prev[3] + (next[3] - prev[3]) * ratio);
@@ -3844,7 +3859,7 @@ function drawSpectrogramStaticOverlays(layout) {
   ctx.clearRect(layout.profileLeft, 0, layout.profileWidth, layout.waveTop);
   ctx.clearRect(layout.specLeft, layout.bottom, layout.specWidth, layout.timeAxisHeight);
   drawSpectrogramPiano(layout);
-  drawSpectrogramGrid(layout);
+  drawSpectrogramFrequencyLabels(layout);
   drawSpectrogramTimeAxis(layout);
   ctx.restore();
 }
