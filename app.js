@@ -3830,8 +3830,8 @@ function drawSpectrogramFrame() {
   const framePeakDb = sortedDbValues.length ? sortedDbValues[sortedDbValues.length - 1] : spectrogramMinDb;
   const frameRangeDb = Math.max(framePeakDb - noiseFloorDb, 1);
   const adaptiveFloorDb = Math.max(
-    spectrogramMinDb + 10,
-    noiseFloorDb + Math.min(12, frameRangeDb * 0.34)
+    spectrogramMinDb + 7,
+    noiseFloorDb + Math.min(7, frameRangeDb * 0.2)
   );
   for (let i = 1; i < frequencyData.length; i += 1) {
     const freq = i * binHz;
@@ -3867,13 +3867,13 @@ function drawSpectrogramFrame() {
       : noiseFloorDb;
     const localLift = value - localFloorDb;
     const floorLift = value - adaptiveFloorDb;
-    if (localLift < 3.5 || floorLift < 2) {
+    if (localLift < 1.8 || floorLift < 0.8) {
       continue;
     }
-    const peakContrast = Math.max(0, Math.min(1, (localLift - 3.5) / 17));
-    const floorContrast = Math.max(0, Math.min(1, (floorLift - 2) / Math.max(framePeakDb - adaptiveFloorDb - 2, 1)));
+    const peakContrast = Math.max(0, Math.min(1, (localLift - 1.8) / 16));
+    const floorContrast = Math.max(0, Math.min(1, (floorLift - 0.8) / Math.max(framePeakDb - adaptiveFloorDb - 0.8, 1)));
     const intensity = Math.max(0, Math.min(1, Math.sqrt(peakContrast * floorContrast)));
-    if (intensity <= 0.08) {
+    if (intensity <= 0.035) {
       continue;
     }
     candidates.push({ row, intensity });
@@ -3881,10 +3881,10 @@ function drawSpectrogramFrame() {
 
   const intensityValues = candidates.map((candidate) => candidate.intensity).sort((a, b) => a - b);
   const adaptiveIntensityFloor = intensityValues.length
-    ? Math.max(0.1, intensityValues[Math.floor(intensityValues.length * 0.45)])
+    ? Math.max(0.04, intensityValues[Math.floor(intensityValues.length * 0.18)])
     : 1;
   candidates.forEach(({ row, intensity }) => {
-    if (intensity < adaptiveIntensityFloor && intensity < 0.5) {
+    if (intensity < adaptiveIntensityFloor && intensity < 0.28) {
       return;
     }
     ctx.fillStyle = spectrogramColor(intensity);
@@ -3899,10 +3899,10 @@ function drawSpectrogramFrame() {
 
 function spectrogramColor(intensity) {
   const visible = Math.max(0, Math.min(1, intensity));
-  if (visible < 0.12) {
+  if (visible < 0.055) {
     return 'rgb(2, 4, 8)';
   }
-  const shaped = ((visible - 0.12) / 0.88) ** 1.28;
+  const shaped = ((visible - 0.055) / 0.945) ** 1.08;
   const stops = [
     [0, 2, 4, 8],
     [0.24, 0, 34, 112],
