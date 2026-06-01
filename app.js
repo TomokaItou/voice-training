@@ -161,8 +161,8 @@ const pitchScaleFixedMinHz = 50;
 const pitchScaleFixedMaxHz = 500;
 const pitchScaleLogMinHz = 60;
 const pitchScaleLogMaxHz = 1000;
-const spectrogramMinDb = -88;
-const spectrogramMaxDb = -34;
+const spectrogramMinDb = -94;
+const spectrogramMaxDb = -32;
 const spectrogramDisplayMinHz = 65;
 const spectrogramDisplayMaxHz = 4200;
 const spectrogramPianoWidth = 54;
@@ -3817,7 +3817,8 @@ function drawSpectrogramFrame() {
     }
     const value = frequencyData[i];
     const normalized = Math.max(0, Math.min(1, (value - spectrogramMinDb) / (spectrogramMaxDb - spectrogramMinDb)));
-    const intensity = Math.max(0, (normalized - 0.2) / 0.8);
+    const frequencyLift = 0.1 * Math.min(1, Math.log2(freq / spectrogramDisplayMinHz) / Math.log2(1800 / spectrogramDisplayMinHz));
+    const intensity = Math.max(0, Math.min(1, (normalized - 0.08) / 0.88 + frequencyLift));
     const y = Math.round(spectrogramFreqToY(freq, layout));
     ctx.fillStyle = spectrogramColor(intensity);
     ctx.fillRect(layout.specRight - 1, y, 1, 2);
@@ -3830,13 +3831,13 @@ function drawSpectrogramFrame() {
 }
 
 function spectrogramColor(intensity) {
-  const shaped = Math.max(0, Math.min(1, intensity)) ** 2.25;
+  const shaped = Math.max(0, Math.min(1, intensity)) ** 1.35;
   const stops = [
     [0, 2, 4, 10],
-    [0.22, 0, 20, 82],
-    [0.48, 0, 125, 185],
-    [0.7, 125, 205, 94],
-    [0.88, 245, 166, 45],
+    [0.14, 0, 22, 85],
+    [0.36, 0, 125, 190],
+    [0.62, 92, 205, 142],
+    [0.84, 242, 184, 58],
     [1, 205, 38, 48],
   ];
   for (let i = 1; i < stops.length; i += 1) {
