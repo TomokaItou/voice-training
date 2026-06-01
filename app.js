@@ -3887,22 +3887,32 @@ function drawSpectrogramFrame() {
   const adaptiveIntensityFloor = intensityValues.length
     ? Math.max(0.04, intensityValues[Math.floor(intensityValues.length * 0.18)])
     : 1;
-  for (let row = 0; row < rowDb.length; row += 1) {
-    const value = rowDb[row];
-    if (value <= textureFloorDb) {
+  ctx.save();
+  for (let i = 1; i < frequencyData.length; i += 1) {
+    const freq = i * binHz;
+    if (freq < spectrogramDisplayMinHz || freq > spectrogramDisplayMaxHz) {
+      continue;
+    }
+    const value = frequencyData[i];
+    if (!Number.isFinite(value) || value <= textureFloorDb) {
       continue;
     }
     const textureLift = value - textureFloorDb;
     const textureIntensity = Math.max(
       0,
-      Math.min(0.22, 0.055 + (textureLift / Math.max(framePeakDb - textureFloorDb, 1)) * 0.26)
+      Math.min(0.32, 0.06 + (textureLift / Math.max(framePeakDb - textureFloorDb, 1)) * 0.34)
     );
-    if (textureIntensity <= 0.055) {
+    if (textureIntensity <= 0.06) {
       continue;
     }
+    const y = spectrogramFreqToY(freq, layout);
+    const nextY = spectrogramFreqToY(freq + binHz, layout);
+    const h = Math.max(1, Math.abs(nextY - y));
+    ctx.globalAlpha = Math.min(0.68, 0.22 + textureIntensity * 1.35);
     ctx.fillStyle = spectrogramColor(textureIntensity);
-    ctx.fillRect(layout.specRight - 1, layout.top + row, 1, 1);
+    ctx.fillRect(layout.specRight - 1, Math.min(y, nextY), 1, h);
   }
+  ctx.restore();
   candidates.forEach(({ row, intensity }) => {
     if (intensity < adaptiveIntensityFloor && intensity < 0.28) {
       return;
