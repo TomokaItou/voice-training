@@ -3810,7 +3810,8 @@ function drawSpectrogramFrame() {
   ctx.fillRect(layout.specRight - 1, layout.top, 1, layout.specHeight);
 
   const binHz = (audioContext.sampleRate / 2) / frequencyData.length;
-  const rowLevels = new Float32Array(Math.ceil(layout.specHeight) + 2);
+  const rowDb = new Float32Array(Math.ceil(layout.specHeight) + 2);
+  rowDb.fill(-140);
   const visibleDbValues = [];
   for (let i = 1; i < frequencyData.length; i += 1) {
     const freq = i * binHz;
@@ -3828,21 +3829,34 @@ function drawSpectrogramFrame() {
       continue;
     }
     const value = frequencyData[i];
-    const aboveFloorDb = value - noiseFloorDb;
-    const absoluteGate = Math.max(0, Math.min(1, (value - spectrogramMinDb) / (spectrogramMaxDb - spectrogramMinDb)));
-    const localContrast = Math.max(0, Math.min(1, (aboveFloorDb - 5) / 34));
-    const frequencyLift = localContrast > 0.05
-      ? 0.06 * Math.min(1, Math.log2(freq / spectrogramDisplayMinHz) / Math.log2(1800 / spectrogramDisplayMinHz))
-      : 0;
-    const intensity = Math.max(0, Math.min(1, localContrast * 0.92 + absoluteGate * 0.08 + frequencyLift));
     const row = Math.round(spectrogramFreqToY(freq, layout) - layout.top);
-    if (row >= 0 && row < rowLevels.length) {
-      rowLevels[row] = Math.max(rowLevels[row], intensity);
+    if (row >= 0 && row < rowDb.length) {
+      rowDb[row] = Math.max(rowDb[row], value);
     }
   }
-  for (let row = 0; row < rowLevels.length; row += 1) {
-    const intensity = rowLevels[row];
-    if (intensity <= 0.01) {
+  for (let row = 0; row < rowDb.length; row += 1) {
+    const value = rowDb[row];
+    if (value <= -130) {
+      continue;
+    }
+    let localSum = 0;
+    let localCount = 0;
+    const localRadius = 10;
+    for (let offset = -localRadius; offset <= localRadius; offset += 1) {
+      if (Math.abs(offset) <= 2) {
+        continue;
+      }
+      const neighbor = rowDb[row + offset];
+      if (Number.isFinite(neighbor) && neighbor > -130) {
+        localSum += neighbor;
+        localCount += 1;
+      }
+    }
+    const localFloorDb = localCount ? localSum / localCount : noiseFloorDb;
+    const peakContrast = Math.max(0, Math.min(1, (value - localFloorDb - 2.5) / 22));
+    const absoluteGate = Math.max(0, Math.min(1, (value - spectrogramMinDb) / (spectrogramMaxDb - spectrogramMinDb)));
+    const intensity = Math.max(0, Math.min(1, peakContrast * 0.86 + absoluteGate * 0.14));
+    if (intensity <= 0.035) {
       continue;
     }
     ctx.fillStyle = spectrogramColor(intensity);
