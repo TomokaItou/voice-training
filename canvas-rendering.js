@@ -1,0 +1,644 @@
+// Main canvas rendering helpers. Loaded before app.js so these functions share the app globals.
+
+function drawAxes(minPitch = null, maxPitch = null, scaleMode = 'linear') {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#e5e9f3';
+  ctx.lineWidth = 1;
+
+  const horizontalLines = 5;
+  const labelFont = '12px sans-serif';
+  ctx.font = labelFont;
+  ctx.fillStyle = '#94a3b8';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= horizontalLines; i += 1) {
+    const y = (canvas.height / horizontalLines) * i;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+
+    if (minPitch !== null && maxPitch !== null) {
+      const ratio = 1 - i / horizontalLines;
+      const labelValue =
+        scaleMode === 'log'
+          ? Math.exp(Math.log(minPitch) + (Math.log(maxPitch) - Math.log(minPitch)) * ratio)
+          : minPitch + (maxPitch - minPitch) * ratio;
+      const label = `${Math.round(labelValue)} Hz`;
+      ctx.fillText(label, 8, y);
+    }
+  }
+}
+
+function drawTargetPitchLine(targetPitch, minPitch, maxPitch, pitchRange, padding, logMin, logRange) {
+  if (!Number.isFinite(targetPitch) || targetPitch <= 0) {
+    return;
+  }
+  if (targetPitch < minPitch || targetPitch > maxPitch) {
+    return;
+  }
+
+  const normalized =
+    pitchScaleMode === 'log'
+      ? (Math.log(targetPitch) - logMin) / logRange
+      : (targetPitch - minPitch) / pitchRange;
+  const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+
+  ctx.save();
+  ctx.strokeStyle = '#22c55e';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(canvas.width, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16a34a';
+  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`目标 ${Math.round(targetPitch)} Hz`, 8, Math.max(y - 6, 14));
+  ctx.restore();
+}
+
+function mapSongPitchTimeToCanvasTime(point, state) {
+  if (state.useRecordingTimeline || offlineMode || sessionStartTime === 0) {
+    return point.timeMs;
+  }
+  if (
+    accompanimentAudio &&
+    Number.isFinite(accompanimentAudio.currentTime) &&
+    accompanimentAudio.currentTime > 0
+  ) {
+    return performance.now() - (accompanimentAudio.currentTime * 1000 - point.timeMs);
+  }
+  return sessionStartTime + point.timeMs;
+}
+
+function getVisibleSongPitchPoints(state) {
+  if (!hasSongPitchTarget() || !state) {
+    return [];
+  }
+  const maxTime = state.minTime + state.durationMs;
+  return songPitchTrack
+    .map((point) => ({
+      ...point,
+      time: mapSongPitchTimeToCanvasTime(point, state),
+    }))
+    .filter((point) => point.time >= state.minTime && point.time <= maxTime);
+}
+
+function drawSongPitchTrack(state) {
+  const visibleTargets = getVisibleSongPitchPoints(state);
+  if (visibleTargets.length < 2) {
+    return;
+  }
+
+  const {
+    minTime,
+    durationMs,
+    minPitch,
+    maxPitch,
+    pitchRange,
+    padding,
+    logMin,
+    logRange,
+  } = state;
+
+  ctx.save();
+  ctx.strokeStyle = songPitchRenderSoftColor;
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  let hasSoftPath = false;
+
+  visibleTargets.forEach((point) => {
+    if (!point.pitch || point.pitch < minPitch || point.pitch > maxPitch) {
+      if (hasSoftPath) {
+        ctx.stroke();
+        ctx.beginPath();
+        hasSoftPath = false;
+      }
+      return;
+    }
+    const x = ((point.time - minTime) / durationMs) * canvas.width;
+    const normalized =
+      pitchScaleMode === 'log'
+        ? (Math.log(point.pitch) - logMin) / logRange
+        : (point.pitch - minPitch) / pitchRange;
+    const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+    if (!hasSoftPath) {
+      ctx.moveTo(x, y);
+      hasSoftPath = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  if (hasSoftPath) {
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = songPitchRenderColor;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 5]);
+  ctx.beginPath();
+  let hasPath = false;
+  visibleTargets.forEach((point) => {
+    if (!point.pitch || point.pitch < minPitch || point.pitch > maxPitch) {
+      if (hasPath) {
+        ctx.stroke();
+        ctx.beginPath();
+        hasPath = false;
+      }
+      return;
+    }
+    const x = ((point.time - minTime) / durationMs) * canvas.width;
+    const normalized =
+      pitchScaleMode === 'log'
+        ? (Math.log(point.pitch) - logMin) / logRange
+        : (point.pitch - minPitch) / pitchRange;
+    const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+    if (!hasPath) {
+      ctx.moveTo(x, y);
+      hasPath = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  if (hasPath) {
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.fillStyle = songPitchRenderColor;
+  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.fillText('歌曲目标', 8, 8);
+  ctx.restore();
+}
+
+function getPitchPointCoordinates(point, state) {
+  if (!point?.pitch || !state) {
+    return null;
+  }
+  const { minTime, durationMs, minPitch, maxPitch, pitchRange, padding, logMin, logRange } = state;
+  if (point.time < minTime || point.time > minTime + durationMs) {
+    return null;
+  }
+  if (point.pitch < minPitch || point.pitch > maxPitch) {
+    return null;
+  }
+  const x = ((point.time - minTime) / durationMs) * canvas.width;
+  const normalized =
+    pitchScaleMode === 'log'
+      ? (Math.log(point.pitch) - logMin) / logRange
+      : (point.pitch - minPitch) / pitchRange;
+  const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+  return { x, y };
+}
+
+function drawSelectedPitchMarker(state) {
+  if (!selectedPitchPoint?.pitch || !state) {
+    return;
+  }
+  const coordinates = getPitchPointCoordinates(selectedPitchPoint, state);
+  if (!coordinates) {
+    return;
+  }
+  const { x, y } = coordinates;
+  ctx.save();
+  ctx.strokeStyle = '#7c3aed';
+  ctx.fillStyle = '#7c3aed';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath();
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x, canvas.height);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  const label = `${selectedPitchPoint.pitch.toFixed(1)} Hz`;
+  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'middle';
+  const labelWidth = ctx.measureText(label).width + 16;
+  const labelX = Math.min(Math.max(x + 8, 6), canvas.width - labelWidth - 6);
+  const labelY = Math.min(Math.max(y - 18, 18), canvas.height - 18);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+  ctx.strokeStyle = '#7c3aed';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(labelX, labelY - 12, labelWidth, 24, 6);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#4c1d95';
+  ctx.fillText(label, labelX + 8, labelY);
+  ctx.restore();
+}
+
+function findNearestPitchPointByCanvasX(canvasX) {
+  if (!pitchRenderState?.visibleHistory?.length) {
+    return null;
+  }
+  const { visibleHistory, minTime, durationMs } = pitchRenderState;
+  const targetTime = minTime + (canvasX / canvas.width) * durationMs;
+  return visibleHistory.reduce((nearest, point) => {
+    if (!point.pitch) {
+      return nearest;
+    }
+    if (!nearest) {
+      return point;
+    }
+    return Math.abs(point.time - targetTime) < Math.abs(nearest.time - targetTime)
+      ? point
+      : nearest;
+  }, null);
+}
+
+function drawPitchHistory() {
+  const recordingSyncedHistory = getRecordingSyncedPitchHistory();
+  const useRecordingTimeline = !offlineMode && recordingSyncedHistory.length >= 2;
+  const sourceHistory = useRecordingTimeline ? recordingSyncedHistory : pitchHistory;
+
+  if (sourceHistory.length < 2) {
+    pitchRenderState = null;
+    if (pitchScaleMode === 'fixed') {
+      drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
+      if (targetPitchEnabled) {
+        const pitchRange = Math.max(pitchScaleFixedMaxHz - pitchScaleFixedMinHz, 1);
+        const logMin = Math.log(pitchScaleFixedMinHz);
+        const logRange = Math.max(Math.log(pitchScaleFixedMaxHz) - logMin, 0.0001);
+        drawTargetPitchLine(
+          targetPitchHz,
+          pitchScaleFixedMinHz,
+          pitchScaleFixedMaxHz,
+          pitchRange,
+          20,
+          logMin,
+          logRange
+        );
+      }
+    } else if (pitchScaleMode === 'log') {
+      drawAxes(pitchScaleLogMinHz, pitchScaleLogMaxHz, 'log');
+      if (targetPitchEnabled) {
+        const pitchRange = Math.max(pitchScaleLogMaxHz - pitchScaleLogMinHz, 1);
+        const logMin = Math.log(pitchScaleLogMinHz);
+        const logRange = Math.max(Math.log(pitchScaleLogMaxHz) - logMin, 0.0001);
+        drawTargetPitchLine(
+          targetPitchHz,
+          pitchScaleLogMinHz,
+          pitchScaleLogMaxHz,
+          pitchRange,
+          20,
+          logMin,
+          logRange
+        );
+      }
+    } else {
+      drawAxes();
+    }
+    return;
+  }
+
+  let visibleHistory = sourceHistory;
+  let minTime = 0;
+  let durationMs = 0;
+
+  if (useRecordingTimeline) {
+    minTime = 0;
+    durationMs = getRecordingDurationMs();
+  } else if (offlineMode) {
+    minTime = sourceHistory[0].time;
+    const maxTime = sourceHistory[sourceHistory.length - 1].time;
+    durationMs = Math.max(maxTime - minTime, 1);
+  } else {
+    const now = performance.now();
+    minTime = now - maxHistorySeconds * 1000;
+    visibleHistory = sourceHistory.filter((point) => point.time >= minTime);
+    pitchHistory = visibleHistory;
+    durationMs = maxHistorySeconds * 1000;
+  }
+
+  const previewState = { minTime, durationMs, useRecordingTimeline };
+  const visibleSongTargets = getVisibleSongPitchPoints(previewState);
+  const pitches = [
+    ...visibleHistory.map((point) => point.pitch).filter(Boolean),
+    ...visibleSongTargets.map((point) => point.pitch).filter(Boolean),
+  ];
+  let minPitch = null;
+  let maxPitch = null;
+
+  if (pitchScaleMode === 'fixed') {
+    minPitch = pitchScaleFixedMinHz;
+    maxPitch = pitchScaleFixedMaxHz;
+  } else if (pitchScaleMode === 'log') {
+    minPitch = pitchScaleLogMinHz;
+    maxPitch = pitchScaleLogMaxHz;
+  } else {
+    if (pitches.length === 0) {
+      pitchRenderState = null;
+      drawAxes();
+      return;
+    }
+    minPitch = Math.min(...pitches);
+    maxPitch = Math.max(...pitches);
+  }
+
+  const pitchRange = Math.max(maxPitch - minPitch, 1);
+  const padding = 20;
+
+  drawAxes(minPitch, maxPitch, pitchScaleMode === 'log' ? 'log' : 'linear');
+
+  const logMin = Math.log(minPitch);
+  const logRange = Math.max(Math.log(maxPitch) - logMin, 0.0001);
+  pitchRenderState = {
+    visibleHistory,
+    minTime,
+    durationMs,
+    minPitch,
+    maxPitch,
+    pitchRange,
+    padding,
+    logMin,
+    logRange,
+    useRecordingTimeline,
+  };
+
+  if (hasSongPitchTarget()) {
+    drawSongPitchTrack(pitchRenderState);
+  } else if (targetPitchEnabled) {
+    drawTargetPitchLine(targetPitchHz, minPitch, maxPitch, pitchRange, padding, logMin, logRange);
+  }
+
+  ctx.strokeStyle = '#0f766e';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  let hasActivePath = false;
+
+  visibleHistory.forEach((point) => {
+    if (point.pitch === null) {
+      if (hasActivePath) {
+        ctx.stroke();
+        ctx.beginPath();
+        hasActivePath = false;
+      }
+      return;
+    }
+    if (!point.pitch) {
+      return;
+    }
+    if (point.pitch < minPitch || point.pitch > maxPitch) {
+      if (pitchScaleMode === 'fixed' || pitchScaleMode === 'log') {
+        if (hasActivePath) {
+          ctx.stroke();
+          ctx.beginPath();
+          hasActivePath = false;
+        }
+        return;
+      }
+    }
+    const x = ((point.time - minTime) / durationMs) * canvas.width;
+    const normalized =
+      pitchScaleMode === 'log'
+        ? (Math.log(point.pitch) - logMin) / logRange
+        : (point.pitch - minPitch) / pitchRange;
+    const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+    if (!hasActivePath) {
+      ctx.moveTo(x, y);
+      hasActivePath = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  if (hasActivePath) {
+    ctx.stroke();
+  }
+
+  if (formantToggle.checked) {
+    drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange, padding);
+  }
+
+  drawSelectedPitchMarker(pitchRenderState);
+
+  if (!offlineMode && currentPitch) {
+    if (currentPitch < minPitch || currentPitch > maxPitch) {
+      return;
+    }
+    const normalized =
+      pitchScaleMode === 'log'
+        ? (Math.log(currentPitch) - logMin) / logRange
+        : (currentPitch - minPitch) / pitchRange;
+    const y = canvas.height - padding - normalized * (canvas.height - padding * 2);
+    ctx.strokeStyle = '#ff7a59';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ff7a59';
+    ctx.font = '14px sans-serif';
+    ctx.textBaseline = 'middle';
+    const label = `${Math.round(currentPitch)} Hz`;
+    ctx.fillText(label, 8, y);
+  }
+}
+
+function drawVolumeAxes() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const padding = 20;
+  const ticks = [0, -20, -40, -60];
+  ctx.strokeStyle = '#eef1ed';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#9aa7bd';
+  ctx.font = '12px sans-serif';
+  ctx.textBaseline = 'middle';
+
+  ticks.forEach((tick) => {
+    const ratio = (tick - volumeMeterMinDb) / (volumeMeterMaxDb - volumeMeterMinDb);
+    const y = canvas.height - padding - ratio * (canvas.height - padding * 2);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+    ctx.fillText(`${tick} dB`, 8, y - 8);
+  });
+}
+
+function drawVolumeHistory() {
+  const recordingSyncedHistory = getRecordingSyncedVolumeHistory();
+  const useRecordingTimeline = !offlineMode && recordingSyncedHistory.length >= 2;
+  let visibleHistory = useRecordingTimeline ? recordingSyncedHistory : volumeHistory;
+
+  volumeRenderState = null;
+  drawVolumeAxes();
+
+  if (visibleHistory.length < 2) {
+    return;
+  }
+
+  let minTime = 0;
+  let durationMs = 0;
+  if (useRecordingTimeline) {
+    minTime = 0;
+    durationMs = getRecordingDurationMs();
+  } else {
+    const now = performance.now();
+    minTime = now - maxHistorySeconds * 1000;
+    visibleHistory = visibleHistory.filter((point) => point.time >= minTime);
+    volumeHistory = visibleHistory;
+    durationMs = maxHistorySeconds * 1000;
+  }
+
+  const padding = 20;
+  volumeRenderState = {
+    visibleHistory,
+    minTime,
+    durationMs,
+    useRecordingTimeline,
+  };
+
+  ctx.strokeStyle = '#2563eb';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  visibleHistory.forEach((point, index) => {
+    const clamped = Math.max(volumeMeterMinDb, Math.min(volumeMeterMaxDb, point.db));
+    const ratio = (clamped - volumeMeterMinDb) / (volumeMeterMaxDb - volumeMeterMinDb);
+    const x = ((point.time - minTime) / durationMs) * canvas.width;
+    const y = canvas.height - padding - ratio * (canvas.height - padding * 2);
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.stroke();
+}
+
+function drawBreathHistory() {
+  const padding = 28;
+  const plotHeight = canvas.height - padding * 2;
+  const minTime = performance.now() - breathHistoryWindowSeconds * 1000;
+  const durationMs = breathHistoryWindowSeconds * 1000;
+  const toX = (time) => ((time - minTime) / durationMs) * canvas.width;
+  const toY = (value) => canvas.height - padding - value * plotHeight;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = '#f6fbf9';
+  ctx.fillRect(0, padding, canvas.width, plotHeight);
+
+  const targetTop = toY(breathTargetMax);
+  const targetBottom = toY(breathTargetMin);
+  ctx.fillStyle = 'rgba(15, 118, 110, 0.10)';
+  ctx.fillRect(0, targetTop, canvas.width, targetBottom - targetTop);
+  ctx.fillStyle = '#0b5d56';
+  ctx.font = '12px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('目标区间', 8, Math.max(targetTop - 6, 14));
+
+  const activeY = toY(breathActiveThreshold);
+  ctx.fillStyle = 'rgba(183, 121, 31, 0.08)';
+  ctx.fillRect(0, activeY, canvas.width, canvas.height - padding - activeY);
+
+  ctx.strokeStyle = '#d9ded6';
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i <= 4; i += 1) {
+    const y = padding + (i / 4) * plotHeight;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+    ctx.fillStyle = '#697167';
+    ctx.font = '12px sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${100 - i * 25}%`, 8, y);
+  }
+
+  const visibleHistory = breathHistory.filter((point) => point.time >= minTime);
+  breathHistory = visibleHistory;
+
+  ctx.save();
+  ctx.strokeStyle = '#b7791f';
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, activeY);
+  ctx.lineTo(canvas.width, activeY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#8a5a16';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('有效线', 8, Math.max(activeY - 6, 14));
+  ctx.restore();
+
+  if (visibleHistory.length < 2) {
+    ctx.fillStyle = '#697167';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('开始检测后，对准麦克风平稳吹气', canvas.width / 2, canvas.height / 2);
+    ctx.textAlign = 'left';
+    return;
+  }
+
+  ctx.beginPath();
+  visibleHistory.forEach((point, index) => {
+    const x = toX(point.time);
+    const y = toY(point.flow);
+    if (index === 0) {
+      ctx.moveTo(x, canvas.height - padding);
+      ctx.lineTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  const lastPoint = visibleHistory[visibleHistory.length - 1];
+  ctx.lineTo(toX(lastPoint.time), canvas.height - padding);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(15, 118, 110, 0.16)';
+  ctx.fill();
+
+  ctx.strokeStyle = '#0f766e';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  visibleHistory.forEach((point, index) => {
+    const x = toX(point.time);
+    const y = toY(point.flow);
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.stroke();
+
+  ctx.save();
+  ctx.strokeStyle = '#b42318';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 5]);
+  for (let i = 1; i < visibleHistory.length; i += 1) {
+    const prev = visibleHistory[i - 1];
+    const point = visibleHistory[i];
+    if (prev.flow >= breathActiveThreshold && point.flow < breathActiveThreshold) {
+      const x = toX(point.time);
+      ctx.beginPath();
+      ctx.moveTo(x, padding);
+      ctx.lineTo(x, canvas.height - padding);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  if (breathCurrentFlow !== null) {
+    const y = toY(breathCurrentFlow);
+    ctx.fillStyle = '#0f766e';
+    ctx.beginPath();
+    ctx.arc(canvas.width - 10, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
