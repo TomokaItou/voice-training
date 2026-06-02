@@ -267,6 +267,7 @@ function isValidFormantPair(f1, f2) {
 function resetFormantVoiceGate(gate = formantVoiceGate) {
   gate.frames = 0;
   gate.lastPitch = null;
+  gate.lostFrames = 0;
 }
 
 function isReliableFormantVoice(pitchResult, rms, gate = formantVoiceGate) {
@@ -278,22 +279,49 @@ function isReliableFormantVoice(pitchResult, rms, gate = formantVoiceGate) {
       pitchMinEnergyThreshold * formantVoiceEnergyMultiplier,
       adaptiveEnergyThreshold * formantVoiceEnergyMultiplier
     );
-  const hasReliablePitch =
+  const hasUsablePitch =
     pitch &&
     pitch >= hnrMinFrequencyHz &&
-    pitch <= hnrMaxFrequencyHz &&
-    pitchResult.confidence >= formantVoiceConfidenceThreshold;
+    pitch <= hnrMaxFrequencyHz;
+  const hasStrongVoiceEnergy =
+    rms >= Math.max(formantVoiceMinRms * 1.8, adaptiveEnergyThreshold * 2.2);
+  const hasReliablePitch =
+    hasUsablePitch && pitchResult.confidence >= formantVoiceConfidenceThreshold;
   const pitchIsStable =
     !gate.lastPitch ||
     getPitchDistanceCents(pitch, gate.lastPitch) <= formantVoiceMaxPitchJumpCents;
 
-  if (!hasEnoughEnergy || !hasReliablePitch || !pitchIsStable) {
+  if (!hasEnoughEnergy) {
     resetFormantVoiceGate(gate);
     return false;
   }
 
+  if (!hasUsablePitch && !hasStrongVoiceEnergy) {
+    if (gate.frames >= formantVoiceRequiredFrames && gate.lostFrames < formantVoiceGraceFrames) {
+      gate.lostFrames += 1;
+      return true;
+    }
+    resetFormantVoiceGate(gate);
+    return false;
+  }
+
+  if (hasStrongVoiceEnergy && (!hasReliablePitch || !pitchIsStable)) {
+    gate.frames += 1;
+    if (pitch) {
+      gate.lastPitch = pitch;
+    }
+    gate.lostFrames = 0;
+    return gate.frames >= formantVoiceRequiredFrames;
+  }
+
+  if (!hasReliablePitch || !pitchIsStable) {
+    gate.lostFrames += 1;
+    return gate.frames >= formantVoiceRequiredFrames && gate.lostFrames <= formantVoiceGraceFrames;
+  }
+
   gate.frames += 1;
   gate.lastPitch = pitch;
+  gate.lostFrames = 0;
   return gate.frames >= formantVoiceRequiredFrames;
 }
 
