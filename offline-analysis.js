@@ -151,7 +151,7 @@ async function analyzeAudioFile(file) {
   let bufferLength = 0;
   let frameOffsetSamples = 0;
   let lastProgressUpdate = 0;
-  const offlineFormantVoiceGate = { frames: 0, lastPitch: null };
+  const offlineFormantVoiceGate = { frames: 0, lastPitch: null, lostFrames: 0 };
 
   const appendSamples = (input) => {
     if (bufferLength + input.length > buffer.length) {
@@ -337,7 +337,7 @@ async function analyzeRecordingBlob(blob) {
   let bufferLength = 0;
   let frameOffsetSamples = 0;
   let lastProgressUpdate = 0;
-  const offlineFormantVoiceGate = { frames: 0, lastPitch: null };
+  const offlineFormantVoiceGate = { frames: 0, lastPitch: null, lostFrames: 0 };
 
   const appendSamples = (input) => {
     if (bufferLength + input.length > buffer.length) {
