@@ -1,0 +1,106 @@
+const maxHistorySeconds = 12;
+const displayUpdateIntervalMs = 150;
+const baseCanvasWidth = 720;
+const baseCanvasHeight = 360;
+const baseAppMaxWidth = 920;
+const spectrogramCanvasWidth = 1040;
+const spectrogramCanvasHeight = 520;
+const spectrogramAppMaxWidth = 1280;
+const minResizableWidth = 640;
+const minResizableHeight = 520;
+const pitchMinHz = 60;
+const pitchMaxHz = 1000;
+const pitchScaleFixedMinHz = 50;
+const pitchScaleFixedMaxHz = 500;
+const pitchScaleLogMinHz = 60;
+const pitchScaleLogMaxHz = 1000;
+const spectrogramMinDb = -94;
+const spectrogramMaxDb = -32;
+const spectrogramDisplayMinHz = 65;
+const spectrogramDisplayMaxHz = 4200;
+const spectrogramPianoWidth = 54;
+const spectrogramAxisWidth = 58;
+const spectrogramProfileWidth = 220;
+const spectrogramWaveformHeight = 94;
+const spectrogramTimeAxisHeight = 22;
+const spectrogramOverlayLineWidth = 2;
+const spectrogramOverlayColors = {
+  pitch: '#0f766e',
+  f1: '#22c55e',
+  f2: '#f97316',
+};
+const volumeMeterMinDb = -60;
+const volumeMeterMaxDb = 0;
+const tiltMeterMinDb = -30;
+const tiltMeterMaxDb = 30;
+const tiltLowBandHz = { min: 200, max: 800 };
+const tiltHighBandHz = { min: 2000, max: 5000 };
+const breathFlowMinDb = -58;
+const breathFlowMaxDb = -18;
+const breathActiveThreshold = 0.08;
+const breathTargetMin = 0.45;
+const breathTargetMax = 0.75;
+const breathHistoryWindowSeconds = 12;
+const breathStabilityWindowSize = 18;
+const breathCalibrationDurationMs = 2000;
+const breathHighFrequencyMinHz = 3000;
+const breathTotalEnergyMinHz = 200;
+const hnrMinFrequencyHz = 70;
+const hnrMaxFrequencyHz = 500;
+const pitchMinEnergyThreshold = 0.0035;
+const pitchAdaptiveEnergyMultiplier = 1.7;
+const pitchNoiseFloorRiseAlpha = 0.06;
+const pitchNoiseFloorFallAlpha = 0.22;
+const pitchEnergyRef = 0.01;
+const pitchOnsetConfidenceThreshold = 0.42;
+const pitchSustainConfidenceThreshold = 0.18;
+const pitchMedianWindowSize = 5;
+const pitchMaxJumpHz = 30;
+const pitchMaxJumpCents = 50;
+const pitchEmaAlpha = 0.25;
+const pitchFastTransitionCents = 250;
+const pitchFastTransitionConfirmFrames = 2;
+const pitchOctaveSpikeToleranceCents = 90;
+const pitchTransitionConfirmFrames = 2;
+const pitchHoldFrames = 6;
+const pitchOnsetFrames = 1;
+const pitchReleaseFrames = 10;
+const pitchScoreWindowSeconds = 6;
+const pitchScoreHitToleranceCents = 35;
+const pitchScoreGoodToleranceCents = 20;
+const pitchScoreMaxUsefulCents = 120;
+const offlineWindowDurationMs = maxHistorySeconds * 1000;
+const songPitchMinConfidence = 0.18;
+const songPitchMaxGapMs = 180;
+const songPitchMatchWindowMs = 120;
+const songPitchOctaveFixToleranceCents = 420;
+const songPitchSpikeThresholdCents = 520;
+const songPitchNeighborToleranceCents = 160;
+const songPitchShortRunMaxFrames = 4;
+const songPitchMedianRadius = 3;
+const songPitchRenderColor = '#2563eb';
+const songPitchRenderSoftColor = 'rgba(37, 99, 235, 0.18)';
+const recordingWaveformSampleCount = 96;
+const recordingTimelineMinDurationMs = 1000;
+const formantUpdateIntervalMs = 80;
+const formantWindowSize = 3;
+const formantTauMs = 260;
+const formantSmoothingHz = 120;
+const formantMaxJumpHz = { f1: 90, f2: 160 };
+const formantVoiceConfidenceThreshold = 0.2;
+const formantVoiceEnergyMultiplier = 1.6;
+const formantVoiceMinRms = 0.012;
+const formantVoiceRequiredFrames = 1;
+const formantVoiceGraceFrames = 12;
+const formantVoiceMaxPitchJumpCents = 180;
+const formantValidRanges = {
+  f1: { min: 200, max: 1000 },
+  f2: { min: 700, max: 3000 },
+  minSeparation: 150,
+};
+const offlineFrameDurationMs = 20;
+const offlineHopDurationMs = 10;
+const offlineMaxDurationSeconds = 300;
+const offlineProgressUpdateMs = 200;
+
+const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

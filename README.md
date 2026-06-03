@@ -53,3 +53,15 @@
 ```powershell
 .\scripts\validate-local.cmd -SkipNode
 ```
+
+## 音高算法基准
+
+运行下面的命令可对当前音高检测算法做可重复的合成音频基准测试：
+
+```powershell
+.\scripts\pitch-benchmark.cmd
+```
+
+当前基准覆盖纯正弦波、线性滑音、带噪正弦波和静音场景，并输出检出率、静音误检率、平均音分误差、最大音分误差和八度误判率。基准默认测试 AMDF、自相关和 YIN；HPS/FFT 依赖 WebAudio `AnalyserNode`，后续可单独补浏览器基准。
+
+如果输出 `FAIL`，表示该算法没有达到当前质量阈值。它不一定代表页面无法使用，而是提示这次算法结果需要复查或继续优化。
