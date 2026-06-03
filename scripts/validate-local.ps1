@@ -119,15 +119,20 @@ if ($failures.Count -eq 0) {
 
   Write-Step "Checking expected application entry order"
   $expectedScripts = @(
+    'app-config.js',
+    'app-dom.js',
+    'app-state.js',
     'pitch-detection.js',
     'formant-analysis.js',
     'canvas-rendering.js',
     'offline-analysis.js',
     'breath-analysis.js',
+    'memory-config.js',
     'memory-training.js',
     'song-pitch.js',
     'recording-timeline.js',
     'spectrogram.js',
+    'audio-engine.js',
     'app.js'
   )
   $loadedExpected = $scriptSources | Where-Object { $expectedScripts -contains $_ }
