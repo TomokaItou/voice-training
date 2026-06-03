@@ -39,3 +39,17 @@
 3. 点击“清除文件/返回实时”即可回到实时麦克风模式。
 
 默认最大分析时长为 300 秒（约 5 分钟），超过时会提示是否继续分析全片。若解码失败，请尝试使用 wav/mp3 格式。
+
+## 本地验收
+
+运行下面的命令可检查入口 HTML、CSS/JS 引用、重复 `id`、`document.getElementById` 引用是否存在，并在 Node 可用时额外执行 JavaScript 语法检查：
+
+```powershell
+.\scripts\validate-local.cmd
+```
+
+如果本机 Node 被系统策略拦截，可以先跳过 Node 语法检查：
+
+```powershell
+.\scripts\validate-local.cmd -SkipNode
+```

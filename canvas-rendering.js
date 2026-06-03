@@ -64,6 +64,13 @@ function mapSongPitchTimeToCanvasTime(point, state) {
     return point.timeMs;
   }
   if (
+    songPitchAudio &&
+    Number.isFinite(songPitchAudio.currentTime) &&
+    songPitchAudio.currentTime > 0
+  ) {
+    return performance.now() - (songPitchAudio.currentTime * 1000 - point.timeMs);
+  }
+  if (
     accompanimentAudio &&
     Number.isFinite(accompanimentAudio.currentTime) &&
     accompanimentAudio.currentTime > 0
@@ -235,6 +242,34 @@ function drawSelectedPitchMarker(state) {
   ctx.restore();
 }
 
+function drawSongPlaybackMarker(state) {
+  if (!songPitchAudio || songPitchAudio.paused || !state) {
+    return;
+  }
+  const playbackTime = songPitchAudio.currentTime * 1000;
+  const x = ((playbackTime - state.minTime) / state.durationMs) * canvas.width;
+  if (x < 0 || x > canvas.width) {
+    return;
+  }
+  ctx.save();
+  ctx.strokeStyle = '#f97316';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x, canvas.height);
+  ctx.stroke();
+  ctx.fillStyle = '#f97316';
+  ctx.font = '12px sans-serif';
+  ctx.textBaseline = 'top';
+  const label = formatTimeSeconds(playbackTime);
+  const labelWidth = ctx.measureText(label).width + 12;
+  const labelX = Math.min(Math.max(x + 6, 4), canvas.width - labelWidth - 4);
+  ctx.fillRect(labelX, 6, labelWidth, 22);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(label, labelX + 6, 10);
+  ctx.restore();
+}
+
 function findNearestPitchPointByCanvasX(canvasX) {
   if (!pitchRenderState?.visibleHistory?.length) {
     return null;
@@ -261,6 +296,7 @@ function drawPitchHistory() {
 
   if (sourceHistory.length < 2) {
     pitchRenderState = null;
+    updateOfflineWindowControl(0);
     if (pitchScaleMode === 'fixed') {
       drawAxes(pitchScaleFixedMinHz, pitchScaleFixedMaxHz);
       if (targetPitchEnabled) {
@@ -307,15 +343,29 @@ function drawPitchHistory() {
     minTime = 0;
     durationMs = getRecordingDurationMs();
   } else if (offlineMode) {
-    minTime = sourceHistory[0].time;
     const maxTime = sourceHistory[sourceHistory.length - 1].time;
-    durationMs = Math.max(maxTime - minTime, 1);
+    const sourceStartTime = sourceHistory[0].time;
+    const offlineDurationMs = Math.max(maxTime - sourceStartTime, 1);
+    const useOfflineWindow = offlineDurationMs > offlineWindowDurationMs;
+    if (useOfflineWindow) {
+      offlineWindowStartMs = clampOfflineWindowStart(offlineWindowStartMs, offlineDurationMs);
+      minTime = sourceStartTime + offlineWindowStartMs;
+      durationMs = offlineWindowDurationMs;
+      visibleHistory = sourceHistory.filter(
+        (point) => point.time >= minTime && point.time <= minTime + durationMs
+      );
+    } else {
+      minTime = sourceStartTime;
+      durationMs = offlineDurationMs;
+    }
+    updateOfflineWindowControl(offlineDurationMs, offlineWindowStartMs);
   } else {
     const now = performance.now();
     minTime = now - maxHistorySeconds * 1000;
     visibleHistory = sourceHistory.filter((point) => point.time >= minTime);
     pitchHistory = visibleHistory;
     durationMs = maxHistorySeconds * 1000;
+    updateOfflineWindowControl(0);
   }
 
   const previewState = { minTime, durationMs, useRecordingTimeline };
@@ -417,6 +467,7 @@ function drawPitchHistory() {
     drawFormantHistory(minTime, durationMs, minPitch, maxPitch, pitchRange, padding);
   }
 
+  drawSongPlaybackMarker(pitchRenderState);
   drawSelectedPitchMarker(pitchRenderState);
 
   if (!offlineMode && currentPitch) {

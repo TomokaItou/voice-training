@@ -186,6 +186,55 @@
             <span class="label">命中率</span>
             <span class="value" id="pitchScoreHitRateValue">--%</span>
           </div>
+          <div>
+            <span class="label">平均偏差</span>
+            <span class="value" id="pitchScoreAverageValue">-- cents</span>
+          </div>
+          <div>
+            <span class="label">有效覆盖</span>
+            <span class="value" id="pitchScoreCoverageValue">--%</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="song-target-panel" id="songTargetPanel">
+        <div class="song-target-header">
+          <div>
+            <h2>歌曲目标曲线</h2>
+            <p>上传歌曲后自动提取主音高曲线，播放时画布会跟随歌曲进度移动。</p>
+          </div>
+          <label class="toggle song-target-toggle">
+            <input type="checkbox" id="songPitchToggle" checked />
+            <span class="toggle-pill"></span>
+            <span class="toggle-text">显示曲线</span>
+          </label>
+        </div>
+        <div class="song-target-controls">
+          <input type="file" id="songPitchInput" accept="audio/*" class="file-input song-target-file" />
+          <div class="controls-inline song-target-playback">
+            <button id="playSongPitchButton" class="secondary" disabled>播放</button>
+            <button id="pauseSongPitchButton" class="secondary" disabled>暂停</button>
+            <button id="stopSongPitchButton" class="secondary" disabled>停止</button>
+          </div>
+          <button id="clearSongPitchButton" class="secondary" disabled>清除曲线</button>
+        </div>
+        <div class="song-target-status">
+          <div>
+            <span class="label">提取状态</span>
+            <span class="value" id="songPitchStatus">未加载</span>
+          </div>
+          <div>
+            <span class="label">播放状态</span>
+            <span class="value" id="songPitchPlaybackStatus">未加载</span>
+          </div>
+          <div>
+            <span class="label">曲线信息</span>
+            <span class="value" id="songPitchStats">--</span>
+          </div>
+          <div>
+            <span class="label">训练结果</span>
+            <span class="value" id="songTrainingResult">--</span>
+          </div>
         </div>
       </section>
 
@@ -349,6 +398,26 @@
         </div>
       </section>
 
+      <section class="offline-window-control" id="offlineWindowControl" hidden>
+        <div class="offline-window-meta">
+          <span id="offlineWindowStartValue">0.00s</span>
+          <span id="offlineWindowEndValue">12.00s</span>
+        </div>
+        <input
+          type="range"
+          id="offlineWindowRange"
+          min="0"
+          max="0"
+          step="0.1"
+          value="0"
+          aria-label="离线音高曲线进度"
+        />
+        <div class="offline-window-meta">
+          <span>当前窗口</span>
+          <span id="offlineWindowDurationValue">--</span>
+        </div>
+      </section>
+
       <section class="pitch-inspector" id="pitchInspectorPanel" hidden>
         <span class="label">选中音高</span>
         <span class="value" id="selectedPitchValue">--</span>
@@ -506,29 +575,6 @@
           <span class="label">分析进度</span>
           <span class="value" id="analysisStatus">未开始</span>
         </div>
-      </div>
-      <div class="sidebar-card">
-        <h2>歌曲目标曲线</h2>
-        <input type="file" id="songPitchInput" accept="audio/*" class="file-input" />
-        <label class="toggle">
-          <input type="checkbox" id="songPitchToggle" checked />
-          <span class="toggle-pill"></span>
-          <span class="toggle-text">显示歌曲曲线</span>
-        </label>
-        <button id="clearSongPitchButton" class="secondary" disabled>清除歌曲曲线</button>
-        <div class="file-status">
-          <span class="label">提取状态</span>
-          <span class="value" id="songPitchStatus">未加载</span>
-        </div>
-        <div class="file-status">
-          <span class="label">曲线信息</span>
-          <span class="value" id="songPitchStats">--</span>
-        </div>
-        <div class="file-status">
-          <span class="label">训练结果</span>
-          <span class="value" id="songTrainingResult">--</span>
-        </div>
-        <p class="hint">上传一首歌后会自动提取主音高曲线；练习时优先按这条曲线判断音准。</p>
       </div>
       <div class="sidebar-card">
         <h2>伴奏播放</h2>

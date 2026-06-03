@@ -395,6 +395,9 @@ function hasSongPitchTarget() {
 }
 
 function getSongPracticeTimeMs(now = performance.now()) {
+  if (songPitchAudio && !songPitchAudio.paused && Number.isFinite(songPitchAudio.currentTime)) {
+    return songPitchAudio.currentTime * 1000;
+  }
   if (accompanimentAudio && !accompanimentAudio.paused && Number.isFinite(accompanimentAudio.currentTime)) {
     return accompanimentAudio.currentTime * 1000;
   }
@@ -443,7 +446,22 @@ function getTargetPitchForNow(now = performance.now()) {
   return getTargetPitchForTime(getSongPracticeTimeMs(now));
 }
 
+function getScoringTargetPitchForTime(timeMs) {
+  if (!hasSongPitchTarget()) {
+    return targetPitchHz;
+  }
+  return findSongPitchAt(timeMs)?.pitch || null;
+}
+
 function getSongPracticeTimeForPoint(pointTime, now = performance.now()) {
+  if (
+    songPitchAudio &&
+    Number.isFinite(songPitchAudio.currentTime) &&
+    songPitchAudio.currentTime > 0
+  ) {
+    const elapsedFromPointMs = Math.max(0, now - pointTime);
+    return Math.max(0, songPitchAudio.currentTime * 1000 - elapsedFromPointMs);
+  }
   if (
     accompanimentAudio &&
     Number.isFinite(accompanimentAudio.currentTime) &&
@@ -460,7 +478,7 @@ function getPitchScoreWindow(now = performance.now()) {
   return pitchHistory
     .filter((point) => point.time >= minTime && point.pitch)
     .map((point) => {
-      const targetPitch = getTargetPitchForTime(getSongPracticeTimeForPoint(point.time, now));
+      const targetPitch = getScoringTargetPitchForTime(getSongPracticeTimeForPoint(point.time, now));
       return {
         ...point,
         targetPitch,
@@ -471,12 +489,21 @@ function getPitchScoreWindow(now = performance.now()) {
 }
 
 function computePitchScoreStats(now = performance.now()) {
+  const minTime = now - pitchScoreWindowSeconds * 1000;
+  const rawWindowPoints = pitchHistory.filter((point) => point.time >= minTime);
   const windowPoints = getPitchScoreWindow(now);
   if (!windowPoints.length) {
     return null;
   }
+  const currentTargetPitch = getScoringTargetPitchForTime(getSongPracticeTimeMs(now));
+  const lastWindowPoint = windowPoints[windowPoints.length - 1];
+  const currentCents = currentTargetPitch
+    ? frequencyToCentsError(currentPitch, currentTargetPitch)
+    : lastWindowPoint.cents;
 
   const absErrors = windowPoints.map((point) => Math.abs(point.cents));
+  const sortedAbsErrors = [...absErrors].sort((a, b) => a - b);
+  const p90AbsError = sortedAbsErrors[Math.min(sortedAbsErrors.length - 1, Math.floor(sortedAbsErrors.length * 0.9))];
   const averageAbsError =
     absErrors.reduce((sum, value) => sum + value, 0) / absErrors.length;
   const meanCents =
@@ -485,9 +512,7 @@ function computePitchScoreStats(now = performance.now()) {
     windowPoints.reduce((sum, point) => sum + (point.cents - meanCents) ** 2, 0) /
     windowPoints.length;
   const centsStdDev = Math.sqrt(variance);
-  const score = Math.round(
-    Math.max(0, 100 - (averageAbsError / pitchScoreMaxUsefulCents) * 100)
-  );
+  const pitchAccuracyScore = Math.max(0, 100 - (averageAbsError / pitchScoreMaxUsefulCents) * 100);
   const stability = Math.round(
     Math.max(0, 100 - (centsStdDev / pitchScoreMaxUsefulCents) * 100)
   );
@@ -497,14 +522,29 @@ function computePitchScoreStats(now = performance.now()) {
       windowPoints.length) *
       100
   );
+  const coverage = Math.round(
+    (windowPoints.length / Math.max(rawWindowPoints.length, windowPoints.length, 1)) * 100
+  );
+  const score = Math.round(
+    Math.max(
+      0,
+      pitchAccuracyScore * 0.45 +
+        hitRate * 0.25 +
+        stability * 0.2 +
+        coverage * 0.1
+    )
+  );
 
   return {
     score,
     stability,
     hitRate,
-    currentCents: frequencyToCentsError(currentPitch, getTargetPitchForNow(now)),
-    currentTargetPitch: getTargetPitchForNow(now),
+    coverage,
+    currentCents,
+    currentTargetPitch: currentTargetPitch || lastWindowPoint.targetPitch,
     averageAbsError,
+    p90AbsError,
+    sampleCount: windowPoints.length,
   };
 }
 
