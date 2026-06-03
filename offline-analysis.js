@@ -26,6 +26,10 @@ function downloadBlob(blob, filename) {
 
 function setOfflineMode(enabled) {
   offlineMode = enabled;
+  if (!offlineMode) {
+    resetOfflineWindow();
+    updateOfflineWindowControl(0);
+  }
   clearFileButton.disabled = !offlineMode;
   audioFileInput.disabled = offlineMode && offlineAnalysisInProgress;
   startButton.disabled = offlineMode || offlineAnalysisInProgress;
@@ -52,6 +56,8 @@ function resetOfflineState() {
   offlineAnalysisInProgress = false;
   offlineFormantHistory = [];
   offlineSourceSampleRate = null;
+  resetOfflineWindow();
+  updateOfflineWindowControl(0);
   audioFileInput.value = '';
   setAnalysisStatus('未开始');
 }
@@ -119,6 +125,7 @@ async function analyzeAudioFile(file) {
 
   setAnalysisStatus('分析中... 0%');
   sessionStartTime = 0;
+  resetOfflineWindow();
   pitchHistory = [];
   volumeHistory = [];
   formantHistory = { f1: [], f2: [] };
@@ -305,6 +312,7 @@ async function analyzeRecordingBlob(blob) {
 
   setAnalysisStatus('分析中... 0%');
   sessionStartTime = 0;
+  resetOfflineWindow();
   pitchHistory = [];
   volumeHistory = [];
   formantHistory = { f1: [], f2: [] };

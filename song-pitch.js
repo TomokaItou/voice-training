@@ -166,14 +166,21 @@ function smoothSongPitchTrack(rawTrack) {
     return [];
   }
 
-  return rawTrack.map((point, index) => {
+  const octaveFixed = fixSongPitchOctaveErrors(rawTrack);
+  const despiked = removeSongPitchSpikes(octaveFixed);
+
+  return despiked.map((point, index) => {
     if (!point.pitch) {
       return point;
     }
     const nearby = [];
-    for (let i = Math.max(0, index - 2); i <= Math.min(rawTrack.length - 1, index + 2); i += 1) {
-      if (rawTrack[i].pitch) {
-        nearby.push(rawTrack[i].pitch);
+    for (
+      let i = Math.max(0, index - songPitchMedianRadius);
+      i <= Math.min(despiked.length - 1, index + songPitchMedianRadius);
+      i += 1
+    ) {
+      if (despiked[i].pitch) {
+        nearby.push(despiked[i].pitch);
       }
     }
     const smoothedPitch = median(nearby);
@@ -182,6 +189,167 @@ function smoothSongPitchTrack(rawTrack) {
       pitch: selectPitchCandidate(smoothedPitch, point.pitch) || smoothedPitch,
     };
   });
+}
+
+function centsBetweenPitches(a, b) {
+  if (!a || !b || a <= 0 || b <= 0) {
+    return null;
+  }
+  return 1200 * Math.log2(a / b);
+}
+
+function absoluteCentsBetweenPitches(a, b) {
+  const cents = centsBetweenPitches(a, b);
+  return Number.isFinite(cents) ? Math.abs(cents) : Infinity;
+}
+
+function nearestSongPitchReference(track, index, cleanedPitches) {
+  const references = [];
+  for (let i = index - 1; i >= 0 && references.length < 8; i -= 1) {
+    const pitch = cleanedPitches[i] || track[i].pitch;
+    if (pitch) {
+      references.push(pitch);
+    }
+  }
+  for (let i = index + 1; i < track.length && references.length < 14; i += 1) {
+    const pitch = track[i].pitch;
+    if (pitch) {
+      references.push(pitch);
+    }
+  }
+  return references.length ? median(references) : null;
+}
+
+function correctSongPitchOctave(pitch, reference) {
+  if (!pitch || !reference) {
+    return pitch;
+  }
+  const candidates = [pitch / 4, pitch / 2, pitch, pitch * 2, pitch * 4].filter(
+    (candidate) => candidate >= pitchMinHz && candidate <= pitchMaxHz
+  );
+  const best = candidates.reduce((closest, candidate) =>
+    absoluteCentsBetweenPitches(candidate, reference) <
+    absoluteCentsBetweenPitches(closest, reference)
+      ? candidate
+      : closest
+  );
+  const originalDistance = absoluteCentsBetweenPitches(pitch, reference);
+  const bestDistance = absoluteCentsBetweenPitches(best, reference);
+  if (
+    best !== pitch &&
+    bestDistance <= songPitchOctaveFixToleranceCents &&
+    originalDistance - bestDistance >= songPitchNeighborToleranceCents
+  ) {
+    return best;
+  }
+  return pitch;
+}
+
+function fixSongPitchOctaveErrors(track) {
+  const cleanedPitches = [];
+  return track.map((point, index) => {
+    if (!point.pitch) {
+      cleanedPitches[index] = null;
+      return point;
+    }
+    const reference = nearestSongPitchReference(track, index, cleanedPitches);
+    const pitch = correctSongPitchOctave(point.pitch, reference);
+    cleanedPitches[index] = pitch;
+    return { ...point, pitch };
+  });
+}
+
+function collectVoicedRuns(track) {
+  const runs = [];
+  let current = null;
+  track.forEach((point, index) => {
+    if (!point.pitch) {
+      if (current) {
+        runs.push(current);
+        current = null;
+      }
+      return;
+    }
+    if (!current) {
+      current = { start: index, end: index };
+      return;
+    }
+    current.end = index;
+  });
+  if (current) {
+    runs.push(current);
+  }
+  return runs;
+}
+
+function nearestPitchBefore(track, index) {
+  for (let i = index - 1; i >= 0; i -= 1) {
+    if (track[i].pitch) {
+      return track[i].pitch;
+    }
+  }
+  return null;
+}
+
+function nearestPitchAfter(track, index) {
+  for (let i = index + 1; i < track.length; i += 1) {
+    if (track[i].pitch) {
+      return track[i].pitch;
+    }
+  }
+  return null;
+}
+
+function removeSongPitchSpikes(track) {
+  const nextTrack = track.map((point) => ({ ...point }));
+
+  for (let i = 1; i < nextTrack.length - 1; i += 1) {
+    const current = nextTrack[i].pitch;
+    const previous = nextTrack[i - 1].pitch;
+    const next = nextTrack[i + 1].pitch;
+    if (!current || !previous || !next) {
+      continue;
+    }
+    const neighborsAgree =
+      absoluteCentsBetweenPitches(previous, next) <= songPitchNeighborToleranceCents;
+    const currentIsSpike =
+      absoluteCentsBetweenPitches(current, previous) >= songPitchSpikeThresholdCents &&
+      absoluteCentsBetweenPitches(current, next) >= songPitchSpikeThresholdCents;
+    if (neighborsAgree && currentIsSpike) {
+      nextTrack[i].pitch = median([previous, next]);
+    }
+  }
+
+  collectVoicedRuns(nextTrack).forEach((run) => {
+    const runLength = run.end - run.start + 1;
+    if (runLength > songPitchShortRunMaxFrames) {
+      return;
+    }
+    const before = nearestPitchBefore(nextTrack, run.start);
+    const after = nearestPitchAfter(nextTrack, run.end);
+    if (!before || !after) {
+      return;
+    }
+    const runPitches = [];
+    for (let i = run.start; i <= run.end; i += 1) {
+      if (nextTrack[i].pitch) {
+        runPitches.push(nextTrack[i].pitch);
+      }
+    }
+    const runMedian = median(runPitches);
+    const surroundingAgree =
+      absoluteCentsBetweenPitches(before, after) <= songPitchNeighborToleranceCents;
+    const runIsTransient =
+      absoluteCentsBetweenPitches(runMedian, before) >= songPitchSpikeThresholdCents &&
+      absoluteCentsBetweenPitches(runMedian, after) >= songPitchSpikeThresholdCents;
+    if (surroundingAgree && runIsTransient) {
+      for (let i = run.start; i <= run.end; i += 1) {
+        nextTrack[i].pitch = median([before, after]);
+      }
+    }
+  });
+
+  return nextTrack;
 }
 
 function extractSongPitchTrack(audioBuffer, onProgress = () => {}) {
@@ -256,6 +424,7 @@ async function analyzeSongPitchFile(file) {
   }
 
   songPitchAnalysisInProgress = true;
+  clearSongPitchPlayback();
   updatePitchAccuracyButton();
   setSongPitchStatus('解码中...');
   setSongTrainingResult('--');
@@ -293,6 +462,7 @@ async function analyzeSongPitchFile(file) {
 
     songPitchTrack = track;
     songPitchFileName = file.name;
+    prepareSongPitchPlayback(file);
     songPitchEnabled = true;
     if (songPitchToggle) {
       songPitchToggle.checked = true;
@@ -309,17 +479,20 @@ async function analyzeSongPitchFile(file) {
     setOfflineMode(true);
     setDataSourceLabel('歌曲目标曲线');
     setAnalysisStatus('歌曲目标已生成');
+    resetOfflineWindow();
     pitchHistory = track.map((point) => ({ time: point.timeMs, pitch: point.pitch }));
     volumeHistory = [];
     resetPitchScoreDisplay();
     drawPitchHistory();
   } finally {
     songPitchAnalysisInProgress = false;
+    updateSongPitchPlaybackButtons();
     updatePitchAccuracyButton();
   }
 }
 
 function clearSongPitchTrack() {
+  clearSongPitchPlayback();
   songPitchTrack = [];
   songPitchFileName = '';
   setSongPitchStatus('未加载');

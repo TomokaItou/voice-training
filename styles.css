@@ -609,6 +609,86 @@ button.secondary:not(:disabled):hover {
   color: var(--warning);
 }
 
+.song-target-panel {
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.song-target-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.song-target-header h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.song-target-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.song-target-toggle {
+  flex-shrink: 0;
+}
+
+.song-target-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.song-target-file {
+  margin: 0;
+}
+
+.song-target-playback {
+  justify-content: flex-end;
+}
+
+.song-target-status {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--border);
+}
+
+.song-target-status > div {
+  min-width: 0;
+  background: var(--surface);
+  padding: 10px 12px;
+}
+
+.song-target-status .label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.song-target-status .value {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
 .memory-dashboard {
   display: grid;
   gap: 12px;
@@ -852,6 +932,29 @@ canvas {
   border-radius: 6px;
   border: 1px solid var(--border);
   background: #ffffff;
+}
+
+.offline-window-control {
+  margin: -8px 0 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.offline-window-control input[type='range'] {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.offline-window-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .meter-column {
@@ -1185,6 +1288,8 @@ input[type='range'] {
 
   .breath-dashboard,
   .pitch-score-dashboard,
+  .song-target-controls,
+  .song-target-status,
   .memory-zone-card,
   .memory-controls,
   .memory-control-field,
@@ -1196,6 +1301,14 @@ input[type='range'] {
 
   .pitch-score-grid {
     grid-template-columns: 1fr;
+  }
+
+  .song-target-header {
+    flex-direction: column;
+  }
+
+  .song-target-playback {
+    justify-content: stretch;
   }
 
   .breath-score-value {
