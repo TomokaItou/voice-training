@@ -99,6 +99,50 @@ $env:WHISPER_MODEL = "large-v3"
 .\scripts\pitch-benchmark.cmd
 ```
 
-当前基准覆盖纯正弦波、线性滑音、带噪正弦波和静音场景，并输出检出率、静音误检率、平均音分误差、最大音分误差和八度误判率。基准默认测试 AMDF、自相关和 YIN；HPS/FFT 依赖 WebAudio `AnalyserNode`，后续可单独补浏览器基准。
+默认会运行快速基准，适合每次改完音高逻辑后随手检查：
+
+```powershell
+.\scripts\pitch-benchmark.cmd --quick
+```
+
+提交或大改算法前建议运行完整基准：
+
+```powershell
+.\scripts\pitch-benchmark.cmd --full
+```
+
+也可以只跑某个算法或某个场景，便于定位失败原因：
+
+```powershell
+.\scripts\pitch-benchmark.cmd --algorithm yin
+.\scripts\pitch-benchmark.cmd --fixture vibrato
+```
+
+真实人声样本基准放在 `samples/voice-benchmark`。先复制示例标注文件：
+
+```powershell
+Copy-Item .\samples\voice-benchmark\manifest.example.json .\samples\voice-benchmark\manifest.json
+```
+
+再把本地录制的 `wav` 人声样本放入同一目录，并在 `manifest.json` 里标注每段的目标音高。运行：
+
+```powershell
+.\scripts\pitch-benchmark.cmd --full --voice
+```
+
+只跑某个人声样本：
+
+```powershell
+.\scripts\pitch-benchmark.cmd --full --voice --fixture voice-a4
+```
+
+如果本机已经有 VocalSet11，可以从 `long_tones` 自动生成本地基准 manifest。生成器会用高置信 YIN 在稳定中段估计参考音高并切分稳定片段；这适合作为真实人声回归测试，不等同于人工逐帧标注：
+
+```powershell
+.\scripts\build-vocalset-manifest.cmd --root "C:\path\to\VocalSet11" --singers female1,male1 --techniques straight --vowels a,e --max-samples 8
+.\scripts\pitch-benchmark.cmd --full --voice-manifest .\samples\voice-benchmark\manifest.vocalset.local.json --fixture vocalset
+```
+
+当前快速基准覆盖纯正弦波、线性滑音、带噪正弦波和静音场景；完整基准额外覆盖轻声起音、泛音丰富音色、颤音和纯噪声。输出包含检出率、静音/噪声误检率、平均音分误差、最大音分误差、平均置信度和八度误判率。基准默认测试 AMDF、自相关和 YIN；HPS/FFT 依赖 WebAudio `AnalyserNode`，后续可单独补浏览器基准。
 
 如果输出 `FAIL`，表示该算法没有达到当前质量阈值。它不一定代表页面无法使用，而是提示这次算法结果需要复查或继续优化。

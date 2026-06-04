@@ -1,0 +1,6 @@
+samples/voice-benchmark/*.wav
+samples/voice-benchmark/*.mp3
+samples/voice-benchmark/*.flac
+samples/voice-benchmark/*.m4a
+samples/voice-benchmark/manifest.json
+samples/voice-benchmark/manifest.*.local.json
