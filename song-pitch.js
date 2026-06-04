@@ -425,6 +425,7 @@ async function analyzeSongPitchFile(file) {
 
   songPitchAnalysisInProgress = true;
   clearSongPitchPlayback();
+  analyzeSongLyricsFile(file);
   updatePitchAccuracyButton();
   setSongPitchStatus('解码中...');
   setSongTrainingResult('--');
@@ -462,6 +463,7 @@ async function analyzeSongPitchFile(file) {
 
     songPitchTrack = track;
     songPitchFileName = file.name;
+    buildSongLyricsCharAlignment();
     prepareSongPitchPlayback(file);
     songPitchEnabled = true;
     if (songPitchToggle) {
@@ -493,6 +495,7 @@ async function analyzeSongPitchFile(file) {
 
 function clearSongPitchTrack() {
   clearSongPitchPlayback();
+  resetSongLyrics();
   songPitchTrack = [];
   songPitchFileName = '';
   setSongPitchStatus('未加载');

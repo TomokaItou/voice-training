@@ -130,6 +130,7 @@ if ($failures.Count -eq 0) {
     'memory-config.js',
     'memory-training.js',
     'song-pitch.js',
+    'song-lyrics.js',
     'recording-timeline.js',
     'spectrogram.js',
     'audio-engine.js',

@@ -40,6 +40,43 @@
 
 默认最大分析时长为 300 秒（约 5 分钟），超过时会提示是否继续分析全片。若解码失败，请尝试使用 wav/mp3 格式。
 
+## Whisper 歌词识别
+
+上传“歌曲目标曲线”音频后，歌词面板会先尝试读取音频文件里自带的内嵌歌词标签；如果文件没有歌词标签，可以启动本地 Whisper 服务后点击“Whisper识别”。
+
+推荐先安装轻量部署版 Whisper：
+
+```powershell
+python -m pip install -r requirements-whisper.txt
+```
+
+也可以改用 OpenAI 开源 Whisper：
+
+```powershell
+python -m pip install openai-whisper
+```
+
+启动本地识别服务：
+
+```powershell
+.\scripts\start-lyrics-whisper.cmd
+```
+
+使用 NVIDIA GPU / CUDA 启动：
+
+```powershell
+.\scripts\start-lyrics-whisper.cmd gpu
+```
+
+默认服务地址为 `http://127.0.0.1:8765/api/transcribe-lyrics`，页面默认使用 `small` 模型，速度更快。识别时会显示上传进度、转写计时和当前模型；第一次使用某个模型时需要下载模型文件，所以会明显更慢。如果要识别日语歌词，页面里可把语言选为“日语”；如果机器性能足够，可以用更准的模型：
+
+```powershell
+$env:WHISPER_MODEL = "large-v3"
+.\scripts\start-lyrics-whisper.cmd
+```
+
+完整歌曲直接识别会受伴奏影响。日语歌词建议先做人声分离，再上传分离后的人声音频，识别准确率会明显更好。
+
 ## 本地验收
 
 运行下面的命令可检查入口 HTML、CSS/JS 引用、重复 `id`、`document.getElementById` 引用是否存在，并在 Node 可用时额外执行 JavaScript 语法检查：
