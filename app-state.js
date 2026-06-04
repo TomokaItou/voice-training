@@ -97,3 +97,6 @@ let breathCalibration = {
 };
 let breathCalibrationInProgress = false;
 let pitchScoreLastTone = 'neutral';
+let rangeSamples = [];
+let rangeLastPitch = null;
+let rangeHistoryRecords = [];

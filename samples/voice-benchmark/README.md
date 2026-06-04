@@ -1,8 +1,32 @@
 # 真实人声基准样本
 
-把本地录制或整理好的 `wav` 人声样本放在这个目录下，并复制 `manifest.example.json` 为 `manifest.json` 后填写标注。
+把本地录制或整理好的 `wav` 人声样本放在这个目录下，然后生成或填写 `manifest.json` 标注。
 
 当前 Node 基准脚本支持 PCM / Float WAV。建议使用单人声、短片段、尽量少混响的录音，每个文件控制在 1 到 8 秒内。
+
+生成草稿 manifest：
+
+```powershell
+.\scripts\voice-manifest.cmd --generate
+```
+
+如果 `manifest.json` 已存在，需要显式覆盖：
+
+```powershell
+.\scripts\voice-manifest.cmd --generate --overwrite
+```
+
+生成器会扫描 `samples/voice-benchmark` 里的 `wav` 文件，并从文件名推断标注：
+
+- `voice-a4.wav` 会推断为固定 A4。
+- `slide-a3-a4.wav`、`siren-c4-g4.wav` 会推断为线性滑音。
+- 推断不出的文件会写成 `expectedHz: null`，需要手动补。
+
+校验 manifest：
+
+```powershell
+.\scripts\voice-manifest.cmd --validate
+```
 
 标注建议：
 
@@ -14,6 +38,7 @@
 运行：
 
 ```powershell
+.\scripts\voice-manifest.cmd --validate
 .\scripts\pitch-benchmark.cmd --full --voice
 ```
 

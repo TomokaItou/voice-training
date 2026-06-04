@@ -102,5 +102,7 @@ const offlineFrameDurationMs = 20;
 const offlineHopDurationMs = 10;
 const offlineMaxDurationSeconds = 300;
 const offlineProgressUpdateMs = 200;
+const rangeHistoryStorageKey = 'voice-training-range-history-v1';
+const rangeHistoryMaxRecords = 24;
 
 const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

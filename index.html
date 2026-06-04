@@ -24,9 +24,9 @@
             <span class="mode-title">出气量测量</span>
             <span class="mode-desc">通过麦克风估算吹气强度、稳定度和持续时间</span>
           </button>
-          <button class="mode-button mode-button-disabled" disabled>
+          <button id="openRangeModeButton" class="mode-button range-mode">
             <span class="mode-title">音域训练模式</span>
-            <span class="mode-desc">暂无功能</span>
+            <span class="mode-desc">测量最低/最高稳定音，估算舒适音区和跨度</span>
           </button>
           <button id="openPitchScoreModeButton" class="mode-button score-mode">
             <span class="mode-title">音准评分</span>
@@ -195,6 +195,55 @@
             <span class="value" id="pitchScoreCoverageValue">--%</span>
           </div>
         </div>
+      </section>
+
+      <section class="range-dashboard" id="rangeDashboard" hidden>
+        <div class="range-main">
+          <span class="label">当前音域</span>
+          <span class="range-value" id="rangeSpanValue">--</span>
+          <span class="range-caption" id="rangeCaption">点击开始检测后，从舒适低音滑到高音，再回到中声区。</span>
+        </div>
+        <div class="range-grid">
+          <div>
+            <span class="label">当前音</span>
+            <span class="value" id="rangeCurrentValue">--</span>
+          </div>
+          <div>
+            <span class="label">最低稳定音</span>
+            <span class="value" id="rangeLowestValue">--</span>
+          </div>
+          <div>
+            <span class="label">最高稳定音</span>
+            <span class="value" id="rangeHighestValue">--</span>
+          </div>
+          <div>
+            <span class="label">舒适音区</span>
+            <span class="value" id="rangeComfortValue">--</span>
+          </div>
+          <div>
+            <span class="label">稳定度</span>
+            <span class="value" id="rangeStabilityValue">--%</span>
+          </div>
+          <div>
+            <span class="label">有效采样</span>
+            <span class="value" id="rangeSampleValue">0</span>
+          </div>
+        </div>
+        <div class="range-actions">
+          <button id="rangeSaveButton" class="secondary" type="button" disabled>保存本次结果</button>
+          <button id="rangeResetButton" class="secondary" type="button">重置本次测量</button>
+        </div>
+      </section>
+
+      <section class="range-history-panel" id="rangeHistoryPanel" hidden>
+        <div class="range-history-header">
+          <div>
+            <h2>音域历史</h2>
+            <span id="rangeHistorySummary">还没有保存记录</span>
+          </div>
+          <button id="rangeClearHistoryButton" class="secondary" type="button" disabled>清空历史</button>
+        </div>
+        <ol id="rangeHistoryList" class="range-history-list"></ol>
       </section>
 
       <section class="song-target-panel" id="songTargetPanel">

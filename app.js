@@ -24,6 +24,8 @@ updateSongPitchPlaybackButtons();
 updatePitchAccuracyButton();
 setPitchAccuracyResult('--');
 resetBreathCalibration();
+loadRangeHistory();
+renderRangeHistory();
 
 function setStatus(text, tone = 'info') {
   statusEl.textContent = text;
@@ -361,6 +363,297 @@ function updatePitchScoreDisplay(now = performance.now()) {
   setPitchScoreTone(tone);
 }
 
+function formatRangePitch(pitch) {
+  if (!Number.isFinite(pitch)) {
+    return '--';
+  }
+  return `${frequencyToNote(pitch)} · ${Math.round(pitch)} Hz`;
+}
+
+function getSemitoneSpan(lowPitch, highPitch) {
+  if (!Number.isFinite(lowPitch) || !Number.isFinite(highPitch) || lowPitch <= 0 || highPitch <= lowPitch) {
+    return 0;
+  }
+  return 12 * Math.log2(highPitch / lowPitch);
+}
+
+function formatRangeSpan(semitones) {
+  if (!Number.isFinite(semitones) || semitones <= 0) {
+    return '--';
+  }
+  const octaves = Math.floor(semitones / 12);
+  const remainder = Math.round(semitones - octaves * 12);
+  if (octaves <= 0) {
+    return `${remainder} 半音`;
+  }
+  if (remainder === 0) {
+    return `${octaves} 八度`;
+  }
+  return `${octaves} 八度 ${remainder} 半音`;
+}
+
+function resetRangeTraining() {
+  rangeSamples = [];
+  rangeLastPitch = null;
+  updateRangeDisplay();
+  drawPitchHistory();
+}
+
+function computeRangeStats() {
+  const pitches = rangeSamples.map((sample) => sample.pitch).filter(Number.isFinite);
+  if (!pitches.length) {
+    return null;
+  }
+
+  const sorted = [...pitches].sort((a, b) => a - b);
+  const lowest = sorted[0];
+  const highest = sorted[sorted.length - 1];
+  const comfortLow = percentile(sorted, 0.15);
+  const comfortHigh = percentile(sorted, 0.85);
+  const recent = rangeSamples.slice(-Math.min(rangeSamples.length, 18));
+  const recentPitches = recent.map((sample) => sample.pitch).filter(Number.isFinite);
+  const recentMedian = percentile(recentPitches, 0.5);
+  const recentErrors = recentPitches.map((pitch) => Math.abs(getPitchDistanceCents(pitch, recentMedian)));
+  const p90Jitter = percentile(recentErrors, 0.9);
+  const stability = Math.max(0, Math.min(100, Math.round(100 - normalizeRange(p90Jitter, 12, 90) * 100)));
+
+  return {
+    lowest,
+    highest,
+    comfortLow,
+    comfortHigh,
+    spanSemitones: getSemitoneSpan(lowest, highest),
+    comfortSpanSemitones: getSemitoneSpan(comfortLow, comfortHigh),
+    stability,
+    sampleCount: pitches.length,
+  };
+}
+
+function createRangeRecord(stats = computeRangeStats()) {
+  if (!stats || stats.sampleCount < 6) {
+    return null;
+  }
+
+  return {
+    id: `${Date.now()}-${Math.round(stats.lowest)}-${Math.round(stats.highest)}`,
+    createdAt: new Date().toISOString(),
+    lowest: Math.round(stats.lowest * 10) / 10,
+    highest: Math.round(stats.highest * 10) / 10,
+    comfortLow: Math.round(stats.comfortLow * 10) / 10,
+    comfortHigh: Math.round(stats.comfortHigh * 10) / 10,
+    spanSemitones: Math.round(stats.spanSemitones * 10) / 10,
+    comfortSpanSemitones: Math.round(stats.comfortSpanSemitones * 10) / 10,
+    stability: stats.stability,
+    sampleCount: stats.sampleCount,
+  };
+}
+
+function loadRangeHistory() {
+  try {
+    const raw = window.localStorage?.getItem(rangeHistoryStorageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    rangeHistoryRecords = Array.isArray(parsed)
+      ? parsed.filter((record) => record && Number.isFinite(record.spanSemitones))
+      : [];
+  } catch (error) {
+    console.warn('Failed to load range history', error);
+    rangeHistoryRecords = [];
+  }
+}
+
+function persistRangeHistory() {
+  try {
+    window.localStorage?.setItem(
+      rangeHistoryStorageKey,
+      JSON.stringify(rangeHistoryRecords.slice(0, rangeHistoryMaxRecords))
+    );
+  } catch (error) {
+    console.warn('Failed to save range history', error);
+  }
+}
+
+function formatRangeDate(isoDate) {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    return '未知时间';
+  }
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getRangeTrendText(record, previousRecord) {
+  if (!previousRecord) {
+    return '首次记录';
+  }
+  const delta = record.spanSemitones - previousRecord.spanSemitones;
+  if (Math.abs(delta) < 0.5) {
+    return '跨度持平';
+  }
+  return delta > 0 ? `+${delta.toFixed(1)} 半音` : `${delta.toFixed(1)} 半音`;
+}
+
+function renderRangeHistory() {
+  if (!rangeHistoryPanel || !rangeHistorySummary || !rangeHistoryList) {
+    return;
+  }
+
+  rangeHistoryList.innerHTML = '';
+  if (rangeClearHistoryButton) {
+    rangeClearHistoryButton.disabled = rangeHistoryRecords.length === 0;
+  }
+
+  if (!rangeHistoryRecords.length) {
+    rangeHistorySummary.textContent = '还没有保存记录';
+    const item = document.createElement('li');
+    item.className = 'range-history-empty';
+    item.textContent = '保存一次测量后，这里会显示最近的音域趋势。';
+    rangeHistoryList.appendChild(item);
+    return;
+  }
+
+  const latest = rangeHistoryRecords[0];
+  const previous = rangeHistoryRecords[1] || null;
+  rangeHistorySummary.textContent = `最近 ${rangeHistoryRecords.length} 次，最新跨度 ${formatRangeSpan(
+    latest.spanSemitones
+  )}，${getRangeTrendText(latest, previous)}`;
+
+  rangeHistoryRecords.slice(0, 8).forEach((record, index) => {
+    const previousRecord = rangeHistoryRecords[index + 1] || null;
+    const item = document.createElement('li');
+    item.className = 'range-history-item';
+
+    const title = document.createElement('div');
+    title.className = 'range-history-title';
+    title.textContent = `${formatRangeDate(record.createdAt)} · ${formatRangeSpan(record.spanSemitones)}`;
+
+    const meta = document.createElement('div');
+    meta.className = 'range-history-meta';
+    meta.textContent = `${formatRangePitch(record.lowest)} 到 ${formatRangePitch(
+      record.highest
+    )} · 舒适区 ${formatRangePitch(record.comfortLow)} - ${formatRangePitch(
+      record.comfortHigh
+    )} · 稳定度 ${record.stability}%`;
+
+    const trend = document.createElement('span');
+    trend.className = 'range-history-trend';
+    trend.textContent = getRangeTrendText(record, previousRecord);
+
+    item.append(title, meta, trend);
+    rangeHistoryList.appendChild(item);
+  });
+}
+
+function saveRangeTrainingResult() {
+  const record = createRangeRecord();
+  if (!record) {
+    if (rangeCaption) {
+      rangeCaption.textContent = '有效采样还不够，先完成一段低到高的稳定滑音。';
+    }
+    return;
+  }
+
+  rangeHistoryRecords = [record, ...rangeHistoryRecords].slice(0, rangeHistoryMaxRecords);
+  persistRangeHistory();
+  renderRangeHistory();
+  if (rangeCaption) {
+    rangeCaption.textContent = `已保存 ${formatRangeDate(record.createdAt)} 的音域结果。`;
+  }
+}
+
+function clearRangeHistory() {
+  rangeHistoryRecords = [];
+  persistRangeHistory();
+  renderRangeHistory();
+}
+
+function getRangeCaption(stats) {
+  if (!stats || stats.sampleCount < 6) {
+    return '从舒适低音慢慢滑到高音，保持每个位置 1-2 秒。';
+  }
+  if (stats.spanSemitones < 7) {
+    return '目前跨度偏窄，可以继续向低音和高音两端探索。';
+  }
+  if (stats.stability < 55) {
+    return '音域已开始展开，但稳定度偏低，先放慢滑音速度。';
+  }
+  if (stats.comfortSpanSemitones >= 12) {
+    return '已经形成可用舒适区，可以记录这一段作为今天的练习范围。';
+  }
+  return '两端已记录，继续在中声区和换声附近做稳定保持。';
+}
+
+function updateRangeDisplay() {
+  if (!rangeDashboard) {
+    return;
+  }
+
+  const stats = computeRangeStats();
+  if (rangeCurrentValue) {
+    rangeCurrentValue.textContent = formatRangePitch(rangeLastPitch);
+  }
+
+  if (!stats) {
+    rangeSpanValue.textContent = '--';
+    rangeCaption.textContent = '点击开始检测后，从舒适低音滑到高音，再回到中声区。';
+    rangeLowestValue.textContent = '--';
+    rangeHighestValue.textContent = '--';
+    rangeComfortValue.textContent = '--';
+    rangeStabilityValue.textContent = '--%';
+    rangeSampleValue.textContent = '0';
+    rangeDashboard.dataset.tone = 'neutral';
+    if (rangeSaveButton) {
+      rangeSaveButton.disabled = true;
+    }
+    return;
+  }
+
+  rangeSpanValue.textContent = formatRangeSpan(stats.spanSemitones);
+  rangeCaption.textContent = getRangeCaption(stats);
+  rangeLowestValue.textContent = formatRangePitch(stats.lowest);
+  rangeHighestValue.textContent = formatRangePitch(stats.highest);
+  rangeComfortValue.textContent =
+    stats.sampleCount >= 6
+      ? `${formatRangePitch(stats.comfortLow)} - ${formatRangePitch(stats.comfortHigh)}`
+      : '--';
+  rangeStabilityValue.textContent = `${stats.stability}%`;
+  rangeSampleValue.textContent = String(stats.sampleCount);
+  if (rangeSaveButton) {
+    rangeSaveButton.disabled = stats.sampleCount < 6;
+  }
+  rangeDashboard.dataset.tone =
+    stats.sampleCount >= 10 && stats.stability >= 70
+      ? 'good'
+      : stats.sampleCount >= 6
+        ? 'active'
+        : 'neutral';
+}
+
+function updateRangeTraining(now = performance.now(), pitch = currentPitch) {
+  if (trainingMode !== 'range') {
+    return;
+  }
+
+  if (!Number.isFinite(pitch)) {
+    rangeLastPitch = null;
+    updateRangeDisplay();
+    return;
+  }
+
+  rangeLastPitch = pitch;
+  const lastSample = rangeSamples[rangeSamples.length - 1];
+  if (!lastSample || now - lastSample.time >= displayUpdateIntervalMs) {
+    rangeSamples.push({ time: now, pitch });
+    if (rangeSamples.length > 600) {
+      rangeSamples.shift();
+    }
+  }
+  updateRangeDisplay();
+}
+
 function mean(values) {
   const clean = values.filter((value) => Number.isFinite(value));
   if (!clean.length) {
@@ -388,6 +681,7 @@ function setReadoutMode(mode) {
   const chart = canvas?.closest('.chart');
   const isBreath = mode === 'breath';
   const isScore = mode === 'score';
+  const isRange = mode === 'range';
   const isVolume = mode === 'volume';
   const isFormants = mode === 'formants';
   const isMemory = mode === 'memory';
@@ -404,6 +698,12 @@ function setReadoutMode(mode) {
   }
   if (pitchScoreDashboard) {
     pitchScoreDashboard.hidden = !isScore;
+  }
+  if (rangeDashboard) {
+    rangeDashboard.hidden = !isRange;
+  }
+  if (rangeHistoryPanel) {
+    rangeHistoryPanel.hidden = !isRange;
   }
   if (songTargetPanel) {
     songTargetPanel.hidden = !(mode === 'pitch' || isScore);
@@ -445,6 +745,9 @@ function setTrainingCopy(mode) {
   if (mode === 'breath') {
     appTitle.textContent = '出气量测量';
     appDescription.textContent = '允许麦克风权限后，对准麦克风平稳吹气，软件会估算相对出气强度、稳定度和持续时间。';
+  } else if (mode === 'range') {
+    appTitle.textContent = '音域训练模式';
+    appDescription.textContent = '从舒适低音滑到高音，系统会记录最低/最高稳定音并估算可用舒适音区。';
   } else if (mode === 'score') {
     appTitle.textContent = '实时音准评分';
     appDescription.textContent = '设置目标音高后开始检测，持续发声即可看到偏差、稳定度和命中率。';
@@ -516,6 +819,16 @@ function showTrainingView(mode = 'pitch') {
     updateCanvasScale(canvasScale);
     resetBreathMeter();
     drawBreathHistory();
+  } else if (mode === 'range') {
+    setCurveSwitcherMode(null);
+    trainingMode = mode;
+    setReadoutMode(mode);
+    setTrainingCopy(mode);
+    displayMode = 'pitch';
+    displayModeSelect.value = 'pitch';
+    updateCanvasScale(canvasScale);
+    resetRangeTraining();
+    renderRangeHistory();
   } else if (mode === 'volume') {
     setCurveDisplayMode('volume');
   } else if (mode === 'pitch') {
@@ -1393,11 +1706,23 @@ openSpectrogramModeButton?.addEventListener('click', () => {
 openBreathModeButton?.addEventListener('click', () => {
   showTrainingView('breath');
 });
+openRangeModeButton?.addEventListener('click', () => {
+  showTrainingView('range');
+});
 openPitchScoreModeButton?.addEventListener('click', () => {
   showTrainingView('score');
 });
 openMemoryModeButton?.addEventListener('click', () => {
   showTrainingView('memory');
+});
+rangeResetButton?.addEventListener('click', () => {
+  resetRangeTraining();
+});
+rangeSaveButton?.addEventListener('click', () => {
+  saveRangeTrainingResult();
+});
+rangeClearHistoryButton?.addEventListener('click', () => {
+  clearRangeHistory();
 });
 backToHomeButton?.addEventListener('click', () => {
   showLauncherView();
