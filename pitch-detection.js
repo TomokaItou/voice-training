@@ -141,50 +141,97 @@ function detectPitchForAlgorithm(buffer, sampleRate, analyserNode = null, spectr
 
 function autoCorrelateWithConfidence(buffer, sampleRate, rms = computeRms(buffer)) {
   const size = buffer.length;
+  const minOffset = Math.max(2, Math.floor(sampleRate / pitchMaxHz));
+  const maxOffset = Math.min(Math.floor(sampleRate / pitchMinHz), Math.floor(size / 2));
 
   let bestOffset = -1;
-  let bestCorrelation = 0;
-  const maxOffset = Math.floor(size / 2);
+  let bestDifference = Infinity;
+  let differenceSum = 0;
+  let differenceCount = 0;
+  const differences = new Float32Array(maxOffset + 1);
 
-  for (let offset = 32; offset < maxOffset; offset += 1) {
-    let correlation = 0;
-    for (let i = 0; i < maxOffset; i += 1) {
-      correlation += Math.abs(buffer[i] - buffer[i + offset]);
+  for (let offset = minOffset; offset <= maxOffset; offset += 1) {
+    let difference = 0;
+    let compared = 0;
+    for (let i = 0; i < size - offset; i += 1) {
+      difference += Math.abs(buffer[i] - buffer[i + offset]);
+      compared += 1;
     }
-    correlation = 1 - correlation / maxOffset;
+    const normalizedDifference = compared ? difference / compared : Infinity;
+    differences[offset] = normalizedDifference;
+    if (Number.isFinite(normalizedDifference)) {
+      differenceSum += normalizedDifference;
+      differenceCount += 1;
+    }
 
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
+    if (normalizedDifference < bestDifference) {
+      bestDifference = normalizedDifference;
       bestOffset = offset;
+    }
+  }
+
+  const strongDifference = Math.max(bestDifference * 1.25, bestDifference + 0.006);
+  for (let offset = minOffset + 1; offset < maxOffset; offset += 1) {
+    const difference = differences[offset];
+    if (
+      difference <= strongDifference &&
+      difference <= differences[offset - 1] &&
+      difference <= differences[offset + 1]
+    ) {
+      bestOffset = offset;
+      bestDifference = difference;
+      break;
     }
   }
 
   const pitch = bestOffset !== -1 ? sampleRate / bestOffset : null;
   const energyScore = Math.min(1, rms / pitchEnergyRef);
-  const confidence = Math.max(0, Math.min(1, bestCorrelation * energyScore));
+  const meanDifference = differenceCount ? differenceSum / differenceCount : 1;
+  const periodicClarity =
+    meanDifference > 0 ? Math.max(0, (meanDifference - bestDifference) / meanDifference) : 0;
+  const confidence = Math.max(0, Math.min(1, periodicClarity * energyScore));
 
   return { pitch, confidence, rms };
 }
 
 function autoCorrelateStandardWithConfidence(buffer, sampleRate, rms) {
   const size = buffer.length;
-  const minLag = Math.floor(sampleRate / pitchMaxHz);
-  const maxLag = Math.floor(sampleRate / pitchMinHz);
+  const minLag = Math.max(2, Math.floor(sampleRate / pitchMaxHz));
+  const maxLag = Math.min(size - 2, Math.floor(sampleRate / pitchMinHz));
   let bestLag = -1;
   let bestCorrelation = 0;
+  const correlations = new Float32Array(maxLag + 1);
 
   for (let lag = minLag; lag <= maxLag; lag += 1) {
     let sum = 0;
-    let norm = 0;
+    let normA = 0;
+    let normB = 0;
     for (let i = 0; i < size - lag; i += 1) {
       const value = buffer[i];
-      sum += value * buffer[i + lag];
-      norm += value * value;
+      const shifted = buffer[i + lag];
+      sum += value * shifted;
+      normA += value * value;
+      normB += shifted * shifted;
     }
-    const correlation = norm > 0 ? sum / norm : 0;
+    const correlation = normA > 0 && normB > 0 ? sum / Math.sqrt(normA * normB) : 0;
+    correlations[lag] = correlation;
     if (correlation > bestCorrelation) {
       bestCorrelation = correlation;
       bestLag = lag;
+    }
+  }
+
+  const strongCorrelation = bestCorrelation * 0.92;
+  for (let lag = minLag + 1; lag < maxLag; lag += 1) {
+    const correlation = correlations[lag];
+    if (
+      correlation >= strongCorrelation &&
+      correlation >= correlations[lag - 1] &&
+      correlation >= correlations[lag + 1]
+    ) {
+      bestLag = lag;
+      bestCorrelation = correlation;
+      break;
     }
   }
 

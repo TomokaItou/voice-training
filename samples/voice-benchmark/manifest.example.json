@@ -1,0 +1,37 @@
+{
+  "expectations": {
+    "minDetectionRate": 0.7,
+    "maxAvgAbsCents": 55,
+    "maxFalsePositiveRate": 0.15
+  },
+  "samples": [
+    {
+      "id": "voice-a4-sustain",
+      "description": "Sustained sung A4 vowel, manually trimmed to one stable note",
+      "file": "voice-a4-sustain.wav",
+      "segments": [
+        { "start": 0.0, "end": 0.25, "expectedHz": null },
+        { "start": 0.25, "end": 1.8, "expectedHz": 440 },
+        { "start": 1.8, "end": 2.1, "expectedHz": null }
+      ],
+      "expectations": {
+        "minDetectionRate": 0.8,
+        "maxAvgAbsCents": 45,
+        "maxFalsePositiveRate": 0.1
+      }
+    },
+    {
+      "id": "voice-slide-a3-a4",
+      "description": "Sung slide from A3 to A4",
+      "file": "voice-slide-a3-a4.wav",
+      "segments": [
+        { "start": 0.2, "end": 1.6, "expectedHz": [220, 440] }
+      ],
+      "expectations": {
+        "minDetectionRate": 0.65,
+        "maxAvgAbsCents": 75,
+        "maxFalsePositiveRate": 0.1
+      }
+    }
+  ]
+}
