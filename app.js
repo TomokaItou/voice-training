@@ -1290,6 +1290,28 @@ songPitchToggle?.addEventListener('change', (event) => {
 clearSongPitchButton?.addEventListener('click', () => {
   clearSongPitchTrack();
 });
+transcribeSongLyricsButton?.addEventListener('click', () => {
+  transcribeSongLyricsWithWhisper();
+});
+copySongLyricsButton?.addEventListener('click', async () => {
+  try {
+    await copySongLyrics();
+  } catch (error) {
+    console.error(error);
+    setSongLyricsStatus('复制失败', 'bad');
+  }
+});
+copySongLyricsAlignmentButton?.addEventListener('click', async () => {
+  try {
+    await copySongLyricsAlignment();
+  } catch (error) {
+    console.error(error);
+    setSongLyricsStatus('复制映射失败', 'bad');
+  }
+});
+downloadSongLyricsButton?.addEventListener('click', () => {
+  downloadSongLyrics();
+});
 playSongPitchButton?.addEventListener('click', async () => {
   if (!songPitchAudio) {
     return;

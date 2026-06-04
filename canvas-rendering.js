@@ -181,6 +181,127 @@ function drawSongPitchTrack(state) {
   ctx.restore();
 }
 
+function getPitchY(pitch, state) {
+  const { minPitch, maxPitch, pitchRange, padding, logMin, logRange } = state;
+  if (!Number.isFinite(pitch) || pitch < minPitch || pitch > maxPitch) {
+    return null;
+  }
+  const normalized =
+    pitchScaleMode === 'log'
+      ? (Math.log(pitch) - logMin) / logRange
+      : (pitch - minPitch) / pitchRange;
+  return canvas.height - padding - normalized * (canvas.height - padding * 2);
+}
+
+function getSegmentPitch(segment) {
+  const startMs = segment.start * 1000;
+  const endMs = Number.isFinite(segment.end) && segment.end > segment.start
+    ? segment.end * 1000
+    : startMs + Math.max(800, Array.from(segment.text || '').length * 180);
+  const points = songPitchTrack
+    .filter((point) => point.pitch && point.timeMs >= startMs && point.timeMs <= endMs)
+    .map((point) => point.pitch);
+  if (points.length) {
+    return median(points);
+  }
+  return findNearestSongPitchPoint((startMs + endMs) / 2, 480)?.pitch || null;
+}
+
+function fitTextToWidth(text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) {
+    return text;
+  }
+  const chars = Array.from(text);
+  let fitted = '';
+  for (const char of chars) {
+    const next = `${fitted}${char}`;
+    if (ctx.measureText(`${next}…`).width > maxWidth) {
+      break;
+    }
+    fitted = next;
+  }
+  return fitted ? `${fitted}…` : '';
+}
+
+function drawSongLyricsOnPitchTrack(state) {
+  if (!songLyricsSegments.length || !songPitchTrack.length || !state) {
+    return;
+  }
+  const normalizedSegments = normalizeWhisperSegments(songLyricsSegments);
+  if (!normalizedSegments.length) {
+    return;
+  }
+
+  const occupied = [];
+  ctx.save();
+  ctx.font = '13px "Microsoft YaHei", "PingFang SC", sans-serif';
+  ctx.textBaseline = 'middle';
+
+  normalizedSegments.forEach((segment, index) => {
+    const startMs = segment.start * 1000;
+    const nextStart = normalizedSegments[index + 1]?.start;
+    const endMs = Number.isFinite(segment.end) && segment.end > segment.start
+      ? segment.end * 1000
+      : Number.isFinite(nextStart)
+        ? nextStart * 1000
+        : startMs + Math.max(800, Array.from(segment.text).length * 180);
+    if (endMs < state.minTime || startMs > state.minTime + state.durationMs) {
+      return;
+    }
+
+    const visibleStartMs = Math.max(startMs, state.minTime);
+    const visibleEndMs = Math.min(endMs, state.minTime + state.durationMs);
+    const centerMs = (visibleStartMs + visibleEndMs) / 2;
+    const pitch = getSegmentPitch(segment);
+    if (!pitch) {
+      return;
+    }
+    const centerX = ((centerMs - state.minTime) / state.durationMs) * canvas.width;
+    const startX = ((visibleStartMs - state.minTime) / state.durationMs) * canvas.width;
+    const endX = ((visibleEndMs - state.minTime) / state.durationMs) * canvas.width;
+    const maxWidth = Math.max(42, Math.min(220, endX - startX + 48));
+    const label = fitTextToWidth(segment.text.replace(/\s+/g, ''), maxWidth - 16);
+    if (!label) {
+      return;
+    }
+    const textWidth = ctx.measureText(label).width;
+    const boxWidth = textWidth + 16;
+    const boxHeight = 24;
+    const x = Math.max(4, Math.min(canvas.width - boxWidth - 4, centerX - boxWidth / 2));
+    let y = getPitchY(pitch, state);
+    if (y === null) {
+      return;
+    }
+    y = Math.max(18, Math.min(canvas.height - 18, y - 22));
+
+    for (let lane = 0; lane < 5; lane += 1) {
+      const candidateY = Math.max(18, Math.min(canvas.height - 18, y + lane * 28));
+      const overlaps = occupied.some((box) =>
+        x < box.x + box.width &&
+        x + boxWidth > box.x &&
+        candidateY - boxHeight / 2 < box.y + box.height / 2 &&
+        candidateY + boxHeight / 2 > box.y - box.height / 2
+      );
+      if (!overlaps || lane === 4) {
+        y = candidateY;
+        break;
+      }
+    }
+
+    occupied.push({ x, y, width: boxWidth, height: boxHeight });
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+    ctx.strokeStyle = 'rgba(15, 118, 110, 0.34)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x, y - boxHeight / 2, boxWidth, boxHeight, 7);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#0b5d56';
+    ctx.fillText(label, x + 8, y + 1);
+  });
+  ctx.restore();
+}
+
 function getPitchPointCoordinates(point, state) {
   if (!point?.pitch || !state) {
     return null;
@@ -415,6 +536,7 @@ function drawPitchHistory() {
 
   if (hasSongPitchTarget()) {
     drawSongPitchTrack(pitchRenderState);
+    drawSongLyricsOnPitchTrack(pitchRenderState);
   } else if (targetPitchEnabled) {
     drawTargetPitchLine(targetPitchHz, minPitch, maxPitch, pitchRange, padding, logMin, logRange);
   }
