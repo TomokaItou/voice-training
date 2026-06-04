@@ -1,5 +1,6 @@
 param(
   [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
+  [string]$NodePath = $env:NODE_EXE,
   [switch]$SkipNode
 )
 
@@ -26,6 +27,48 @@ function Write-Step {
 function Read-Utf8 {
   param([string]$Path)
   return [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+}
+
+function Resolve-NodeExecutable {
+  param([string]$PreferredPath)
+
+  $candidates = New-Object System.Collections.Generic.List[string]
+  if (-not [string]::IsNullOrWhiteSpace($PreferredPath)) {
+    $candidates.Add($PreferredPath) | Out-Null
+  }
+
+  $bundledNode = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe'
+  $candidates.Add($bundledNode) | Out-Null
+
+  $pathNode = Get-Command node -ErrorAction SilentlyContinue
+  if ($pathNode) {
+    $candidates.Add($pathNode.Source) | Out-Null
+  }
+
+  $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+  foreach ($candidate in $candidates) {
+    if ([string]::IsNullOrWhiteSpace($candidate) -or -not $seen.Add($candidate)) {
+      continue
+    }
+    if (-not (Test-Path $candidate) -and $candidate -ne 'node') {
+      continue
+    }
+
+    try {
+      $versionOutput = & $candidate --version 2>&1
+      if ($LASTEXITCODE -eq 0) {
+        return [pscustomobject]@{
+          Path = $candidate
+          Version = ($versionOutput -join ' ').Trim()
+        }
+      }
+      Add-Warning "Node candidate failed version check: $candidate ($($versionOutput -join ' '))"
+    } catch {
+      Add-Warning "Node candidate could not run: $candidate ($($_.Exception.Message))"
+    }
+  }
+
+  return $null
 }
 
 function Get-RegexMatches {
@@ -143,22 +186,23 @@ if ($failures.Count -eq 0) {
 
   if (-not $SkipNode) {
     Write-Step "Checking JavaScript syntax with node --check when available"
-    $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
-    if ($nodeCommand) {
+    $node = Resolve-NodeExecutable $NodePath
+    if ($node) {
+      Write-Step "Using Node $($node.Version): $($node.Path)"
       foreach ($jsFile in $localJsFiles) {
         $jsPath = Join-Path $root $jsFile
         try {
-          $output = & node --check $jsPath 2>&1
+          $output = & $node.Path --check $jsPath 2>&1
           if ($LASTEXITCODE -ne 0) {
             Add-Failure "node --check failed for ${jsFile}: $($output -join ' ')"
           }
         } catch {
-          Add-Warning "Node was found but could not run '$jsFile': $($_.Exception.Message)"
+          Add-Failure "Node failed while checking '${jsFile}': $($_.Exception.Message)"
           break
         }
       }
     } else {
-      Add-Warning "Node was not found; skipped JavaScript syntax checks."
+      Add-Failure "No runnable Node executable was found. Install Node, set NODE_EXE/NodePath, or run with -SkipNode for a structural-only check."
     }
   } else {
     Add-Warning "Skipped node --check because -SkipNode was supplied."

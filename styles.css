@@ -609,6 +609,172 @@ button.secondary:not(:disabled):hover {
   color: var(--warning);
 }
 
+.range-dashboard {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.2fr) auto;
+  gap: 12px;
+  align-items: stretch;
+  margin: 0 0 18px;
+}
+
+.range-main,
+.range-grid,
+.range-actions {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.range-main {
+  min-height: 156px;
+  padding: 18px;
+  display: grid;
+  align-content: center;
+  border-color: #b9c9d8;
+  background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+}
+
+.range-value {
+  display: block;
+  margin: 8px 0;
+  color: #245f86;
+  font-size: 48px;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.range-caption {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.range-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.range-grid > div {
+  background: var(--surface);
+  padding: 14px;
+}
+
+.range-dashboard .label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.range-dashboard .value {
+  display: block;
+  margin-top: 5px;
+  font-size: 20px;
+  font-weight: 780;
+}
+
+.range-dashboard[data-tone='good'] .range-value {
+  color: #15803d;
+}
+
+.range-dashboard[data-tone='active'] .range-value {
+  color: var(--accent-strong);
+}
+
+.range-actions {
+  min-width: 124px;
+  padding: 10px;
+  align-self: stretch;
+  background: var(--surface-muted);
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+
+.range-actions button {
+  width: 100%;
+  min-height: 44px;
+}
+
+.range-history-panel {
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.range-history-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.range-history-header h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.range-history-header span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.range-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.range-history-item,
+.range-history-empty {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px 12px;
+}
+
+.range-history-item {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.4fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.range-history-title {
+  font-size: 14px;
+  font-weight: 780;
+}
+
+.range-history-meta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.range-history-trend {
+  justify-self: end;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.range-history-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .song-target-panel {
   margin: 0 0 18px;
   padding: 14px;
@@ -1421,6 +1587,8 @@ input[type='range'] {
 
   .breath-dashboard,
   .pitch-score-dashboard,
+  .range-dashboard,
+  .range-history-item,
   .song-target-controls,
   .song-target-status,
   .memory-zone-card,
@@ -1434,6 +1602,18 @@ input[type='range'] {
 
   .pitch-score-grid {
     grid-template-columns: 1fr;
+  }
+
+  .range-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .range-history-header {
+    flex-direction: column;
+  }
+
+  .range-history-trend {
+    justify-self: start;
   }
 
   .song-target-header {

@@ -180,6 +180,7 @@ function update() {
     }
     captureRecordingFrame(now, rms, currentPitch);
     updatePitchScoreDisplay(now);
+    updateRangeTraining(now, currentPitch);
   }
 
   if (formantToggle.checked || displayMode === 'formants') {
@@ -245,6 +246,9 @@ async function start() {
     volumeHistory = [];
     resetPitchStabilizer();
     resetBreathMeter();
+    if (trainingMode === 'range') {
+      resetRangeTraining();
+    }
     clearBreathReport();
     sessionStartTime = performance.now();
     lastFormantUpdate = 0;
