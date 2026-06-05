@@ -463,6 +463,7 @@ async function analyzeSongPitchFile(file) {
 
     songPitchTrack = track;
     songPitchFileName = file.name;
+    buildVocalScoreFromSongPitchTrack(file.name);
     buildSongLyricsCharAlignment();
     prepareSongPitchPlayback(file);
     songPitchEnabled = true;
@@ -498,6 +499,7 @@ function clearSongPitchTrack() {
   resetSongLyrics();
   songPitchTrack = [];
   songPitchFileName = '';
+  resetVocalScore();
   setSongPitchStatus('未加载');
   setSongTrainingResult('--');
   if (songPitchStats) {

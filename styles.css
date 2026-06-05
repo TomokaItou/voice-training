@@ -791,6 +791,10 @@ button.secondary:not(:disabled):hover {
   margin-bottom: 12px;
 }
 
+.song-target-panel.is-collapsed .song-target-header {
+  margin-bottom: 0;
+}
+
 .song-target-header h2 {
   margin: 0 0 4px;
   font-size: 18px;
@@ -804,7 +808,18 @@ button.secondary:not(:disabled):hover {
 }
 
 .song-target-toggle {
+  margin-left: auto;
   flex-shrink: 0;
+}
+
+.song-target-collapse-button {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 8px 14px;
+}
+
+.song-target-content[hidden] {
+  display: none !important;
 }
 
 .song-target-controls {
@@ -861,6 +876,116 @@ button.secondary:not(:disabled):hover {
   border-radius: 8px;
   background: var(--surface);
   overflow: hidden;
+}
+
+.vocal-score-panel {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.vocal-score-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: #fbfcfa;
+}
+
+.vocal-score-header h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
+}
+
+.vocal-score-header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vocal-score-actions {
+  align-items: center;
+}
+
+.vocal-score-view-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.vocal-score-view-button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.vocal-score-view-button.active {
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.78) inset;
+}
+
+.vocal-score-sheet {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, #fffdfa 0%, #fbfaf5 100%);
+}
+
+.vocal-score-jianpu-sheet {
+  max-height: 520px;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+  background: #fffefa;
+}
+
+.vocal-score-sheet canvas {
+  width: auto;
+  max-width: none;
+  height: 260px;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: #fcfbf7;
+  box-shadow: none;
+}
+
+.vocal-score-jianpu-sheet canvas {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: auto;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: #fffefa;
+  box-shadow: none;
+}
+
+.vocal-score-text {
+  max-height: 220px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #263129;
+  font: 13px/1.65 "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: #ffffff;
 }
 
 .song-lyrics-header {
@@ -1385,6 +1510,89 @@ canvas {
   cursor: pointer;
 }
 
+.recording-library {
+  margin: 10px 0;
+  display: grid;
+  gap: 8px;
+}
+
+.recording-library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recording-library-header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.recording-library-header span,
+.recording-library-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.recording-library-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.recording-library-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.recording-library-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.recording-library-select {
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.recording-library-select strong,
+.recording-library-select span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recording-library-select span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.recording-library-action {
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.recording-library-action.danger {
+  color: var(--danger);
+}
+
 .waveform-detail {
   display: grid;
   gap: 8px;
@@ -1420,6 +1628,30 @@ canvas {
 
 .sidebar.open {
   transform: translateX(0);
+}
+
+.sidebar-header {
+  position: sticky;
+  top: -18px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -18px -18px 4px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sidebar-header h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.sidebar-close-button {
+  min-height: 38px;
+  padding: 7px 12px;
 }
 
 .sidebar-card {
@@ -1620,7 +1852,16 @@ input[type='range'] {
     flex-direction: column;
   }
 
+  .song-target-toggle {
+    margin-left: 0;
+  }
+
   .song-lyrics-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .vocal-score-header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -1629,6 +1870,11 @@ input[type='range'] {
   .song-lyrics-model {
     width: 100%;
     min-width: 0;
+  }
+
+  .vocal-score-view-switch,
+  .vocal-score-view-button {
+    width: 100%;
   }
 
   .song-target-playback {
@@ -1659,5 +1905,663 @@ input[type='range'] {
 
   .resize-handle {
     display: none;
+  }
+}
+
+/* Visual refresh: keep the existing DOM and behavior, but give the tool clearer hierarchy. */
+:root {
+  --surface: #fffdfa;
+  --surface-muted: #f7f5ef;
+  --surface-strong: #eeeee4;
+  --border: #ddd9cb;
+  --border-strong: #bbb4a2;
+  --text: #191b1f;
+  --muted: #666f68;
+  --faint: #92988f;
+  --accent: #0c7c72;
+  --accent-strong: #075f59;
+  --accent-soft: #e2f4ef;
+  --blue: #256f9c;
+  --blue-soft: #e9f4f8;
+  --violet: #7450a8;
+  --violet-soft: #f1edf8;
+  --coral: #b85b46;
+  --amber-soft: #fff4d8;
+  --shadow: 0 22px 60px rgba(41, 38, 30, 0.13);
+  --shadow-soft: 0 10px 28px rgba(41, 38, 30, 0.08);
+}
+
+html {
+  min-height: 100%;
+  background: #efeee8;
+}
+
+body {
+  min-height: 100vh;
+  padding: 28px 18px 52px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.95) 0 18%, rgba(255, 255, 255, 0) 34%),
+    linear-gradient(135deg, #f6f4ee 0%, #ebece3 52%, #f8f5ec 100%);
+}
+
+button,
+.select,
+.input,
+.file-input::file-selector-button {
+  font: inherit;
+}
+
+button {
+  min-height: 46px;
+  border-radius: 8px;
+  padding: 10px 16px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
+button:not(:disabled):hover {
+  box-shadow: 0 10px 22px rgba(12, 124, 114, 0.18);
+}
+
+button:focus-visible,
+.select:focus-visible,
+.input:focus-visible,
+input[type='range']:focus-visible,
+.file-input:focus-visible {
+  outline: 3px solid rgba(37, 111, 156, 0.2);
+  outline-offset: 2px;
+}
+
+button.secondary {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: var(--border);
+}
+
+button.secondary:not(:disabled):hover {
+  box-shadow: var(--shadow-soft);
+}
+
+#startButton::before {
+  content: '●';
+  margin-right: 7px;
+  font-size: 11px;
+}
+
+#recordButton::before {
+  content: '◎';
+  margin-right: 7px;
+}
+
+#sidebarToggle::before {
+  content: '⚙';
+  margin-right: 7px;
+}
+
+.mode-launcher {
+  align-items: start;
+  padding-top: clamp(12px, 5vh, 52px);
+}
+
+.mode-launcher-card,
+.app {
+  border-color: rgba(187, 180, 162, 0.75);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(255, 252, 246, 0.98)),
+    var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.mode-launcher-card {
+  width: min(1120px, 100%);
+  padding: clamp(22px, 3vw, 36px);
+}
+
+.mode-launcher-card h1,
+header h1 {
+  letter-spacing: 0;
+}
+
+.mode-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mode-button {
+  position: relative;
+  overflow: hidden;
+  min-height: 132px;
+  padding: 18px;
+  background: #fbfaf6;
+  border-color: rgba(187, 180, 162, 0.72);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+.mode-button::after {
+  content: '';
+  position: absolute;
+  right: -26px;
+  bottom: -34px;
+  width: 94px;
+  height: 94px;
+  border-radius: 999px;
+  background: rgba(12, 124, 114, 0.1);
+}
+
+.mode-button:hover {
+  border-color: rgba(12, 124, 114, 0.45);
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
+}
+
+.mode-button .mode-title {
+  position: relative;
+  font-size: 18px;
+}
+
+.mode-button .mode-desc {
+  position: relative;
+  max-width: 28ch;
+}
+
+.mode-button.secondary-mode {
+  background: #f8f4ea;
+}
+
+.mode-button.secondary-mode::after {
+  background: rgba(184, 91, 70, 0.12);
+}
+
+.mode-button.range-mode {
+  background: var(--blue-soft);
+  border-color: #bfd7e2;
+}
+
+.mode-button.range-mode::after {
+  background: rgba(37, 111, 156, 0.14);
+}
+
+.mode-button.score-mode {
+  background: var(--violet-soft);
+}
+
+.mode-button.score-mode::after {
+  background: rgba(116, 80, 168, 0.13);
+}
+
+.mode-button.memory-mode {
+  background: #eef8f2;
+}
+
+.song-search-card {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid rgba(221, 217, 203, 0.9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.app {
+  --app-max-width: 1180px;
+  padding: 0;
+  overflow: visible;
+}
+
+header {
+  position: relative;
+  min-height: 122px;
+  padding: 30px 32px 24px;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid rgba(221, 217, 203, 0.82);
+  background:
+    linear-gradient(90deg, rgba(12, 124, 114, 0.11), rgba(255, 255, 255, 0) 48%),
+    linear-gradient(180deg, #fffdfa 0%, #fbf8f1 100%);
+}
+
+header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: linear-gradient(180deg, var(--accent), var(--blue), var(--coral));
+}
+
+header h1 {
+  margin-bottom: 9px;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.08;
+}
+
+header p {
+  max-width: 680px;
+  font-size: 15px;
+}
+
+.controls,
+.curve-switcher,
+.breath-dashboard,
+.readout,
+.pitch-score-dashboard,
+.range-dashboard,
+.range-history-panel,
+.song-target-panel,
+.memory-dashboard,
+.breath-report,
+.chart,
+.offline-window-control,
+.pitch-inspector,
+.recording-timeline {
+  margin-left: 32px;
+  margin-right: 32px;
+}
+
+.controls {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(221, 217, 203, 0.76);
+}
+
+.controls-main,
+.controls-side,
+.controls-inline {
+  gap: 10px;
+}
+
+.status {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  border-color: rgba(187, 180, 162, 0.72);
+  background: var(--amber-soft);
+  color: #725321;
+}
+
+.curve-switcher {
+  margin-top: 18px;
+  margin-bottom: 20px;
+  padding: 5px;
+  background: #eeeee4;
+  border-color: rgba(187, 180, 162, 0.72);
+}
+
+.curve-tab {
+  min-width: 126px;
+}
+
+.readout {
+  margin-bottom: 22px;
+  border: 0;
+  gap: 12px;
+  overflow: visible;
+  background: transparent;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.readout > div,
+.song-target-status > div,
+.pitch-score-grid > div,
+.range-grid > div,
+.memory-metrics > div,
+.breath-report-grid > div,
+.breath-state-meta > div,
+.breath-metric-strip > div {
+  border: 1px solid rgba(221, 217, 203, 0.86);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset;
+}
+
+.readout > div {
+  min-height: 88px;
+  padding: 16px 18px;
+}
+
+.readout .value {
+  font-size: 27px;
+}
+
+.label {
+  letter-spacing: 0;
+}
+
+.breath-score-panel,
+.breath-state-panel,
+.breath-metric-strip,
+.pitch-score-main,
+.pitch-score-grid,
+.range-main,
+.range-grid,
+.range-actions,
+.range-history-panel,
+.song-target-panel,
+.vocal-score-panel,
+.song-lyrics-panel,
+.memory-zone-card,
+.memory-controls,
+.memory-metrics,
+.memory-control-field,
+.memory-recommendation,
+.breath-report,
+.pitch-inspector,
+.recording-timeline {
+  border-color: rgba(221, 217, 203, 0.86);
+  box-shadow: var(--shadow-soft);
+}
+
+.song-target-panel {
+  padding: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(247, 245, 239, 0.84)),
+    var(--surface-muted);
+}
+
+.song-target-header {
+  align-items: center;
+}
+
+.song-target-header h2,
+.range-history-header h2,
+.timeline-header h2,
+.breath-report h2 {
+  font-size: 19px;
+}
+
+.song-target-controls {
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  gap: 12px;
+}
+
+.file-input {
+  min-height: 42px;
+  color: var(--muted);
+}
+
+.file-input::file-selector-button {
+  min-height: 38px;
+  margin-right: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.song-target-status,
+.pitch-score-grid,
+.range-grid,
+.memory-metrics,
+.breath-report-grid,
+.breath-state-meta,
+.breath-metric-strip {
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.song-lyrics-panel {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.vocal-score-panel {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.vocal-score-header {
+  padding: 14px;
+  background: #fffdfa;
+}
+
+.vocal-score-sheet {
+  background: #fcfbf7;
+}
+
+.vocal-score-jianpu-sheet {
+  background: #fffefa;
+}
+
+.vocal-score-text {
+  background: #fcfbf7;
+  color: #2c302e;
+}
+
+.song-lyrics-header {
+  padding: 14px;
+  background: #fffdfa;
+}
+
+.song-lyrics-text {
+  background: #fcfbf7;
+  color: #2c302e;
+}
+
+.chart {
+  position: relative;
+  margin-top: 22px;
+  margin-bottom: 22px;
+  padding: 16px;
+  grid-template-columns: 64px minmax(0, 1fr) 64px;
+  column-gap: 14px;
+  border-color: rgba(187, 180, 162, 0.74);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(239, 238, 228, 0.86)),
+    var(--surface-muted);
+  box-shadow: var(--shadow-soft);
+}
+
+.chart::before {
+  content: '';
+  position: absolute;
+  inset: 16px 94px auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(12, 124, 114, 0.28), transparent);
+  pointer-events: none;
+}
+
+canvas {
+  aspect-ratio: 2 / 1;
+  border-radius: 8px;
+  border-color: rgba(187, 180, 162, 0.86);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fbfbf8 100%);
+  box-shadow: 0 12px 30px rgba(41, 38, 30, 0.06);
+}
+
+.meter {
+  width: 58px;
+  border-radius: 8px;
+  border-color: rgba(187, 180, 162, 0.82);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.meter-bar {
+  width: 14px;
+  background: linear-gradient(180deg, #2d8fc0 0%, #14a07b 45%, #e1aa3c 72%, #c95744 100%);
+}
+
+.chart-legend {
+  grid-column: 2;
+  margin-top: 10px;
+  font-weight: 700;
+}
+
+.pitch-score-main {
+  border-color: rgba(116, 80, 168, 0.28);
+  background: linear-gradient(180deg, var(--violet-soft) 0%, #fffdfa 100%);
+}
+
+.range-main {
+  border-color: rgba(37, 111, 156, 0.3);
+  background: linear-gradient(180deg, var(--blue-soft) 0%, #fffdfa 100%);
+}
+
+.breath-score-panel {
+  background: linear-gradient(180deg, #eaf8f3 0%, #fffdfa 100%);
+}
+
+.memory-zone-card {
+  background: linear-gradient(135deg, #fffdfa 0%, #eef8f2 100%);
+}
+
+.sidebar {
+  width: min(380px, 90vw);
+  border-left-color: rgba(187, 180, 162, 0.78);
+  background: rgba(255, 253, 250, 0.98);
+  box-shadow: -22px 0 55px rgba(41, 38, 30, 0.18);
+}
+
+.sidebar-header {
+  background: rgba(255, 253, 250, 0.98);
+}
+
+.sidebar-card {
+  padding: 18px 0;
+}
+
+.sidebar-card h2 {
+  font-size: 16px;
+}
+
+.select,
+.input {
+  min-height: 42px;
+  border-radius: 8px;
+  border-color: rgba(187, 180, 162, 0.84);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.toggle {
+  gap: 11px;
+}
+
+.toggle-pill {
+  width: 46px;
+  height: 26px;
+}
+
+.toggle-pill::after {
+  width: 18px;
+  height: 18px;
+  top: 4px;
+  left: 4px;
+}
+
+.toggle input:checked + .toggle-pill::after {
+  transform: translateX(20px);
+}
+
+@media (max-width: 900px) {
+  .mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .controls,
+  .curve-switcher,
+  .breath-dashboard,
+  .readout,
+  .pitch-score-dashboard,
+  .range-dashboard,
+  .range-history-panel,
+  .song-target-panel,
+  .memory-dashboard,
+  .breath-report,
+  .chart,
+  .offline-window-control,
+  .pitch-inspector,
+  .recording-timeline {
+    margin-left: 22px;
+    margin-right: 22px;
+  }
+
+  header {
+    padding-left: 26px;
+    padding-right: 26px;
+  }
+
+  .chart {
+    grid-template-columns: 1fr;
+  }
+
+  .meter-column {
+    display: none;
+  }
+
+  .chart-legend {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 10px 8px 32px;
+  }
+
+  .mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app {
+    border-radius: 8px;
+  }
+
+  header {
+    min-height: auto;
+    padding: 24px 20px 20px;
+  }
+
+  .controls,
+  .curve-switcher,
+  .breath-dashboard,
+  .readout,
+  .pitch-score-dashboard,
+  .range-dashboard,
+  .range-history-panel,
+  .song-target-panel,
+  .memory-dashboard,
+  .breath-report,
+  .chart,
+  .offline-window-control,
+  .pitch-inspector,
+  .recording-timeline {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
+  .controls-main button,
+  .controls-side button,
+  .song-target-controls button,
+  .vocal-score-actions button,
+  .song-lyrics-actions button {
+    width: 100%;
+  }
+
+  .curve-switcher {
+    display: grid;
+    width: auto;
+  }
+
+  .curve-tab {
+    width: 100%;
+  }
+
+  .readout {
+    grid-template-columns: 1fr;
+  }
+
+  .song-target-panel {
+    padding: 16px;
+  }
+
+  canvas {
+    min-height: 240px;
   }
 }

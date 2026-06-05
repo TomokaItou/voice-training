@@ -416,6 +416,13 @@ function renderSongLyricsAlignment() {
   songLyricsAlignmentText.textContent = '歌词已贴到音高曲线内；点击曲线附近的歌词段可配合播放位置查看。';
   updateSongLyricsButtons();
   drawPitchHistory();
+  if (vocalScoreNotes.length) {
+    if (vocalScoreView === 'staff') {
+      renderVocalScoreSheet();
+    } else {
+      renderJianpuScoreSheet();
+    }
+  }
 }
 
 async function analyzeSongLyricsFile(file) {

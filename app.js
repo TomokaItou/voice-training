@@ -15,10 +15,13 @@ function updateMeterVisibility(activeMode = displayMode) {
 }
 
 updateCanvasScale(canvasScale);
+drawVocalScorePlaceholder();
+setVocalScoreView(vocalScoreView);
 initWindowResize();
 showLauncherView();
 updateMeterVisibility();
 updateRecordingButtons();
+loadRecordingLibrary();
 updateAccompanimentButtons(false);
 updateSongPitchPlaybackButtons();
 updatePitchAccuracyButton();
@@ -192,6 +195,30 @@ function updateSongPitchPlaybackProgress() {
   syncOfflineWindowToSongPlayback();
   setSongPitchPlaybackStatus(`播放中 ${formatTimeSeconds(songPitchAudio.currentTime * 1000)}`, 'good');
   songPitchPlaybackRaf = requestAnimationFrame(updateSongPitchPlaybackProgress);
+}
+
+function setSongTargetCollapsed(collapsed) {
+  if (!songTargetContent || !songTargetCollapseButton) {
+    return;
+  }
+  songTargetContent.hidden = collapsed;
+  songTargetPanel?.classList.toggle('is-collapsed', collapsed);
+  songTargetCollapseButton.setAttribute('aria-expanded', String(!collapsed));
+  songTargetCollapseButton.textContent = collapsed ? '展开' : '收起';
+  if (!collapsed && vocalScoreView === 'staff') {
+    if (vocalScoreNotes.length) renderVocalScoreSheet();
+    else drawVocalScorePlaceholder();
+  } else if (!collapsed) {
+    if (vocalScoreNotes.length) renderJianpuScoreSheet();
+    else drawJianpuPlaceholder();
+  }
+}
+
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebarToggle.setAttribute('aria-expanded', 'false');
+  sidebar.setAttribute('aria-hidden', 'true');
+  sidebar.hidden = true;
 }
 
 function prepareSongPitchPlayback(file) {
@@ -1376,6 +1403,7 @@ function updateRecordingButtons() {
   const hasRecording = Boolean(lastRecordingBlob);
   analyzeRecordingButton.disabled = !hasRecording || offlineAnalysisInProgress;
   downloadRecordingButton.disabled = !hasRecording;
+  updateRecordingLibraryStatus();
   if (memoryAnalyzeButton) {
     memoryAnalyzeButton.disabled = !hasRecording || !recordingTimelineFrames.length;
   }
@@ -1529,6 +1557,7 @@ recordButton.addEventListener('click', async () => {
         performance.now() - recordingStartTime
       );
       if (lastRecordingBlob) {
+        addRecordingToLibrary(lastRecordingBlob);
         prepareRecordingPlayback(lastRecordingBlob);
         selectRecordingTime(0, false);
         setTimelineStatus('点击时间轴可从任意位置播放，并查看当时波形');
@@ -1583,7 +1612,11 @@ downloadRecordingButton.addEventListener('click', () => {
   if (!lastRecordingBlob) {
     return;
   }
-  const filename = `voice-training_recording_${formatTimestamp(new Date())}.webm`;
+  const currentRecording = recordingLibrary.find((item) => item.id === selectedRecordingLibraryId);
+  const baseName = currentRecording
+    ? getRecordingLibraryName(currentRecording).replace(/[\\/:*?"<>|]+/g, '-')
+    : `voice-training_recording_${formatTimestamp(new Date())}`;
+  const filename = `${baseName}.webm`;
   downloadBlob(lastRecordingBlob, filename);
 });
 pitchAccuracyButton.addEventListener('click', () => {
@@ -1599,6 +1632,15 @@ songPitchToggle?.addEventListener('change', (event) => {
   songPitchEnabled = event.target.checked;
   resetPitchScoreDisplay();
   drawPitchHistory();
+});
+songTargetCollapseButton?.addEventListener('click', () => {
+  setSongTargetCollapsed(!songTargetContent?.hidden);
+});
+vocalScoreStaffViewButton?.addEventListener('click', () => {
+  setVocalScoreView('staff');
+});
+vocalScoreJianpuViewButton?.addEventListener('click', () => {
+  setVocalScoreView('jianpu');
 });
 clearSongPitchButton?.addEventListener('click', () => {
   clearSongPitchTrack();
@@ -1624,6 +1666,20 @@ copySongLyricsAlignmentButton?.addEventListener('click', async () => {
 });
 downloadSongLyricsButton?.addEventListener('click', () => {
   downloadSongLyrics();
+});
+copyVocalScoreButton?.addEventListener('click', async () => {
+  try {
+    await copyVocalScoreText();
+  } catch (error) {
+    console.error(error);
+    setVocalScoreStatus('复制失败', 'bad');
+  }
+});
+downloadVocalScoreXmlButton?.addEventListener('click', () => {
+  downloadVocalScoreMusicXml();
+});
+downloadVocalScoreCsvButton?.addEventListener('click', () => {
+  downloadVocalScoreCsv();
 });
 playSongPitchButton?.addEventListener('click', async () => {
   if (!songPitchAudio) {
@@ -1680,9 +1736,10 @@ sidebarToggle.addEventListener('click', () => {
   sidebarToggle.setAttribute('aria-expanded', String(isOpen));
   sidebar.setAttribute('aria-hidden', String(!isOpen));
   if (!isOpen) {
-    sidebar.hidden = true;
+    closeSidebar();
   }
 });
+closeSidebarButton?.addEventListener('click', closeSidebar);
 songSearchForm?.addEventListener('submit', (event) => {
   event.preventDefault();
   searchSongs(songSearchInput?.value || '');
@@ -1745,6 +1802,16 @@ clearFileButton.addEventListener('click', () => {
   pitchHistory = [];
   volumeHistory = [];
   drawPitchHistory();
+});
+
+window.addEventListener('resize', () => {
+  if (vocalScoreView === 'staff') {
+    if (vocalScoreNotes.length) renderVocalScoreSheet();
+    else drawVocalScorePlaceholder();
+  } else {
+    if (vocalScoreNotes.length) renderJianpuScoreSheet();
+    else drawJianpuPlaceholder();
+  }
 });
 
 window.addEventListener('beforeunload', stop);
