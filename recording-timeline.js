@@ -48,6 +48,212 @@ function resetRecordingTimeline({ keepBlob = false } = {}) {
   drawWaveformPreview(null);
 }
 
+function updateRecordingLibraryStatus() {
+  if (!recordingLibraryStatus) {
+    return;
+  }
+  recordingLibraryStatus.textContent = recordingLibrary.length
+    ? `${recordingLibrary.length} 条录音`
+    : '暂无录音';
+}
+
+function openRecordingLibraryDb() {
+  if (!window.indexedDB) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('voice-training-recordings', 1);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore('recordings', { keyPath: 'id' });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveRecordingLibraryItem(recording) {
+  const db = await openRecordingLibraryDb();
+  if (!db) {
+    return;
+  }
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction('recordings', 'readwrite');
+    transaction.objectStore('recordings').put(recording);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
+async function deleteRecordingLibraryItem(id) {
+  const db = await openRecordingLibraryDb();
+  if (!db) {
+    return;
+  }
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction('recordings', 'readwrite');
+    transaction.objectStore('recordings').delete(id);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
+async function loadRecordingLibrary() {
+  try {
+    const db = await openRecordingLibraryDb();
+    if (!db) {
+      renderRecordingLibrary();
+      return;
+    }
+    recordingLibrary = await new Promise((resolve, reject) => {
+      const request = db.transaction('recordings', 'readonly').objectStore('recordings').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    recordingLibrary = recordingLibrary
+      .map((recording) => ({
+        ...recording,
+        createdAt: new Date(recording.createdAt),
+        frames: Array.isArray(recording.frames) ? recording.frames : [],
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 24);
+  } catch (error) {
+    console.error(error);
+  }
+  renderRecordingLibrary();
+}
+
+function getRecordingLibraryName(recording) {
+  const index = recordingLibrary.findIndex((item) => item.id === recording.id);
+  const fallbackIndex = index >= 0 ? index + 1 : recordingLibrary.length + 1;
+  return recording.name || `录音 ${fallbackIndex}`;
+}
+
+function selectRecordingFromLibrary(id, { analyze = false } = {}) {
+  const recording = recordingLibrary.find((item) => item.id === id);
+  if (!recording) {
+    return;
+  }
+  selectedRecordingLibraryId = id;
+  lastRecordingBlob = recording.blob;
+  recordingTimelineFrames = recording.frames.map((frame) => ({
+    ...frame,
+    samples: Array.isArray(frame.samples) ? [...frame.samples] : [],
+  }));
+  recordingTimelineDurationMs = recording.durationMs;
+  recordingSelectedTimeMs = 0;
+  if (recordingTimelinePanel) {
+    recordingTimelinePanel.hidden = false;
+  }
+  prepareRecordingPlayback(lastRecordingBlob);
+  selectRecordingTime(0, false);
+  setTimelineStatus(`已载入${getRecordingLibraryName(recording)}，可回放或分析`);
+  updateRecordingButtons();
+  renderRecordingLibrary();
+  if (analyze) {
+    analyzeRecordingBlob(lastRecordingBlob);
+  }
+}
+
+function removeRecordingFromLibrary(id) {
+  const index = recordingLibrary.findIndex((item) => item.id === id);
+  if (index < 0) {
+    return;
+  }
+  recordingLibrary.splice(index, 1);
+  deleteRecordingLibraryItem(id).catch((error) => console.error(error));
+  if (selectedRecordingLibraryId === id) {
+    selectedRecordingLibraryId = null;
+    resetRecordingTimeline();
+    updateRecordingButtons();
+  }
+  renderRecordingLibrary();
+}
+
+function renderRecordingLibrary() {
+  if (!recordingLibraryList) {
+    return;
+  }
+  recordingLibraryList.innerHTML = '';
+  updateRecordingLibraryStatus();
+  if (!recordingLibrary.length) {
+    const empty = document.createElement('div');
+    empty.className = 'recording-library-empty';
+    empty.textContent = '录音结束后会自动保存到这里';
+    recordingLibraryList.append(empty);
+    return;
+  }
+
+  recordingLibrary.forEach((recording) => {
+    const item = document.createElement('div');
+    item.className = 'recording-library-item';
+    item.classList.toggle('active', recording.id === selectedRecordingLibraryId);
+
+    const main = document.createElement('button');
+    main.className = 'recording-library-select';
+    main.type = 'button';
+    const title = document.createElement('strong');
+    title.textContent = getRecordingLibraryName(recording);
+    const meta = document.createElement('span');
+    meta.textContent = `${formatTimeSeconds(recording.durationMs)} · ${recording.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    main.append(title, meta);
+    main.addEventListener('click', () => selectRecordingFromLibrary(recording.id));
+
+    const analyzeButton = document.createElement('button');
+    analyzeButton.className = 'recording-library-action';
+    analyzeButton.type = 'button';
+    analyzeButton.textContent = '分析';
+    analyzeButton.addEventListener('click', () => selectRecordingFromLibrary(recording.id, { analyze: true }));
+
+    const downloadButton = document.createElement('button');
+    downloadButton.className = 'recording-library-action';
+    downloadButton.type = 'button';
+    downloadButton.textContent = '下载';
+    downloadButton.addEventListener('click', () => {
+      const filename = `${getRecordingLibraryName(recording).replace(/[\\/:*?"<>|]+/g, '-')}.webm`;
+      downloadBlob(recording.blob, filename);
+    });
+
+    const removeButton = document.createElement('button');
+    removeButton.className = 'recording-library-action danger';
+    removeButton.type = 'button';
+    removeButton.textContent = '删除';
+    removeButton.addEventListener('click', () => removeRecordingFromLibrary(recording.id));
+
+    item.append(main, analyzeButton, downloadButton, removeButton);
+    recordingLibraryList.append(item);
+  });
+}
+
+function addRecordingToLibrary(blob) {
+  if (!blob) {
+    return null;
+  }
+  const id = `recording-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const recording = {
+    id,
+    name: `录音 ${recordingLibrary.length + 1}`,
+    blob,
+    durationMs: getRecordingDurationMs(),
+    frames: recordingTimelineFrames.map((frame) => ({
+      ...frame,
+      samples: Array.isArray(frame.samples) ? [...frame.samples] : [],
+    })),
+    createdAt: new Date(),
+  };
+  recordingLibrary.unshift(recording);
+  if (recordingLibrary.length > 24) {
+    recordingLibrary = recordingLibrary.slice(0, 24);
+  }
+  selectedRecordingLibraryId = id;
+  renderRecordingLibrary();
+  saveRecordingLibraryItem(recording).catch((error) => console.error(error));
+  return recording;
+}
+
 function captureRecordingFrame(now, rms, pitch) {
   if (!mediaRecorder || mediaRecorder.state !== 'recording' || !recordingStartTime || !dataArray) {
     return;
