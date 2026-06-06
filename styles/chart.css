@@ -37,6 +37,23 @@
   color: #c4cec8;
 }
 
+.chart.song-game-lane {
+  background: #07100f;
+  border-color: #172826;
+  box-shadow: 0 16px 34px rgba(8, 17, 16, 0.20);
+  padding: 10px;
+}
+
+.chart.song-game-lane canvas {
+  background: #081110;
+  border-color: #1d3431;
+  border-radius: 8px;
+}
+
+.chart.song-game-lane .chart-legend {
+  color: #c4cec8;
+}
+
 canvas {
   width: 100%;
   height: auto;
@@ -188,7 +205,9 @@ canvas {
 #recordingTimelineCanvas,
 #waveformPreviewCanvas {
   width: 100%;
+  aspect-ratio: auto;
   height: auto;
+  min-height: 0;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #ffffff;

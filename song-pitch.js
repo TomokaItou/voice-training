@@ -497,6 +497,8 @@ async function analyzeSongPitchFile(file) {
   }
 
   songPitchAnalysisInProgress = true;
+  songRhythmSourceFile = file;
+  updateSongRhythmControls();
   clearSongPitchPlayback();
   analyzeSongLyricsFile(file);
   updatePitchAccuracyButton();
@@ -522,6 +524,16 @@ async function analyzeSongPitchFile(file) {
     const track = extractSongPitchTrack(audioBuffer, (progress) => {
       setSongPitchStatus(`提取中... ${progress}%`);
     });
+    const rhythmResult = extractSongRhythmFromBuffer(audioBuffer, file.name);
+    if (rhythmResult) {
+      applySongRhythmAnalysis(rhythmResult, file.name);
+    } else {
+      songRhythmBeats = [];
+      songRhythmBpm = null;
+      songRhythmSummary = null;
+      rhythmUseSongPattern = false;
+      updateSongRhythmControls();
+    }
     const summary = summarizeSongPitchTrack(track, audioBuffer);
     if (!summary || summary.coverage < 0.02) {
       songPitchTrack = [];
@@ -576,6 +588,12 @@ function clearSongPitchTrack() {
   resetSongLyrics();
   songPitchTrack = [];
   songPitchFileName = '';
+  songRhythmSourceFile = null;
+  songRhythmBeats = [];
+  songRhythmBpm = null;
+  songRhythmSummary = null;
+  rhythmUseSongPattern = false;
+  updateSongRhythmControls();
   resetVocalScore();
   setSongPitchStatus('未加载');
   setSongTrainingResult('--');

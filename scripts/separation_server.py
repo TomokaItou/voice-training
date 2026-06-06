@@ -13,6 +13,7 @@ import argparse
 import base64
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -27,6 +28,47 @@ from typing import Any
 
 DEFAULT_MODEL = "htdemucs"
 DEFAULT_TIMEOUT_SECONDS = 900
+
+
+def ensure_ffmpeg_on_path() -> None:
+    try:
+        import static_ffmpeg
+
+        static_ffmpeg.add_paths()
+    except Exception as exc:
+        print(f"[separation] static-ffmpeg setup skipped: {exc}")
+
+
+def get_health_payload() -> dict[str, Any]:
+    ensure_ffmpeg_on_path()
+    payload: dict[str, Any] = {
+        "ok": True,
+        "engine": "demucs",
+        "python_executable": sys.executable,
+        "demucs_python": os.environ.get("PYTHON", sys.executable),
+        "separation_device": os.environ.get("SEPARATION_DEVICE", "auto") or "auto",
+        "model": os.environ.get("SEPARATION_MODEL", DEFAULT_MODEL),
+        "demucs_available": False,
+        "cuda_available": False,
+        "ffmpeg": shutil.which("ffmpeg"),
+        "ffprobe": shutil.which("ffprobe"),
+    }
+    try:
+        import demucs  # noqa: F401
+
+        payload["demucs_available"] = True
+    except Exception as exc:
+        payload["demucs_error"] = str(exc)
+
+    try:
+        import torch
+
+        payload["cuda_available"] = bool(torch.cuda.is_available())
+        payload["torch_version"] = getattr(torch, "__version__", "")
+    except Exception as exc:
+        payload["torch_error"] = str(exc)
+
+    return payload
 
 
 def json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
@@ -94,10 +136,10 @@ def find_demucs_outputs(output_root: Path, model_name: str) -> tuple[Path, Path]
 
 
 def run_demucs(input_path: Path, output_root: Path, model_name: str, device: str | None) -> tuple[Path, Path, list[str]]:
+    runner_path = Path(__file__).with_name("run_demucs_compat.py")
     command = [
         os.environ.get("PYTHON", sys.executable),
-        "-m",
-        "demucs",
+        str(runner_path),
         "--two-stems",
         "vocals",
         "-n",
@@ -162,7 +204,7 @@ class SeparationHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         if self.path == "/health":
-            json_response(self, 200, {"ok": True, "engine": "demucs"})
+            json_response(self, 200, get_health_payload())
             return
         json_response(self, 404, {"error": "Not found"})
 
@@ -198,6 +240,7 @@ def main() -> None:
     parser.add_argument("--port", default=8766, type=int)
     args = parser.parse_args()
 
+    ensure_ffmpeg_on_path()
     server = ThreadingHTTPServer((args.host, args.port), SeparationHandler)
     print(f"Local Demucs separation server listening on http://{args.host}:{args.port}")
     print(f"Default model: {DEFAULT_MODEL}. Override with SEPARATION_MODEL=htdemucs_ft, mdx_extra, etc.")
