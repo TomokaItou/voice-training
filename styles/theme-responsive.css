@@ -524,6 +524,7 @@ header p {
 
 .controls,
 .curve-switcher,
+.training-feedback,
 .breath-dashboard,
 .readout,
 .pitch-score-dashboard,
@@ -840,6 +841,18 @@ canvas {
 }
 
 @media (max-width: 900px) {
+  .library-page-header {
+    display: grid;
+  }
+
+  .library-page-actions {
+    justify-content: flex-start;
+  }
+
+  .library-tools {
+    grid-template-columns: 1fr;
+  }
+
   .launcher-heading,
   .launcher-secondary {
     grid-template-columns: 1fr;
@@ -862,6 +875,14 @@ canvas {
     display: grid;
   }
 
+  .training-feedback {
+    display: grid;
+  }
+
+  .training-feedback-badge {
+    width: fit-content;
+  }
+
   .practice-flow-state {
     width: fit-content;
   }
@@ -880,6 +901,7 @@ canvas {
 
   .controls,
   .curve-switcher,
+  .training-feedback,
   .breath-dashboard,
   .readout,
   .pitch-score-dashboard,
@@ -918,6 +940,18 @@ canvas {
 @media (max-width: 640px) {
   body {
     padding: 10px 8px 32px;
+  }
+
+  .library-page-card {
+    padding: 18px;
+  }
+
+  .library-page-switcher {
+    width: 100%;
+  }
+
+  .library-page-switcher .curve-tab {
+    flex: 1;
   }
 
   .launcher-heading {
@@ -959,6 +993,7 @@ canvas {
 
   .controls,
   .curve-switcher,
+  .training-feedback,
   .breath-dashboard,
   .readout,
   .pitch-score-dashboard,

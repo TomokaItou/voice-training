@@ -45,6 +45,83 @@ function setAnalysisStatus(text) {
   analysisStatus.textContent = text;
 }
 
+function setTrainingFeedback(title, text, badge = '建议', tone = 'neutral') {
+  if (!trainingFeedbackPanel) {
+    return;
+  }
+  trainingFeedbackTitle.textContent = title;
+  trainingFeedbackText.textContent = text;
+  trainingFeedbackBadge.textContent = badge;
+  trainingFeedbackPanel.dataset.tone = tone;
+}
+
+function setDefaultTrainingFeedback(mode = trainingMode) {
+  if (mode === 'score') {
+    setTrainingFeedback('先唱一个稳定长音', '开始检测后，对准目标音持续 3-6 秒。系统会告诉你该往高一点、低一点，还是继续稳住。', '音准');
+  } else if (mode === 'curve' || mode === 'pitch') {
+    setTrainingFeedback('先选歌或直接开麦', '跟唱时优先看“开始跟唱”和“停止并评估”；自由练声时看曲线是否连续、稳定。', '跟唱');
+  } else if (mode === 'breath') {
+    setTrainingFeedback('先校准环境噪声', '保持安静点“校准环境”，再平稳吹气。目标是持续、不断气，而不是一开始就用最大气流。', '气息');
+  } else if (mode === 'range') {
+    setTrainingFeedback('从舒服的音开始滑动', '先从低音慢慢滑到高音，再回到中声区。采样足够后再保存结果。', '音域');
+  } else if (mode === 'memory') {
+    setTrainingFeedback('先录一段完整路径', '录“接近目标、保持目标、回到中性或安静”的片段，再看系统判断哪一步最不稳定。', '音色');
+  } else {
+    setTrainingFeedback('先开始一次练习', '系统会把音高、稳定度和录音结果翻译成下一步练习建议。', '等待');
+  }
+}
+
+function getTaskModeKey(mode = trainingMode) {
+  if (mode === 'curve') {
+    return 'curve';
+  }
+  if (trainingMode === 'curve' && ['pitch', 'volume', 'formants'].includes(mode)) {
+    return mode === 'pitch' ? 'curve' : mode;
+  }
+  return mode;
+}
+
+function isTaskAllowed(attributeValue, modeKey) {
+  if (!attributeValue) {
+    return true;
+  }
+  const allowed = attributeValue.split(/\s+/).filter(Boolean);
+  return allowed.includes('all') || allowed.includes(modeKey);
+}
+
+function applyTaskControls(mode = trainingMode) {
+  const modeKey = getTaskModeKey(mode);
+
+  document.querySelectorAll('[data-task-control]').forEach((element) => {
+    element.hidden = !isTaskAllowed(element.dataset.taskControl, modeKey);
+  });
+
+  document.querySelectorAll('[data-task-section]').forEach((element) => {
+    if (element.closest('.advanced-settings') && !element.classList.contains('advanced-settings')) {
+      element.hidden = !isTaskAllowed(element.dataset.taskSection, modeKey);
+      return;
+    }
+    element.hidden = !isTaskAllowed(element.dataset.taskSection, modeKey);
+  });
+
+  document.querySelectorAll('.advanced-settings').forEach((details) => {
+    const hasVisibleChild = [...details.querySelectorAll(':scope > .sidebar-card')].some(
+      (section) => !section.hidden
+    );
+    details.hidden = !hasVisibleChild || !isTaskAllowed(details.dataset.taskSection, modeKey);
+  });
+
+  if (sidebarToggle) {
+    const hasVisibleSettings = [...sidebar.querySelectorAll(':scope > [data-task-section]')].some(
+      (section) => !section.hidden
+    );
+    sidebarToggle.hidden = !hasVisibleSettings;
+    if (!hasVisibleSettings && sidebar?.classList.contains('open')) {
+      closeSidebarPanel();
+    }
+  }
+}
+
 function getOfflineTrackDurationMs(history = pitchHistory) {
   if (!history.length) {
     return 0;
@@ -518,6 +595,19 @@ function updatePitchScoreDisplay(now = performance.now()) {
       `${stats.score}% / 命中 ${stats.hitRate}% / 覆盖 ${stats.coverage}%`,
       tone === 'warn' ? 'bad' : 'good'
     );
+    setTrainingFeedback(
+      direction === '稳住' ? '这段旋律贴得住' : direction,
+      `${directionHint}。这一小段旋律准度 ${stats.score}%，命中 ${stats.hitRate}%，覆盖 ${stats.coverage}%。先把覆盖唱满，再追求更高分。`,
+      '跟唱',
+      tone
+    );
+  } else {
+    setTrainingFeedback(
+      direction === '稳住' ? '音高稳定，继续保持' : direction,
+      `${directionHint}。最近 ${pitchScoreWindowSeconds} 秒稳定度 ${stats.stability}%，命中 ${stats.hitRate}%。先唱稳 3 秒，再拉长到 6 秒。`,
+      '音准',
+      tone
+    );
   }
   setPitchScoreTone(tone);
 }
@@ -767,6 +857,9 @@ function updateRangeDisplay() {
     if (rangeSaveButton) {
       rangeSaveButton.disabled = true;
     }
+    if (trainingMode === 'range') {
+      setDefaultTrainingFeedback('range');
+    }
     return;
   }
 
@@ -789,6 +882,15 @@ function updateRangeDisplay() {
       : stats.sampleCount >= 6
         ? 'active'
         : 'neutral';
+  if (trainingMode === 'range') {
+    if (stats.sampleCount < 6) {
+      setTrainingFeedback('再多唱几秒', `已经采到 ${stats.sampleCount} 个有效点。继续从低到高慢慢滑，让系统先看清你的范围。`, '音域');
+    } else if (stats.stability < 55) {
+      setTrainingFeedback('跨度有了，先放慢', `目前跨度 ${formatRangeSpan(stats.spanSemitones)}，但稳定度 ${stats.stability}%。下一遍慢一点滑，少冲高音。`, '音域', 'warn');
+    } else {
+      setTrainingFeedback('可以保存这次音域', `稳定度 ${stats.stability}%，舒适区约 ${formatRangePitch(stats.comfortLow)} 到 ${formatRangePitch(stats.comfortHigh)}。`, '音域', 'good');
+    }
+  }
 }
 
 function updateRangeTraining(now = performance.now(), pitch = currentPitch) {
@@ -866,6 +968,9 @@ function setReadoutMode(mode) {
   }
   if (songTargetPanel) {
     songTargetPanel.hidden = !(mode === 'pitch' || isScore);
+  }
+  if (trainingFeedbackPanel) {
+    trainingFeedbackPanel.hidden = isVolume || isFormants || mode === 'spectrogram';
   }
   if (memoryDashboard) {
     memoryDashboard.hidden = !isMemory;
@@ -959,6 +1064,9 @@ function setCurveDisplayMode(mode) {
 
 function showTrainingView(mode = 'pitch') {
   modeLauncher.hidden = true;
+  if (libraryPage) {
+    libraryPage.hidden = true;
+  }
   appWindow.hidden = false;
   trainingMode = mode;
   setReadoutMode(mode);
@@ -1035,16 +1143,26 @@ function showLauncherView() {
   } else {
     stop();
   }
-  setLauncherLibraryView(null);
+  showLibraryPage(null);
   modeLauncher.hidden = false;
+  if (libraryPage) {
+    libraryPage.hidden = true;
+  }
   appWindow.hidden = true;
 }
 
-function setLauncherLibraryView(view) {
+function showLibraryPage(view) {
   const showRecording = view === 'recordings';
   const showAccompaniment = view === 'accompaniments';
-  if (launcherLibraryDetail) {
-    launcherLibraryDetail.hidden = !(showRecording || showAccompaniment);
+  const shouldShowPage = showRecording || showAccompaniment;
+  if (libraryPage) {
+    libraryPage.hidden = !shouldShowPage;
+  }
+  if (modeLauncher) {
+    modeLauncher.hidden = shouldShowPage;
+  }
+  if (appWindow) {
+    appWindow.hidden = true;
   }
   if (recordingLibraryPanel) {
     recordingLibraryPanel.hidden = !showRecording;
@@ -1052,8 +1170,19 @@ function setLauncherLibraryView(view) {
   if (accompanimentLibraryPanel) {
     accompanimentLibraryPanel.hidden = !showAccompaniment;
   }
-  openRecordingLibraryButton?.classList.toggle('active', showRecording);
-  openAccompanimentLibraryButton?.classList.toggle('active', showAccompaniment);
+  if (libraryToolsPanel) {
+    libraryToolsPanel.hidden = !showRecording;
+  }
+  recordingLibraryTabButton?.classList.toggle('active', showRecording);
+  accompanimentLibraryTabButton?.classList.toggle('active', showAccompaniment);
+  if (libraryPageTitle) {
+    libraryPageTitle.textContent = showAccompaniment ? '伴奏库' : '录音库';
+  }
+  if (libraryPageDescription) {
+    libraryPageDescription.textContent = showAccompaniment
+      ? '管理分离后保存的伴奏，随时加载到练习里。'
+      : '管理录音、歌曲目标曲线、歌词和分析结果。';
+  }
 }
 
 function percentile(values, ratio) {
@@ -1258,6 +1387,14 @@ async function runPitchAccuracyAnalysis() {
       : '--',
     result.tone
   );
+  if (songPitchTrack.length) {
+    setTrainingFeedback(
+      result.tone === 'good' ? '这一遍音准不错' : direction,
+      `${direction}。平均偏差 ${result.meanAbsError.toFixed(1)} cents，稳定命中 ${result.goodRate}%。下一遍重点回听误差最大的片段。`,
+      '评估',
+      result.tone
+    );
+  }
   updatePitchAccuracyButton();
   updateSongPracticeFlow('评估完成');
 }
@@ -1631,6 +1768,8 @@ async function startVoiceRecording() {
     updateSongPracticeFlow();
     return false;
   }
+  setDefaultTrainingFeedback(mode);
+  applyTaskControls(mode);
 }
 
 function stopVoiceRecording({ reviewAfterStop = false } = {}) {
@@ -1672,9 +1811,8 @@ async function playSongPitchReference() {
 
 async function startSongPracticeFlow() {
   if (!songPitchTrack.length) {
-    setSongTargetCollapsed(false);
-    songPitchInput?.click();
-    updateSongPracticeFlow('请选择歌曲');
+    showLibraryPage('recordings');
+    updateSongPracticeFlow('请先准备歌曲');
     return;
   }
   setSongTargetCollapsed(false);
@@ -1879,9 +2017,8 @@ songTargetCollapseButton?.addEventListener('click', () => {
   updateSongPracticeFlow();
 });
 songPracticeChooseButton?.addEventListener('click', () => {
-  setSongTargetCollapsed(false);
-  songPitchInput?.click();
-  updateSongPracticeFlow('请选择歌曲');
+  showLibraryPage('recordings');
+  updateSongPracticeFlow('请先准备歌曲');
 });
 songPracticeStartButton?.addEventListener('click', () => {
   startSongPracticeFlow();
@@ -2031,10 +2168,22 @@ openMemoryModeButton?.addEventListener('click', () => {
   showTrainingView('memory');
 });
 openRecordingLibraryButton?.addEventListener('click', () => {
-  setLauncherLibraryView(recordingLibraryPanel?.hidden ? 'recordings' : null);
+  showLibraryPage('recordings');
 });
 openAccompanimentLibraryButton?.addEventListener('click', () => {
-  setLauncherLibraryView(accompanimentLibraryPanel?.hidden ? 'accompaniments' : null);
+  showLibraryPage('accompaniments');
+});
+libraryBackButton?.addEventListener('click', () => {
+  showLauncherView();
+});
+libraryOpenCurveButton?.addEventListener('click', () => {
+  showTrainingView('curve');
+});
+recordingLibraryTabButton?.addEventListener('click', () => {
+  showLibraryPage('recordings');
+});
+accompanimentLibraryTabButton?.addEventListener('click', () => {
+  showLibraryPage('accompaniments');
 });
 rangeResetButton?.addEventListener('click', () => {
   resetRangeTraining();
