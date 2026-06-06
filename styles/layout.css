@@ -109,7 +109,24 @@ header p {
   gap: 12px;
   align-items: center;
   margin: 18px 0;
-  justify-content: space-between;
+  justify-content: flex-end;
+}
+
+.practice-controls {
+  position: sticky;
+  bottom: 14px;
+  z-index: 30;
+  margin: 14px 0 18px;
+  padding: 10px;
+  border: 1px solid rgba(221, 217, 203, 0.88);
+  border-radius: 10px;
+  background: rgba(255, 254, 250, 0.92);
+  box-shadow: 0 18px 40px rgba(42, 36, 20, 0.14);
+  backdrop-filter: blur(12px);
+}
+
+.app:has(.practice-controls) {
+  padding-bottom: 18px;
 }
 
 .controls-main {
@@ -119,6 +136,11 @@ header p {
   align-items: center;
   flex: 1;
   min-width: 240px;
+}
+
+.practice-controls .controls-main {
+  justify-content: center;
+  min-width: 0;
 }
 
 .controls-inline {

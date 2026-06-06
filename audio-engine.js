@@ -5,6 +5,9 @@ function update() {
   updateVolumeMeter(rms);
   appendVolumePoint(now, rms);
   updateSpectralTilt();
+  if (typeof canUpdateRhythmTraining === 'function' && canUpdateRhythmTraining()) {
+    updateRhythmTraining(now, rms);
+  }
 
   if (now - lastDisplayUpdate >= displayUpdateIntervalMs) {
     lastDisplayUpdate = now;
@@ -242,6 +245,10 @@ async function start() {
     sourceNode = audioContext.createMediaStreamSource(stream);
     sourceNode.connect(analyser);
 
+    practicePaused = false;
+    songPracticePausedTimeMs = null;
+    resumeSongPitchOnPracticeResume = false;
+    resumeAccompanimentOnPracticeResume = false;
     pitchHistory = [];
     volumeHistory = [];
     resetPitchStabilizer();
@@ -251,12 +258,22 @@ async function start() {
     }
     clearBreathReport();
     sessionStartTime = performance.now();
+    if (trainingMode === 'rhythm') {
+      startRhythmTrainingSession(sessionStartTime);
+    }
     songPracticeStartTime = 0;
     lastFormantUpdate = 0;
     lastFormantTimestamp = 0;
     resetFormants();
     setAnalysisStatus('未开始');
-    setStatus(displayMode === 'breath' ? '正在测量出气' : '正在监听麦克风', 'active');
+    setStatus(
+      trainingMode === 'rhythm'
+        ? '节奏训练中'
+        : displayMode === 'breath'
+          ? '正在测量出气'
+          : '正在监听麦克风',
+      'active'
+    );
     if (displayMode === 'spectrogram') {
       resetSpectrogram();
     } else if (displayMode === 'breath') {
@@ -268,6 +285,10 @@ async function start() {
     }
 
     startButton.disabled = true;
+    startButton.textContent = '开始练习';
+    if (pauseButton) {
+      pauseButton.disabled = false;
+    }
     stopButton.disabled = false;
 
     update();
@@ -278,6 +299,10 @@ async function start() {
 }
 
 function stop() {
+  practicePaused = false;
+  songPracticePausedTimeMs = null;
+  resumeSongPitchOnPracticeResume = false;
+  resumeAccompanimentOnPracticeResume = false;
   const wasSpectrogram = displayMode === 'spectrogram';
   const spectrogramSnapshot = captureSpectrogramSnapshot();
   const shouldRenderBreathReport = displayMode === 'breath' && breathSessionHistory.length > 0;
@@ -303,6 +328,9 @@ function stop() {
     tiltMeterBar.style.height = '0%';
   }
   startButton.disabled = false;
+  if (pauseButton) {
+    pauseButton.disabled = true;
+  }
   stopButton.disabled = true;
   resetFormants();
   if (shouldRenderBreathReport) {

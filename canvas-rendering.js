@@ -431,7 +431,285 @@ function findNearestPitchPointByCanvasX(canvasX) {
   }, null);
 }
 
+function getSongGameNotes() {
+  if (vocalScoreNotes.length) {
+    return vocalScoreNotes;
+  }
+  if (typeof buildVocalScoreSegments === 'function' && songPitchTrack.length) {
+    return buildVocalScoreSegments(songPitchTrack);
+  }
+  return [];
+}
+
+function getSongGameBeatMs() {
+  if (Number.isFinite(songRhythmBpm) && songRhythmBpm > 0) {
+    return 60000 / songRhythmBpm;
+  }
+  if (typeof getRhythmBeatMs === 'function') {
+    return getRhythmBeatMs();
+  }
+  return 60000 / 90;
+}
+
+function getSongGameJudgement(targetPitch) {
+  if (!currentPitch || !targetPitch) {
+    return { label: 'MISS', tone: 'miss', cents: null };
+  }
+  const cents = typeof getScoringCentsError === 'function'
+    ? getScoringCentsError(currentPitch, targetPitch)
+    : frequencyToCentsError(currentPitch, targetPitch);
+  const absCents = Math.abs(cents);
+  if (!Number.isFinite(absCents)) {
+    return { label: 'MISS', tone: 'miss', cents: null };
+  }
+  if (absCents <= 25) {
+    return { label: 'PERFECT', tone: 'perfect', cents };
+  }
+  if (absCents <= 55) {
+    return { label: 'GOOD', tone: 'good', cents };
+  }
+  return { label: 'MISS', tone: 'miss', cents };
+}
+
+function getSongGameNoteFill(noteIndex, isCurrent, hasPassed) {
+  if (hasPassed) {
+    return {
+      fill: 'rgba(78, 92, 105, 0.42)',
+      stroke: 'rgba(148, 163, 184, 0.26)',
+      shadow: 'rgba(15, 23, 42, 0.16)',
+    };
+  }
+  if (isCurrent) {
+    return {
+      fill: '#ff8a3d',
+      stroke: '#ffd3b8',
+      shadow: 'rgba(255, 138, 61, 0.34)',
+    };
+  }
+  const palette = [
+    ['#2dd4bf', '#99f6e4', 'rgba(45, 212, 191, 0.24)'],
+    ['#38bdf8', '#bae6fd', 'rgba(56, 189, 248, 0.22)'],
+    ['#a78bfa', '#ddd6fe', 'rgba(167, 139, 250, 0.24)'],
+    ['#f472b6', '#fbcfe8', 'rgba(244, 114, 182, 0.22)'],
+    ['#facc15', '#fef3c7', 'rgba(250, 204, 21, 0.20)'],
+    ['#4ade80', '#bbf7d0', 'rgba(74, 222, 128, 0.22)'],
+  ];
+  const [fill, stroke, shadow] = palette[noteIndex % palette.length];
+  return { fill, stroke, shadow };
+}
+
+function drawSongGameBackground(stageLeft, stageTop, stageWidth, stageHeight, hitX) {
+  const stageBottom = stageTop + stageHeight;
+  const gradient = ctx.createLinearGradient(0, stageTop, 0, stageBottom);
+  gradient.addColorStop(0, '#0f1a1a');
+  gradient.addColorStop(0.55, '#081211');
+  gradient.addColorStop(1, '#07100f');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+  ctx.strokeStyle = 'rgba(125, 211, 252, 0.14)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(stageLeft, stageTop, stageWidth, stageHeight, 12);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+  for (let i = 1; i < 6; i += 1) {
+    const y = stageTop + (stageHeight / 6) * i;
+    ctx.beginPath();
+    ctx.moveTo(stageLeft + 14, y);
+    ctx.lineTo(stageLeft + stageWidth - 14, y);
+    ctx.stroke();
+  }
+
+  const guide = ctx.createLinearGradient(hitX - 28, 0, hitX + 28, 0);
+  guide.addColorStop(0, 'rgba(255, 138, 61, 0)');
+  guide.addColorStop(0.5, 'rgba(255, 138, 61, 0.20)');
+  guide.addColorStop(1, 'rgba(255, 138, 61, 0)');
+  ctx.fillStyle = guide;
+  ctx.fillRect(hitX - 28, stageTop + 2, 56, stageHeight - 4);
+
+  ctx.shadowColor = 'rgba(255, 138, 61, 0.48)';
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = '#ff8a3d';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(hitX, stageTop + 10);
+  ctx.lineTo(hitX, stageBottom - 10);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = 'rgba(255, 231, 214, 0.90)';
+  ctx.font = '700 11px "Arial", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('SING', hitX, stageBottom - 22);
+  ctx.restore();
+}
+
+function drawSongGameLane() {
+  pitchRenderState = null;
+  updateOfflineWindowControl(0);
+
+  const notes = getSongGameNotes().filter((note) => note.pitch && note.endMs > note.startMs);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#081110';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!notes.length) {
+    ctx.fillStyle = '#d8f5ee';
+    ctx.font = '18px "Microsoft YaHei", "PingFang SC", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText('Upload a song to build the game lane', canvas.width / 2, canvas.height / 2);
+    ctx.textAlign = 'start';
+    return;
+  }
+
+  const now = typeof getSongPracticeTimeMs === 'function' ? getSongPracticeTimeMs() : 0;
+  const stageLeft = 18;
+  const stageTop = 22;
+  const stageWidth = canvas.width - stageLeft * 2;
+  const stageHeight = canvas.height - 44;
+  const hitX = stageLeft + Math.max(92, Math.min(148, stageWidth * 0.2));
+  const laneTop = stageTop + 18;
+  const laneBottom = stageTop + stageHeight - 30;
+  const laneHeight = Math.max(80, laneBottom - laneTop);
+  const beatMs = Math.max(220, getSongGameBeatMs());
+  const lookaheadMs = beatMs * 8;
+  const pixelsPerMs = (stageLeft + stageWidth - hitX - 32) / lookaheadMs;
+  const pastMs = beatMs * 1.6;
+  const pitchValues = notes.map((note) => note.pitch).filter(Number.isFinite);
+  const minPitch = Math.min(...pitchValues);
+  const maxPitch = Math.max(...pitchValues);
+  const logMin = Math.log(minPitch / 1.08);
+  const logRange = Math.max(Math.log(maxPitch * 1.08) - logMin, 0.0001);
+  const lyricAssignments = typeof getVocalScoreLyricAssignments === 'function'
+    ? getVocalScoreLyricAssignments(notes)
+    : new Map();
+
+  ctx.save();
+  drawSongGameBackground(stageLeft, stageTop, stageWidth, stageHeight, hitX);
+
+  const visibleNotes = notes.filter(
+    (note) => note.endMs >= now - pastMs && note.startMs <= now + lookaheadMs + beatMs
+  );
+  let activeNote = null;
+  visibleNotes.forEach((note) => {
+    const noteIndex = notes.indexOf(note);
+    const startX = hitX + (note.startMs - now) * pixelsPerMs;
+    const endX = hitX + (note.endMs - now) * pixelsPerMs;
+    const width = Math.max(20, endX - startX);
+    const normalized = (Math.log(note.pitch) - logMin) / logRange;
+    const y = laneBottom - normalized * laneHeight;
+    const height = Math.max(22, Math.min(34, 22 + note.durationMs * pixelsPerMs * 0.035));
+    const isCurrent = now >= note.startMs - 90 && now <= note.endMs + 120;
+    const hasPassed = note.endMs < now - 120;
+    if (isCurrent && (!activeNote || note.startMs < activeNote.startMs)) {
+      activeNote = note;
+    }
+
+    const colors = getSongGameNoteFill(noteIndex, isCurrent, hasPassed);
+    ctx.shadowColor = colors.shadow;
+    ctx.shadowBlur = isCurrent ? 16 : 8;
+    ctx.fillStyle = colors.fill;
+    ctx.strokeStyle = colors.stroke;
+    ctx.lineWidth = isCurrent ? 2 : 1;
+    ctx.beginPath();
+    ctx.roundRect(startX, y - height / 2, width, height, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    const shine = ctx.createLinearGradient(0, y - height / 2, 0, y + height / 2);
+    shine.addColorStop(0, 'rgba(255, 255, 255, 0.26)');
+    shine.addColorStop(0.48, 'rgba(255, 255, 255, 0.04)');
+    shine.addColorStop(1, 'rgba(0, 0, 0, 0.10)');
+    ctx.fillStyle = shine;
+    ctx.beginPath();
+    ctx.roundRect(startX + 1, y - height / 2 + 1, Math.max(0, width - 2), height - 2, 7);
+    ctx.fill();
+
+    const lyric = lyricAssignments.get(noteIndex) || '';
+    const chars = Array.from(lyric.replace(/\s+/g, ''));
+    if (chars.length) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 14px "Microsoft YaHei", "PingFang SC", sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.55)';
+      ctx.shadowBlur = 2;
+      chars.forEach((char, charIndex) => {
+        const charX = startX + (width * (charIndex + 0.5)) / chars.length;
+        if (charX >= startX + 8 && charX <= startX + width - 8) {
+          ctx.fillText(char, charX, y + 0.5);
+        }
+      });
+      ctx.shadowBlur = 0;
+    }
+  });
+
+  const targetPitch = activeNote?.pitch || (
+    typeof getScoringTargetPitchForTime === 'function' ? getScoringTargetPitchForTime(now) : null
+  );
+  if (currentPitch && Number.isFinite(currentPitch)) {
+    const normalized = (Math.log(currentPitch) - logMin) / logRange;
+    const y = laneBottom - normalized * laneHeight;
+    if (y >= laneTop - 16 && y <= laneBottom + 16) {
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#ff7a59';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(hitX, y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  if (activeNote || currentPitch) {
+    const judgement = getSongGameJudgement(targetPitch);
+    const judgementX = hitX + 42;
+    const judgementY = stageTop + 46;
+    ctx.font = '900 28px "Arial", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle =
+      judgement.tone === 'perfect' ? '#5eead4' : judgement.tone === 'good' ? '#fde68a' : '#fb7185';
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 10;
+    ctx.fillText(judgement.label, judgementX, judgementY);
+    ctx.shadowBlur = 0;
+    if (Number.isFinite(judgement.cents)) {
+      ctx.font = '13px "Arial", sans-serif';
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.78)';
+      ctx.fillText(formatSignedCents(judgement.cents), judgementX + 2, judgementY + 27);
+    }
+  }
+
+  ctx.fillStyle = 'rgba(226, 232, 240, 0.78)';
+  ctx.font = '700 12px "Arial", sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`BPM ${Math.round(60000 / beatMs)}  ${formatTimeSeconds(now)}`, stageLeft + stageWidth - 18, stageTop + 12);
+  ctx.textBaseline = 'bottom';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(226, 232, 240, 0.62)';
+  ctx.font = '700 11px "Microsoft YaHei", "PingFang SC", sans-serif';
+  ctx.fillText('低音', stageLeft + 18, stageTop + stageHeight - 12);
+  ctx.textAlign = 'right';
+  ctx.fillText('高音', stageLeft + stageWidth - 18, stageTop + stageHeight - 12);
+  ctx.restore();
+}
+
 function drawPitchHistory() {
+  if (typeof isSongGameLaneActive === 'function' && isSongGameLaneActive()) {
+    drawSongGameLane();
+    return;
+  }
+
   const recordingSyncedHistory = getRecordingSyncedPitchHistory();
   const useRecordingTimeline = !offlineMode && recordingSyncedHistory.length >= 2;
   const sourceHistory = useRecordingTimeline ? recordingSyncedHistory : pitchHistory;

@@ -315,6 +315,9 @@ function saveCurrentSongAssetsToLibrary() {
   updateRecordingLibraryItem(recording.id, {
     songPitchTrack: songPitchTrack.map((point) => ({ ...point })),
     songPitchFileName,
+    songRhythmBeats: songRhythmBeats.map((beat) => ({ ...beat })),
+    songRhythmBpm,
+    songRhythmSummary: songRhythmSummary ? { ...songRhythmSummary } : null,
     vocalScoreNotes: vocalScoreNotes.map((note) => ({ ...note })),
     vocalScoreRests: vocalScoreRests.map((rest) => ({ ...rest })),
     vocalScoreSummary: vocalScoreSummary ? { ...vocalScoreSummary } : null,
@@ -333,6 +336,26 @@ function restoreSongAssetsFromLibrary(recording) {
   const file = getRecordingLibraryFile(recording);
   songPitchTrack = (recording.songPitchTrack || []).map((point) => ({ ...point }));
   songPitchFileName = recording.songPitchFileName || recording.name || '';
+  songRhythmSourceFile = file;
+  songRhythmBeats = (recording.songRhythmBeats || []).map((beat) => ({ ...beat }));
+  songRhythmBpm = recording.songRhythmBpm || recording.songRhythmSummary?.bpm || null;
+  songRhythmSummary = recording.songRhythmSummary
+    ? { ...recording.songRhythmSummary, sourceName: recording.songRhythmSummary.sourceName || recording.name || '' }
+    : songRhythmBeats.length && songRhythmBpm
+      ? {
+          sourceName: recording.name || '',
+          bpm: songRhythmBpm,
+          beatCount: songRhythmBeats.length,
+          confidence: 0.5,
+          durationMs: recording.durationMs || songRhythmBeats[songRhythmBeats.length - 1]?.timeMs || 0,
+        }
+      : null;
+  rhythmUseSongPattern = Boolean(songRhythmBeats.length);
+  if (songRhythmBpm && rhythmBpmInput) {
+    rhythmBpm = songRhythmBpm;
+    rhythmBpmInput.value = String(Math.round(songRhythmBpm));
+  }
+  updateSongRhythmControls();
   vocalScoreNotes = (recording.vocalScoreNotes || []).map((note) => ({ ...note }));
   vocalScoreRests = (recording.vocalScoreRests || []).map((rest) => ({ ...rest }));
   vocalScoreSummary = recording.vocalScoreSummary ? { ...recording.vocalScoreSummary } : null;
@@ -474,6 +497,7 @@ function renderRecordingLibrary() {
     if (recording.source) savedParts.push(recording.source);
     if (recording.vocalScoreSummary) savedParts.push('已存乐谱');
     if (recording.songLyrics) savedParts.push('已存歌词');
+    if (recording.songRhythmBeats?.length) savedParts.push('已存节奏');
     const savedText = savedParts.length ? ` · ${savedParts.join(' / ')}` : '';
     meta.textContent = `${getRecordingLibraryTypeLabel(recording)} · ${durationText}${recording.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${savedText}`;
     main.append(title, meta);
@@ -1110,6 +1134,9 @@ function getSongPracticeTimeMs(now = performance.now()) {
   }
   if (accompanimentAudio && !accompanimentAudio.paused && Number.isFinite(accompanimentAudio.currentTime)) {
     return accompanimentAudio.currentTime * 1000;
+  }
+  if (practicePaused && Number.isFinite(songPracticePausedTimeMs)) {
+    return songPracticePausedTimeMs;
   }
   if (hasSongPitchTarget() && songPracticeStartTime > 0) {
     return Math.max(0, now - songPracticeStartTime);

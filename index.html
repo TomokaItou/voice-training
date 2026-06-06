@@ -40,6 +40,12 @@
             <span class="mode-desc">先测出气稳定度，再记录最低/最高稳定音和舒适音区。</span>
             <span class="practice-action">测气息</span>
           </button>
+          <button id="openRhythmModeButton" class="mode-button practice-card rhythm-mode">
+            <span class="practice-tag">节奏训练</span>
+            <span class="mode-title">把起音踩进拍点</span>
+            <span class="mode-desc">跟着节拍器唱短音或拍手，实时看早晚、命中率和连击。</span>
+            <span class="practice-action">练节奏</span>
+          </button>
         </div>
 
         <div class="launcher-secondary">
@@ -179,14 +185,6 @@
       </header>
 
       <section class="controls">
-        <div class="controls-main">
-          <button id="startButton" data-task-control="curve score breath range spectrogram volume formants memory">开始练习</button>
-          <button id="stopButton" data-task-control="curve score breath range spectrogram volume formants memory" disabled>停止</button>
-          <button id="recordButton" class="secondary" hidden aria-hidden="true">开始录音</button>
-          <button id="stopRecordButton" class="secondary" hidden aria-hidden="true" disabled>停止录音</button>
-          <button id="breathCalibrateButton" class="secondary breath-control" data-task-control="breath" hidden>校准环境</button>
-          <div class="status" id="status">未开始</div>
-        </div>
         <div class="controls-side">
           <button id="backToHomeButton" class="secondary sidebar-toggle">← 返回</button>
           <button id="sidebarToggle" class="secondary sidebar-toggle" aria-expanded="false">设置</button>
@@ -203,7 +201,8 @@
       </section>
 
       <section class="curve-switcher" id="curveSwitcher" hidden>
-        <button id="curvePitchButton" class="curve-tab active" type="button">音高曲线</button>
+        <button id="songGameViewButton" class="curve-tab active" type="button">游戏谱面</button>
+        <button id="curvePitchButton" class="curve-tab" type="button">分析曲线</button>
         <button id="curveVolumeButton" class="curve-tab" type="button">音量曲线</button>
         <button id="curveFormantButton" class="curve-tab" type="button">共振峰曲线</button>
       </section>
@@ -372,11 +371,86 @@
         <ol id="rangeHistoryList" class="range-history-list"></ol>
       </section>
 
+      <section class="rhythm-dashboard" id="rhythmDashboard" hidden>
+        <div class="rhythm-main">
+          <span class="label">节奏评分</span>
+          <span class="rhythm-score-value" id="rhythmScoreValue">--</span>
+          <span class="rhythm-caption" id="rhythmCaption">设置 BPM 后点击开始，跟着高亮拍点发短音。</span>
+        </div>
+        <div class="rhythm-controls">
+          <label class="field">
+            <span class="label">BPM</span>
+            <input id="rhythmBpmInput" class="input" type="number" min="40" max="220" step="1" value="90" />
+          </label>
+          <label class="field">
+            <span class="label">拍号</span>
+            <select id="rhythmMeterSelect" class="select">
+              <option value="4">4/4</option>
+              <option value="3">3/4</option>
+              <option value="2">2/4</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="label">节奏型</span>
+            <select id="rhythmPatternSelect" class="select">
+              <option value="quarter">四分拍</option>
+              <option value="eighth">八分拍</option>
+              <option value="backbeat">二四拍</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="label">难度</span>
+            <select id="rhythmDifficultySelect" class="select">
+              <option value="easy">宽松</option>
+              <option value="normal" selected>标准</option>
+              <option value="hard">严格</option>
+            </select>
+          </label>
+          <label class="toggle rhythm-click-toggle">
+            <input type="checkbox" id="rhythmClickToggle" checked />
+            <span class="toggle-pill"></span>
+            <span class="toggle-text">节拍器</span>
+          </label>
+          <label class="toggle rhythm-song-toggle">
+            <input type="checkbox" id="rhythmSongToggle" disabled />
+            <span class="toggle-pill"></span>
+            <span class="toggle-text">歌曲节奏</span>
+          </label>
+          <button id="rhythmExtractButton" class="secondary" type="button" disabled>提取当前歌曲</button>
+          <button id="rhythmResetButton" class="secondary" type="button">重置</button>
+        </div>
+        <div class="rhythm-source" id="rhythmSourceStatus">上传歌曲后会自动提取 BPM 和拍点。</div>
+        <div class="rhythm-track" id="rhythmTrack" aria-label="节奏拍点">
+          <span data-beat="0">1</span>
+          <span data-beat="1">2</span>
+          <span data-beat="2">3</span>
+          <span data-beat="3">4</span>
+        </div>
+        <div class="rhythm-grid">
+          <div>
+            <span class="label">命中率</span>
+            <span class="value" id="rhythmHitRateValue">--%</span>
+          </div>
+          <div>
+            <span class="label">平均偏差</span>
+            <span class="value" id="rhythmAverageOffsetValue">-- ms</span>
+          </div>
+          <div>
+            <span class="label">连击</span>
+            <span class="value" id="rhythmStreakValue">0</span>
+          </div>
+          <div>
+            <span class="label">最近一次</span>
+            <span class="value" id="rhythmLastOffsetValue">--</span>
+          </div>
+        </div>
+      </section>
+
       <section class="song-target-panel is-collapsed" id="songTargetPanel">
         <div class="song-target-header">
           <div>
-            <h2>歌曲目标曲线</h2>
-            <p>上传歌曲后自动提取主音高曲线，播放时画布会跟随歌曲进度移动。</p>
+            <h2>跟唱主控台</h2>
+            <p>准备一首歌，系统会自动生成旋律目标和节奏拍点，然后带你录一遍并评估。</p>
           </div>
           <label class="toggle song-target-toggle">
             <input type="checkbox" id="songPitchToggle" checked />
@@ -455,74 +529,80 @@
               <span class="value" id="songTrainingResult">--</span>
             </div>
           </div>
-          <div class="vocal-score-panel" id="vocalScorePanel">
-            <div class="vocal-score-header">
-              <div>
-                <h3>人声乐谱</h3>
-                <span id="vocalScoreStatus">上传歌曲后自动生成</span>
-              </div>
-              <div class="controls-inline vocal-score-actions">
-                <div class="vocal-score-view-switch" aria-label="乐谱显示方式">
-                  <button
-                    id="vocalScoreStaffViewButton"
-                    class="vocal-score-view-button active"
-                    type="button"
-                    aria-pressed="true"
-                  >
-                    五线谱
-                  </button>
-                  <button
-                    id="vocalScoreJianpuViewButton"
-                    class="vocal-score-view-button"
-                    type="button"
-                    aria-pressed="false"
-                  >
-                    简谱
-                  </button>
-                </div>
-                <button id="copyVocalScoreButton" class="secondary" type="button" disabled>复制简谱</button>
-                <button id="downloadVocalScoreXmlButton" class="secondary" type="button" disabled>下载 MusicXML</button>
-                <button id="downloadVocalScoreCsvButton" class="secondary" type="button" disabled>下载 CSV</button>
-              </div>
-            </div>
-            <div class="vocal-score-sheet" id="vocalScoreSheet">
-              <canvas id="vocalScoreCanvas" width="960" height="260"></canvas>
-            </div>
-            <div class="vocal-score-jianpu-sheet" id="vocalScoreJianpuSheet" hidden>
-              <canvas id="vocalScoreJianpuCanvas" width="960" height="360"></canvas>
-            </div>
-            <pre id="vocalScoreText" class="vocal-score-text" hidden>上传歌曲后，会把主旋律音高整理成可读简谱，并可导出 MusicXML 到打谱软件继续编辑。</pre>
-          </div>
-          <div class="song-lyrics-panel" id="songLyricsPanel">
-            <div class="song-lyrics-header">
-              <div>
-                <h3>歌词识别</h3>
-                <span>识别入口已移到录音库</span>
-              </div>
-              <div class="controls-inline song-lyrics-actions">
-                <button id="saveSongLyricsEditButton" class="secondary" type="button" disabled>保存编辑</button>
-                <button id="copySongLyricsButton" class="secondary" type="button" disabled>复制</button>
-                <button id="downloadSongLyricsButton" class="secondary" type="button" disabled>下载</button>
-              </div>
-            </div>
-            <div class="song-lyrics-progress" id="songLyricsProgress" hidden>
-              <div class="song-lyrics-progress-bar">
-                <span id="songLyricsProgressFill"></span>
-              </div>
-              <span id="songLyricsProgressText">准备识别...</span>
-            </div>
-            <textarea id="songLyricsText" class="song-lyrics-text" spellcheck="false">上传歌曲后，可以读取内嵌歌词，也可以启动本地 Whisper 服务后点击“Whisper识别”。</textarea>
-            <div class="song-lyrics-alignment" id="songLyricsAlignmentPanel" hidden>
-              <div class="song-lyrics-alignment-header">
+          <details class="song-assets-details">
+            <summary>
+              <span>乐谱 / 歌词 / 导出</span>
+              <small>查看自动生成素材和编辑结果</small>
+            </summary>
+            <div class="vocal-score-panel" id="vocalScorePanel">
+              <div class="vocal-score-header">
                 <div>
-                  <h3>歌词音高对应</h3>
-                  <span id="songLyricsAlignmentStatus">等待歌词和音高曲线</span>
+                  <h3>人声乐谱</h3>
+                  <span id="vocalScoreStatus">上传歌曲后自动生成</span>
                 </div>
-                <button id="copySongLyricsAlignmentButton" class="secondary" type="button" disabled>复制映射</button>
+                <div class="controls-inline vocal-score-actions">
+                  <div class="vocal-score-view-switch" aria-label="乐谱显示方式">
+                    <button
+                      id="vocalScoreStaffViewButton"
+                      class="vocal-score-view-button active"
+                      type="button"
+                      aria-pressed="true"
+                    >
+                      五线谱
+                    </button>
+                    <button
+                      id="vocalScoreJianpuViewButton"
+                      class="vocal-score-view-button"
+                      type="button"
+                      aria-pressed="false"
+                    >
+                      简谱
+                    </button>
+                  </div>
+                  <button id="copyVocalScoreButton" class="secondary" type="button" disabled>复制简谱</button>
+                  <button id="downloadVocalScoreXmlButton" class="secondary" type="button" disabled>下载 MusicXML</button>
+                  <button id="downloadVocalScoreCsvButton" class="secondary" type="button" disabled>下载 CSV</button>
+                </div>
               </div>
-              <div id="songLyricsAlignmentText" class="song-lyrics-alignment-text"></div>
+              <div class="vocal-score-sheet" id="vocalScoreSheet">
+                <canvas id="vocalScoreCanvas" width="960" height="260"></canvas>
+              </div>
+              <div class="vocal-score-jianpu-sheet" id="vocalScoreJianpuSheet" hidden>
+                <canvas id="vocalScoreJianpuCanvas" width="960" height="360"></canvas>
+              </div>
+              <pre id="vocalScoreText" class="vocal-score-text" hidden>上传歌曲后，会把主旋律音高整理成可读简谱，并可导出 MusicXML 到打谱软件继续编辑。</pre>
             </div>
-          </div>
+            <div class="song-lyrics-panel" id="songLyricsPanel">
+              <div class="song-lyrics-header">
+                <div>
+                  <h3>歌词识别</h3>
+                  <span>识别入口已移到录音库</span>
+                </div>
+                <div class="controls-inline song-lyrics-actions">
+                  <button id="saveSongLyricsEditButton" class="secondary" type="button" disabled>保存编辑</button>
+                  <button id="copySongLyricsButton" class="secondary" type="button" disabled>复制</button>
+                  <button id="downloadSongLyricsButton" class="secondary" type="button" disabled>下载</button>
+                </div>
+              </div>
+              <div class="song-lyrics-progress" id="songLyricsProgress" hidden>
+                <div class="song-lyrics-progress-bar">
+                  <span id="songLyricsProgressFill"></span>
+                </div>
+                <span id="songLyricsProgressText">准备识别...</span>
+              </div>
+              <textarea id="songLyricsText" class="song-lyrics-text" spellcheck="false">上传歌曲后，可以读取内嵌歌词，也可以启动本地 Whisper 服务后点击“Whisper识别”。</textarea>
+              <div class="song-lyrics-alignment" id="songLyricsAlignmentPanel" hidden>
+                <div class="song-lyrics-alignment-header">
+                  <div>
+                    <h3>歌词音高对应</h3>
+                    <span id="songLyricsAlignmentStatus">等待歌词和音高曲线</span>
+                  </div>
+                  <button id="copySongLyricsAlignmentButton" class="secondary" type="button" disabled>复制映射</button>
+                </div>
+                <div id="songLyricsAlignmentText" class="song-lyrics-alignment-text"></div>
+              </div>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -683,6 +763,18 @@
         <div class="chart-legend">
           <span id="chartLegendLow">低音</span>
           <span id="chartLegendHigh">高音</span>
+        </div>
+      </section>
+
+      <section class="practice-controls" id="practiceControls">
+        <div class="controls-main">
+          <button id="startButton" data-task-control="curve score breath range spectrogram volume formants memory rhythm">开始练习</button>
+          <button id="pauseButton" class="secondary" data-task-control="curve score breath range spectrogram volume formants memory rhythm" disabled>暂停</button>
+          <button id="stopButton" data-task-control="curve score breath range spectrogram volume formants memory rhythm" disabled>停止</button>
+          <button id="recordButton" class="secondary" hidden aria-hidden="true">开始录音</button>
+          <button id="stopRecordButton" class="secondary" hidden aria-hidden="true" disabled>停止录音</button>
+          <button id="breathCalibrateButton" class="secondary breath-control" data-task-control="breath" hidden>校准环境</button>
+          <div class="status" id="status">未开始</div>
         </div>
       </section>
 
@@ -908,6 +1000,7 @@
     <script src="breath-analysis.js"></script>
     <script src="memory-config.js"></script>
     <script src="memory-training.js"></script>
+    <script src="rhythm-training.js"></script>
     <script src="song-pitch.js"></script>
     <script src="vocal-score.js"></script>
     <script src="song-lyrics.js"></script>

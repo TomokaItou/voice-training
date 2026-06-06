@@ -27,6 +27,9 @@
   .breath-dashboard,
   .pitch-score-dashboard,
   .range-dashboard,
+  .rhythm-dashboard,
+  .rhythm-controls,
+  .rhythm-grid,
   .range-history-item,
   .song-target-controls,
   .song-target-status,
@@ -86,6 +89,11 @@
 
   .song-target-playback {
     justify-content: stretch;
+  }
+
+  .rhythm-dashboard.song-practice .rhythm-source,
+  .rhythm-dashboard.song-practice .rhythm-grid {
+    grid-column: 1;
   }
 
   .breath-score-value {
@@ -292,7 +300,7 @@ header h1 {
 
 .practice-grid {
   display: grid;
-  grid-template-columns: 1.18fr 1fr 1fr;
+  grid-template-columns: 1.18fr 1fr 1fr 1fr;
   gap: 14px;
 }
 
@@ -311,6 +319,10 @@ header h1 {
 
 .practice-card.breath-mode {
   background: #f3f8f5;
+}
+
+.practice-card.rhythm-mode {
+  background: #fff6ed;
 }
 
 .practice-action {
@@ -432,6 +444,14 @@ header h1 {
   background: #eef8f2;
 }
 
+.mode-button.rhythm-mode {
+  background: #fff6ed;
+}
+
+.mode-button.rhythm-mode::after {
+  background: rgba(154, 79, 18, 0.14);
+}
+
 .mode-button.library-mode {
   min-height: 106px;
   background: #fbfaf6;
@@ -523,12 +543,14 @@ header p {
 }
 
 .controls,
+.practice-controls,
 .curve-switcher,
 .training-feedback,
 .breath-dashboard,
 .readout,
 .pitch-score-dashboard,
 .range-dashboard,
+.rhythm-dashboard,
 .range-history-panel,
 .song-target-panel,
 .memory-dashboard,
@@ -547,6 +569,11 @@ header p {
   margin-bottom: 0;
   padding: 18px 0;
   border-bottom: 1px solid rgba(221, 217, 203, 0.76);
+}
+
+.practice-controls {
+  margin-top: 14px;
+  margin-bottom: 24px;
 }
 
 .controls-main,
@@ -900,12 +927,14 @@ canvas {
   }
 
   .controls,
+  .practice-controls,
   .curve-switcher,
   .training-feedback,
   .breath-dashboard,
   .readout,
   .pitch-score-dashboard,
   .range-dashboard,
+  .rhythm-dashboard,
   .range-history-panel,
   .song-target-panel,
   .memory-dashboard,
@@ -998,6 +1027,7 @@ canvas {
   .readout,
   .pitch-score-dashboard,
   .range-dashboard,
+  .rhythm-dashboard,
   .range-history-panel,
   .song-target-panel,
   .memory-dashboard,

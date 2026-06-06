@@ -407,3 +407,172 @@
   font-size: 13px;
 }
 
+.rhythm-dashboard {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.78fr) minmax(360px, 1.22fr);
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.rhythm-main,
+.rhythm-controls,
+.rhythm-track,
+.rhythm-grid {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.rhythm-main {
+  min-height: 158px;
+  padding: 18px;
+  display: grid;
+  align-content: center;
+  border-color: #e4b98d;
+  background: linear-gradient(180deg, #fff8f0 0%, #ffffff 100%);
+}
+
+.rhythm-score-value {
+  display: block;
+  margin: 8px 0;
+  color: #9a4f12;
+  font-size: 56px;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.rhythm-caption {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rhythm-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+  align-items: end;
+  padding: 14px;
+}
+
+.rhythm-controls .field {
+  display: grid;
+  gap: 6px;
+}
+
+.rhythm-click-toggle,
+.rhythm-song-toggle {
+  align-self: center;
+}
+
+.rhythm-source {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  border: 1px solid rgba(154, 79, 18, 0.16);
+  border-radius: 8px;
+  background: #fffaf5;
+  color: #765233;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rhythm-track {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(54px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-muted);
+}
+
+.rhythm-track span {
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(154, 79, 18, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #a77a51;
+  font-size: 24px;
+  font-weight: 820;
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.rhythm-track span.target {
+  color: #7c3f0f;
+  border-color: rgba(154, 79, 18, 0.35);
+}
+
+.rhythm-track span.active {
+  transform: translateY(-2px);
+  color: #ffffff;
+  border-color: #9a4f12;
+  background: #b35e18;
+}
+
+.rhythm-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.rhythm-grid > div {
+  background: var(--surface);
+  padding: 14px;
+}
+
+.rhythm-dashboard .label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rhythm-dashboard .value {
+  display: block;
+  margin-top: 5px;
+  font-size: 22px;
+  font-weight: 780;
+}
+
+.rhythm-dashboard[data-tone='good'] .rhythm-score-value {
+  color: #15803d;
+}
+
+.rhythm-dashboard[data-tone='close'] .rhythm-score-value {
+  color: #0b5d56;
+}
+
+.rhythm-dashboard[data-tone='warn'] .rhythm-score-value {
+  color: #b7791f;
+}
+
+.rhythm-dashboard.song-practice {
+  grid-template-columns: minmax(220px, 0.72fr) minmax(320px, 1.28fr);
+}
+
+.rhythm-dashboard.song-practice .rhythm-main {
+  min-height: 124px;
+}
+
+.rhythm-dashboard.song-practice .rhythm-score-value {
+  font-size: 42px;
+}
+
+.rhythm-dashboard.song-practice .rhythm-controls,
+.rhythm-dashboard.song-practice .rhythm-track {
+  display: none;
+}
+
+.rhythm-dashboard.song-practice .rhythm-source {
+  grid-column: 2;
+}
+
+.rhythm-dashboard.song-practice .rhythm-grid {
+  grid-column: 2;
+  grid-template-columns: repeat(4, minmax(100px, 1fr));
+}
+
