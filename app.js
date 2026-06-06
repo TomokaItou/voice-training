@@ -134,6 +134,7 @@ function updatePitchAccuracyButton() {
   const hasVocal = Boolean(lastRecordingBlob);
   pitchAccuracyButton.disabled =
     !(hasReference && hasVocal) || offlineAnalysisInProgress || songPitchAnalysisInProgress;
+  updateSongPracticeFlow();
 }
 
 function setPitchAccuracyResult(text, tone = 'neutral') {
@@ -244,6 +245,67 @@ function closeSidebar() {
   sidebar.hidden = true;
 }
 
+function setPracticeStepState(step, state) {
+  if (!step) {
+    return;
+  }
+  step.classList.toggle('active', state === 'active');
+  step.classList.toggle('done', state === 'done');
+}
+
+function updateSongPracticeFlow(status = null) {
+  if (!songPracticeFlow) {
+    return;
+  }
+  const hasSong = Boolean(songPitchAudio || songPitchTrack.length || songSeparationSourceFile);
+  const hasTarget = Boolean(songPitchTrack.length);
+  const isRecording = Boolean(mediaRecorder && mediaRecorder.state !== 'inactive');
+  const hasRecording = Boolean(lastRecordingBlob);
+  const canStart = hasTarget && !isRecording && !offlineAnalysisInProgress && !songPitchAnalysisInProgress;
+  const canReview = hasTarget && (hasRecording || isRecording) && !offlineAnalysisInProgress && !songPitchAnalysisInProgress;
+
+  setPracticeStepState(songPracticeStepSong, hasSong ? 'done' : 'active');
+  setPracticeStepState(songPracticeStepTarget, hasTarget ? 'done' : hasSong ? 'active' : null);
+  setPracticeStepState(songPracticeStepRecord, isRecording ? 'active' : hasRecording ? 'done' : null);
+  setPracticeStepState(songPracticeStepReview, hasRecording && hasTarget ? 'active' : null);
+
+  if (songPracticeStartButton) {
+    songPracticeStartButton.disabled = !canStart;
+    songPracticeStartButton.textContent = isRecording ? '跟唱中' : '开始跟唱';
+  }
+  if (songPracticeStopReviewButton) {
+    songPracticeStopReviewButton.disabled = !canReview;
+  }
+
+  if (songPracticeFlowState) {
+    if (status) {
+      songPracticeFlowState.textContent = status;
+    } else if (isRecording) {
+      songPracticeFlowState.textContent = '跟唱录音中';
+    } else if (hasRecording && hasTarget) {
+      songPracticeFlowState.textContent = '可评估';
+    } else if (hasTarget) {
+      songPracticeFlowState.textContent = '目标已生成';
+    } else if (hasSong || songPitchAnalysisInProgress) {
+      songPracticeFlowState.textContent = '生成目标中';
+    } else {
+      songPracticeFlowState.textContent = '等待歌曲';
+    }
+  }
+
+  if (songPracticeFlowHint) {
+    if (isRecording) {
+      songPracticeFlowHint.textContent = '正在录你的跟唱。唱完后点“停止并评估”，系统会自动对比目标曲线。';
+    } else if (hasRecording && hasTarget) {
+      songPracticeFlowHint.textContent = '已经有一段录音，可以直接评估，也可以重新开始跟唱。';
+    } else if (hasTarget) {
+      songPracticeFlowHint.textContent = '目标曲线准备好了。点“开始跟唱”会播放歌曲并同时录音。';
+    } else {
+      songPracticeFlowHint.textContent = '先选一首歌，系统会生成目标曲线，然后带你录一遍并自动评估。';
+    }
+  }
+}
+
 function prepareSongPitchPlayback(file) {
   stopSongPitchPlaybackProgress();
   if (songPitchAudio) {
@@ -264,6 +326,7 @@ function prepareSongPitchPlayback(file) {
   });
   setSongPitchPlaybackStatus('已加载');
   updateSongPitchPlaybackButtons();
+  updateSongPracticeFlow();
 }
 
 function clearSongPitchPlayback() {
@@ -278,6 +341,7 @@ function clearSongPitchPlayback() {
   }
   setSongPitchPlaybackStatus('未加载');
   updateSongPitchPlaybackButtons();
+  updateSongPracticeFlow();
 }
 
 function setSongTrainingResult(text, tone = 'neutral') {
@@ -902,6 +966,8 @@ function showTrainingView(mode = 'pitch') {
 
   if (mode === 'curve') {
     setCurveDisplayMode('pitch');
+    setSongTargetCollapsed(false);
+    updateSongPracticeFlow();
   } else if (mode === 'spectrogram') {
     setCurveSwitcherMode(null);
     displayMode = 'spectrogram';
@@ -1139,6 +1205,7 @@ async function runPitchAccuracyAnalysis() {
     console.error(error);
     setPitchAccuracyResult('解码失败');
     updatePitchAccuracyButton();
+    updateSongPracticeFlow();
     return;
   }
 
@@ -1153,6 +1220,7 @@ async function runPitchAccuracyAnalysis() {
       console.error(error);
       setPitchAccuracyResult('解码失败');
       updatePitchAccuracyButton();
+      updateSongPracticeFlow();
       return;
     }
   }
@@ -1162,6 +1230,7 @@ async function runPitchAccuracyAnalysis() {
   if (!result) {
     setPitchAccuracyResult('有效音高不足');
     updatePitchAccuracyButton();
+    updateSongPracticeFlow();
     return;
   }
 
@@ -1190,6 +1259,7 @@ async function runPitchAccuracyAnalysis() {
     result.tone
   );
   updatePitchAccuracyButton();
+  updateSongPracticeFlow('评估完成');
 }
 
 function updateVolumeMeter(rms) {
@@ -1492,6 +1562,137 @@ function updateRecordingButtons() {
   if (memoryAnalyzeButton) {
     memoryAnalyzeButton.disabled = !hasRecording || !recordingTimelineFrames.length;
   }
+  updateSongPracticeFlow();
+}
+
+async function startVoiceRecording() {
+  if (offlineAnalysisInProgress) {
+    return false;
+  }
+  try {
+    if (!audioContext || !sourceNode?.mediaStream) {
+      await start();
+    }
+    if (!sourceNode?.mediaStream) {
+      throw new Error('No microphone stream available');
+    }
+    const stream = sourceNode.mediaStream;
+    const recorder = new MediaRecorder(stream);
+    recordedChunks = [];
+    resetRecordingTimeline();
+    recordingStartTime = performance.now();
+    if (recordingTimelinePanel) {
+      recordingTimelinePanel.hidden = false;
+    }
+    setTimelineStatus('录音中，时间轴正在记录...');
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data && event.data.size > 0) {
+        recordedChunks.push(event.data);
+      }
+    });
+    recorder.addEventListener('stop', () => {
+      const blob = new Blob(recordedChunks, { type: recorder.mimeType });
+      lastRecordingBlob = blob.size > 0 ? blob : null;
+      recordedChunks = [];
+      recordingTimelineDurationMs = Math.max(
+        recordingTimelineDurationMs,
+        performance.now() - recordingStartTime
+      );
+      if (lastRecordingBlob) {
+        addRecordingToLibrary(lastRecordingBlob);
+        prepareRecordingPlayback(lastRecordingBlob);
+        selectRecordingTime(0, false);
+        setTimelineStatus('点击时间轴可从任意位置播放，并查看当时波形');
+      } else {
+        setTimelineStatus('录音为空，请重新录制');
+      }
+      updateRecordingButtons();
+      updatePitchAccuracyButton();
+      if (songPracticeAutoReviewPending) {
+        songPracticeAutoReviewPending = false;
+        if (lastRecordingBlob && songPitchTrack.length) {
+          updateSongPracticeFlow('评估中');
+          runPitchAccuracyAnalysis();
+        } else {
+          updateSongPracticeFlow();
+        }
+      }
+    });
+    mediaRecorder = recorder;
+    recorder.start();
+    recordButton.disabled = true;
+    stopRecordButton.disabled = false;
+    setStatus('录音中', 'active');
+    updateSongPracticeFlow();
+    return true;
+  } catch (error) {
+    console.error(error);
+    setStatus('无法开始录音，请检查权限设置');
+    updateSongPracticeFlow();
+    return false;
+  }
+}
+
+function stopVoiceRecording({ reviewAfterStop = false } = {}) {
+  songPracticeAutoReviewPending = Boolean(reviewAfterStop);
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  } else if (reviewAfterStop && lastRecordingBlob && songPitchTrack.length) {
+    songPracticeAutoReviewPending = false;
+    runPitchAccuracyAnalysis();
+  } else {
+    songPracticeAutoReviewPending = false;
+  }
+  recordButton.disabled = false;
+  stopRecordButton.disabled = true;
+  updateSongPracticeFlow(reviewAfterStop ? '准备评估' : null);
+}
+
+async function playSongPitchReference() {
+  if (!songPitchAudio) {
+    return false;
+  }
+  try {
+    if (accompanimentAudio && !accompanimentAudio.paused) {
+      accompanimentAudio.pause();
+      setAccompanimentStatus('已暂停');
+    }
+    songPitchAudio.currentTime = 0;
+    await songPitchAudio.play();
+    syncOfflineWindowToSongPlayback();
+    stopSongPitchPlaybackProgress();
+    updateSongPitchPlaybackProgress();
+    return true;
+  } catch (error) {
+    console.error(error);
+    setSongPitchPlaybackStatus('无法播放', 'bad');
+    return false;
+  }
+}
+
+async function startSongPracticeFlow() {
+  if (!songPitchTrack.length) {
+    setSongTargetCollapsed(false);
+    songPitchInput?.click();
+    updateSongPracticeFlow('请选择歌曲');
+    return;
+  }
+  setSongTargetCollapsed(false);
+  const recordingStarted = await startVoiceRecording();
+  if (recordingStarted) {
+    const playbackStarted = await playSongPitchReference();
+    setSongTrainingResult('正在跟唱，结束后会自动评估。');
+    updateSongPracticeFlow(playbackStarted ? '跟唱录音中' : '录音中');
+  }
+}
+
+function stopSongPracticeAndReview() {
+  if (songPitchAudio && !songPitchAudio.paused) {
+    songPitchAudio.pause();
+    stopSongPitchPlaybackProgress();
+    setSongPitchPlaybackStatus(`已暂停 ${formatTimeSeconds(songPitchAudio.currentTime * 1000)}`);
+  }
+  stopVoiceRecording({ reviewAfterStop: true });
 }
 
 function resetPitchStabilizer() {
@@ -1608,66 +1809,11 @@ tiltMeterToggle?.addEventListener('change', updateMeterVisibility);
 breathCalibrateButton?.addEventListener('click', () => {
   calibrateBreathEnvironment();
 });
-recordButton.addEventListener('click', async () => {
-  if (offlineAnalysisInProgress) {
-    return;
-  }
-  try {
-    if (!audioContext || !sourceNode?.mediaStream) {
-      await start();
-    }
-    if (!sourceNode?.mediaStream) {
-      throw new Error('No microphone stream available');
-    }
-    const stream = sourceNode.mediaStream;
-    const recorder = new MediaRecorder(stream);
-    recordedChunks = [];
-    resetRecordingTimeline();
-    recordingStartTime = performance.now();
-    if (recordingTimelinePanel) {
-      recordingTimelinePanel.hidden = false;
-    }
-    setTimelineStatus('录音中，时间轴正在记录...');
-    recorder.addEventListener('dataavailable', (event) => {
-      if (event.data && event.data.size > 0) {
-        recordedChunks.push(event.data);
-      }
-    });
-    recorder.addEventListener('stop', () => {
-      const blob = new Blob(recordedChunks, { type: recorder.mimeType });
-      lastRecordingBlob = blob.size > 0 ? blob : null;
-      recordedChunks = [];
-      recordingTimelineDurationMs = Math.max(
-        recordingTimelineDurationMs,
-        performance.now() - recordingStartTime
-      );
-      if (lastRecordingBlob) {
-        addRecordingToLibrary(lastRecordingBlob);
-        prepareRecordingPlayback(lastRecordingBlob);
-        selectRecordingTime(0, false);
-        setTimelineStatus('点击时间轴可从任意位置播放，并查看当时波形');
-      } else {
-        setTimelineStatus('录音为空，请重新录制');
-      }
-      updateRecordingButtons();
-      updatePitchAccuracyButton();
-    });
-    mediaRecorder = recorder;
-    recorder.start();
-    recordButton.disabled = true;
-    stopRecordButton.disabled = false;
-    setStatus('录音中', 'active');
-  } catch (error) {
-    console.error(error);
-    setStatus('无法开始录音，请检查权限设置');
-  }
+recordButton.addEventListener('click', () => {
+  startVoiceRecording();
 });
 stopRecordButton.addEventListener('click', () => {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
-  recordButton.disabled = false;
-  stopRecordButton.disabled = true;
+  stopVoiceRecording();
 });
 recordingTimelineCanvas?.addEventListener('click', (event) => {
   if (!recordingTimelineFrames.length) {
@@ -1711,12 +1857,14 @@ songPitchInput?.addEventListener('change', async (event) => {
   const file = event.target.files?.[0];
   if (file) {
     songSeparationSourceFile = file;
+    updateSongPracticeFlow('分析歌曲');
     if (separateSongButton) {
       separateSongButton.disabled = false;
     }
     setSongSeparationStatus('上传歌曲后会自动尝试分离人声和伴奏。');
     addAudioFileToLibrary(file, 'song');
     await analyzeSongPitchFile(file);
+    updateSongPracticeFlow();
     separateSongToLibraries(file, { auto: true });
   }
 });
@@ -1728,6 +1876,18 @@ songPitchToggle?.addEventListener('change', (event) => {
 });
 songTargetCollapseButton?.addEventListener('click', () => {
   setSongTargetCollapsed(!songTargetContent?.hidden);
+  updateSongPracticeFlow();
+});
+songPracticeChooseButton?.addEventListener('click', () => {
+  setSongTargetCollapsed(false);
+  songPitchInput?.click();
+  updateSongPracticeFlow('请选择歌曲');
+});
+songPracticeStartButton?.addEventListener('click', () => {
+  startSongPracticeFlow();
+});
+songPracticeStopReviewButton?.addEventListener('click', () => {
+  stopSongPracticeAndReview();
 });
 vocalScoreStaffViewButton?.addEventListener('click', () => {
   setVocalScoreView('staff');

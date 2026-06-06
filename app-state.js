@@ -112,3 +112,4 @@ let pitchScoreLastTone = 'neutral';
 let rangeSamples = [];
 let rangeLastPitch = null;
 let rangeHistoryRecords = [];
+let songPracticeAutoReviewPending = false;

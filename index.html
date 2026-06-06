@@ -9,36 +9,62 @@
   <body>
     <section class="mode-launcher" id="modeLauncher">
       <div class="mode-launcher-card">
-        <h1>选择训练模式</h1>
-        <p>请选择要进入的功能模块。</p>
-        <div class="mode-grid">
-          <button id="openCurveModeButton" class="mode-button">
-            <span class="mode-title">曲线</span>
-            <span class="mode-desc">进入后选择音高曲线或音量曲线</span>
+        <div class="launcher-heading">
+          <div>
+            <span class="launcher-kicker">声乐练习</span>
+            <h1>今天练什么？</h1>
+            <p>先选一个真实练习目标，工具会在进入后自动切到合适的视图。</p>
+          </div>
+          <div class="launcher-summary">
+            <span>当前可练</span>
+            <strong>跟唱、音准、气息、音域</strong>
+          </div>
+        </div>
+
+        <div class="practice-grid">
+          <button id="openCurveModeButton" class="mode-button practice-card practice-card-primary">
+            <span class="practice-tag">跟唱练歌</span>
+            <span class="mode-title">对着歌曲练一遍</span>
+            <span class="mode-desc">上传或搜索歌曲，查看目标曲线，再录下自己的演唱做对比。</span>
+            <span class="practice-action">开始跟唱</span>
           </button>
-          <button id="openSpectrogramModeButton" class="mode-button secondary-mode">
-            <span class="mode-title">频谱图</span>
-            <span class="mode-desc">直接进入实时频谱图视图</span>
+          <button id="openPitchScoreModeButton" class="mode-button practice-card score-mode">
+            <span class="practice-tag">音准训练</span>
+            <span class="mode-title">把一个目标音唱稳</span>
+            <span class="mode-desc">实时看偏高、偏低、稳定度和命中率，适合短时校准。</span>
+            <span class="practice-action">练音准</span>
           </button>
-          <button id="openBreathModeButton" class="mode-button">
-            <span class="mode-title">出气量测量</span>
-            <span class="mode-desc">通过麦克风估算吹气强度、稳定度和持续时间</span>
-          </button>
-          <button id="openRangeModeButton" class="mode-button range-mode">
-            <span class="mode-title">音域训练模式</span>
-            <span class="mode-desc">测量最低/最高稳定音，估算舒适音区和跨度</span>
-          </button>
-          <button id="openPitchScoreModeButton" class="mode-button score-mode">
-            <span class="mode-title">音准评分</span>
-            <span class="mode-desc">对照目标音实时显示偏差、稳定度和命中率</span>
-          </button>
-          <button id="openMemoryModeButton" class="mode-button memory-mode">
-            <span class="mode-title">记忆感知训练</span>
-            <span class="mode-desc">分析“接近-保持-恢复”路径，判断目标匹配、补偿性匹配和稳定匹配</span>
+          <button id="openBreathModeButton" class="mode-button practice-card breath-mode">
+            <span class="practice-tag">气息和音域</span>
+            <span class="mode-title">测今天的声音状态</span>
+            <span class="mode-desc">先测出气稳定度，再记录最低/最高稳定音和舒适音区。</span>
+            <span class="practice-action">测气息</span>
           </button>
         </div>
+
+        <div class="launcher-secondary">
+          <div>
+            <h2>高级工具</h2>
+            <p>需要观察细节时再打开这些视图。</p>
+          </div>
+          <div class="tool-grid">
+            <button id="openRangeModeButton" class="mode-button compact-tool range-mode">
+              <span class="mode-title">音域测量</span>
+              <span class="mode-desc">记录稳定跨度</span>
+            </button>
+            <button id="openSpectrogramModeButton" class="mode-button compact-tool secondary-mode">
+              <span class="mode-title">频谱图</span>
+              <span class="mode-desc">看泛音和能量</span>
+            </button>
+            <button id="openMemoryModeButton" class="mode-button compact-tool memory-mode">
+              <span class="mode-title">记忆感知</span>
+              <span class="mode-desc">分析保持和恢复路径</span>
+            </button>
+          </div>
+        </div>
+
         <div class="song-search-card">
-          <h2>网上搜歌</h2>
+          <h2>找一首歌开始练</h2>
           <form id="songSearchForm" class="song-search-form">
             <input
               id="songSearchInput"
@@ -49,7 +75,7 @@
             />
             <button id="songSearchButton" type="submit" class="secondary">搜索</button>
           </form>
-          <p id="songSearchStatus" class="song-search-status">输入关键词后点击搜索</p>
+          <p id="songSearchStatus" class="song-search-status">搜索后可从结果进入歌曲练习。</p>
           <ul id="songSearchResults" class="song-search-results" aria-live="polite"></ul>
         </div>
 
@@ -301,6 +327,41 @@
           </button>
         </div>
         <div class="song-target-content" id="songTargetContent" hidden>
+          <div class="practice-flow" id="songPracticeFlow">
+            <div class="practice-flow-header">
+              <div>
+                <h3>一键跟唱流程</h3>
+                <p id="songPracticeFlowHint">先选一首歌，系统会生成目标曲线，然后带你录一遍并自动评估。</p>
+              </div>
+              <span id="songPracticeFlowState" class="practice-flow-state">等待歌曲</span>
+            </div>
+            <ol class="practice-flow-steps" aria-label="跟唱流程步骤">
+              <li id="songPracticeStepSong" class="active">
+                <span>1</span>
+                <strong>选歌</strong>
+              </li>
+              <li id="songPracticeStepTarget">
+                <span>2</span>
+                <strong>生成目标</strong>
+              </li>
+              <li id="songPracticeStepRecord">
+                <span>3</span>
+                <strong>跟唱录音</strong>
+              </li>
+              <li id="songPracticeStepReview">
+                <span>4</span>
+                <strong>自动评估</strong>
+              </li>
+            </ol>
+            <div class="practice-flow-actions">
+              <button id="songPracticeChooseButton" class="secondary" type="button">选择歌曲</button>
+              <button id="songPracticeStartButton" type="button" disabled>开始跟唱</button>
+              <button id="songPracticeStopReviewButton" class="secondary" type="button" disabled>
+                停止并评估
+              </button>
+            </div>
+          </div>
+
           <div class="song-target-controls">
             <input type="file" id="songPitchInput" accept="audio/*" class="file-input song-target-file" />
             <div class="controls-inline song-target-playback">
