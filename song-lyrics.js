@@ -357,6 +357,7 @@ function buildSongLyricsCharAlignment(segments = songLyricsSegments) {
   if (!normalizedSegments.length || !songPitchTrack.length) {
     songLyricsCharAlignment = [];
     renderSongLyricsAlignment();
+    saveCurrentSongAssetsToLibrary();
     return [];
   }
 
@@ -423,6 +424,7 @@ function renderSongLyricsAlignment() {
       renderJianpuScoreSheet();
     }
   }
+  saveCurrentSongAssetsToLibrary();
 }
 
 async function analyzeSongLyricsFile(file) {
@@ -462,6 +464,7 @@ async function analyzeSongLyricsFile(file) {
     songLyricsCharAlignment = [];
     renderSongLyrics(normalized, match.source);
     renderSongLyricsAlignment();
+    saveCurrentSongAssetsToLibrary();
     setSongLyricsStatus(formatLyricsSource(match.source, normalized), 'good');
   } catch (error) {
     console.error(error);

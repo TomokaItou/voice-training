@@ -183,6 +183,32 @@ body {
   text-decoration: none;
 }
 
+.song-search-save {
+  width: fit-content;
+  padding: 6px 10px;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.song-separation-status {
+  margin: 2px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.song-separation-status[data-tone='good'] {
+  color: #15803d;
+}
+
+.song-separation-status[data-tone='warn'] {
+  color: var(--warning);
+}
+
+.song-separation-status[data-tone='bad'] {
+  color: var(--danger);
+}
+
 .app {
   max-width: var(--app-max-width, 1080px);
   width: min(100%, var(--app-max-width, 1080px));
@@ -607,6 +633,34 @@ button.secondary:not(:disabled):hover {
 
 .pitch-score-dashboard[data-tone='warn'] .pitch-score-value {
   color: var(--warning);
+}
+
+.pitch-score-dashboard.song-practice {
+  grid-template-columns: minmax(260px, 0.95fr) minmax(320px, 1.05fr);
+}
+
+.pitch-score-dashboard.song-practice .pitch-score-main {
+  min-height: 124px;
+  border-color: #b9d5d2;
+  background: linear-gradient(180deg, #f4fbfa 0%, #ffffff 100%);
+}
+
+.pitch-score-dashboard.song-practice .pitch-score-value {
+  font-size: 42px;
+  letter-spacing: 0;
+}
+
+.pitch-score-dashboard.song-practice .pitch-score-grid {
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+}
+
+.pitch-score-dashboard.song-practice .pitch-score-grid > div:nth-child(3),
+.pitch-score-dashboard.song-practice .pitch-score-grid > div:nth-child(5) {
+  display: none;
+}
+
+.pitch-score-dashboard.song-practice .pitch-score-grid > div {
+  padding: 12px 14px;
 }
 
 .range-dashboard {
@@ -1511,9 +1565,13 @@ canvas {
 }
 
 .recording-library {
-  margin: 10px 0;
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px;
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .recording-library-header {
@@ -1523,9 +1581,10 @@ canvas {
   gap: 8px;
 }
 
+.recording-library-header h2,
 .recording-library-header h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .recording-library-header span,
@@ -1537,7 +1596,7 @@ canvas {
 .recording-library-list {
   display: grid;
   gap: 8px;
-  max-height: 260px;
+  max-height: 280px;
   overflow: auto;
 }
 
@@ -2098,12 +2157,56 @@ header h1 {
   background: #eef8f2;
 }
 
+.mode-button.library-mode {
+  min-height: 106px;
+  background: #fbfaf6;
+}
+
+.mode-button.library-mode::after {
+  background: rgba(12, 124, 114, 0.1);
+}
+
+.mode-button.library-mode.accompaniment-mode {
+  background: #f8f4ea;
+}
+
+.mode-button.library-mode.accompaniment-mode::after {
+  background: rgba(184, 91, 70, 0.12);
+}
+
+.mode-button.active {
+  border-color: rgba(12, 124, 114, 0.62);
+  background: #ffffff;
+  box-shadow: var(--shadow-soft);
+}
+
 .song-search-card {
   margin-top: 22px;
   padding: 18px;
   border: 1px solid rgba(221, 217, 203, 0.9);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.62);
+}
+
+.launcher-library-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.launcher-library-detail {
+  margin-top: 14px;
+}
+
+.mode-launcher .recording-library {
+  margin: 0;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.mode-launcher .recording-library-list {
+  max-height: 220px;
 }
 
 .app {
@@ -2157,6 +2260,7 @@ header p {
 .chart,
 .offline-window-control,
 .pitch-inspector,
+.recording-library,
 .recording-timeline {
   margin-left: 32px;
   margin-right: 32px;
@@ -2251,6 +2355,7 @@ header p {
 .memory-recommendation,
 .breath-report,
 .pitch-inspector,
+.recording-library,
 .recording-timeline {
   border-color: rgba(221, 217, 203, 0.86);
   box-shadow: var(--shadow-soft);
@@ -2464,6 +2569,10 @@ canvas {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .launcher-library-grid {
+    grid-template-columns: 1fr;
+  }
+
   .controls,
   .curve-switcher,
   .breath-dashboard,
@@ -2477,6 +2586,7 @@ canvas {
   .chart,
   .offline-window-control,
   .pitch-inspector,
+  .recording-library,
   .recording-timeline {
     margin-left: 22px;
     margin-right: 22px;
@@ -2531,6 +2641,7 @@ canvas {
   .chart,
   .offline-window-control,
   .pitch-inspector,
+  .recording-library,
   .recording-timeline {
     margin-left: 16px;
     margin-right: 16px;
@@ -2555,6 +2666,14 @@ canvas {
 
   .readout {
     grid-template-columns: 1fr;
+  }
+
+  .recording-library-item {
+    grid-template-columns: 1fr;
+  }
+
+  .recording-library-action {
+    width: 100%;
   }
 
   .song-target-panel {

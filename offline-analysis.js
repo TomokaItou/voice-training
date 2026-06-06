@@ -26,15 +26,20 @@ function downloadBlob(blob, filename) {
 
 function setOfflineMode(enabled) {
   offlineMode = enabled;
+  const canStartSongPractice =
+    offlineMode &&
+    typeof hasSongPitchTarget === 'function' &&
+    hasSongPitchTarget() &&
+    !offlineAnalysisInProgress;
   if (!offlineMode) {
     resetOfflineWindow();
     updateOfflineWindowControl(0);
   }
   clearFileButton.disabled = !offlineMode;
   audioFileInput.disabled = offlineMode && offlineAnalysisInProgress;
-  startButton.disabled = offlineMode || offlineAnalysisInProgress;
+  startButton.disabled = (offlineMode && !canStartSongPractice) || offlineAnalysisInProgress;
   stopButton.disabled = offlineMode || offlineAnalysisInProgress;
-  recordButton.disabled = offlineMode || offlineAnalysisInProgress;
+  recordButton.disabled = (offlineMode && !canStartSongPractice) || offlineAnalysisInProgress;
   stopRecordButton.disabled = offlineMode || offlineAnalysisInProgress;
   pitchAlgorithmSelect.disabled = offlineAnalysisInProgress;
   displayModeSelect.disabled = offlineAnalysisInProgress;

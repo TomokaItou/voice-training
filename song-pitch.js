@@ -32,8 +32,79 @@ function renderSongSearchResults(results) {
       li.appendChild(link);
     }
 
+    const audioUrl = item.downloadUrl || item.previewUrl || item.audioUrl;
+    if (audioUrl) {
+      const saveButton = document.createElement('button');
+      saveButton.type = 'button';
+      saveButton.className = 'song-search-save';
+      saveButton.textContent = item.downloadLabel || '保存到录音库';
+      saveButton.addEventListener('click', () => downloadSearchedSongToLibrary(item, saveButton));
+      li.appendChild(saveButton);
+    }
+
     songSearchResults.appendChild(li);
   });
+}
+
+function getSongSearchFileExtension(contentType, url) {
+  if (/mpeg|mp3/i.test(contentType)) return 'mp3';
+  if (/mp4|m4a|aac/i.test(contentType)) return 'm4a';
+  if (/wav/i.test(contentType)) return 'wav';
+  if (/ogg/i.test(contentType)) return 'ogg';
+  const cleanUrl = String(url || '').split('?')[0];
+  const match = cleanUrl.match(/\.([a-z0-9]{2,5})$/i);
+  return match ? match[1].toLowerCase() : 'm4a';
+}
+
+function getSongSearchFileName(item, extension) {
+  const title = item.trackName || '搜索歌曲';
+  const artist = item.artistName ? ` - ${item.artistName}` : '';
+  return `${title}${artist}.${extension}`.replace(/[\\/:*?"<>|]+/g, '-');
+}
+
+async function downloadSearchedSongToLibrary(item, button) {
+  const audioUrl = item.downloadUrl || item.previewUrl || item.audioUrl;
+  if (!audioUrl) {
+    songSearchStatus.textContent = '这个平台结果没有提供可保存的音频';
+    return;
+  }
+
+  const previousText = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = '保存中...';
+  }
+  songSearchStatus.textContent = '正在保存到录音库...';
+
+  try {
+    const response = await fetch(audioUrl);
+    if (!response.ok) {
+      throw new Error(`Audio HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const contentType = blob.type || response.headers.get('content-type') || 'audio/mp4';
+    const extension = getSongSearchFileExtension(contentType, audioUrl);
+    const file = new File([blob], getSongSearchFileName(item, extension), {
+      type: contentType,
+      lastModified: Date.now(),
+    });
+    const recording = addAudioFileToLibrary(file, 'song', {
+      source: item.source || '网上搜歌',
+      sourceUrl: item.trackViewUrl || '',
+      isPreview: Boolean(item.previewUrl && audioUrl === item.previewUrl),
+    });
+    songSearchStatus.textContent = recording
+      ? `已保存到录音库：${recording.name}`
+      : '保存失败，请稍后重试';
+  } catch (error) {
+    console.error(error);
+    songSearchStatus.textContent = '保存失败：平台没有允许当前页面下载这个音频';
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = previousText || '保存到录音库';
+    }
+  }
 }
 
 async function fetchItunesSongs(query, signal) {
@@ -49,6 +120,8 @@ async function fetchItunesSongs(query, signal) {
     artistName: item.artistName,
     collectionName: item.collectionName,
     trackViewUrl: item.trackViewUrl,
+    previewUrl: item.previewUrl,
+    downloadLabel: '保存试听到录音库',
     source: 'iTunes Music',
   }));
 }
@@ -486,7 +559,10 @@ async function analyzeSongPitchFile(file) {
     pitchHistory = track.map((point) => ({ time: point.timeMs, pitch: point.pitch }));
     volumeHistory = [];
     resetPitchScoreDisplay();
+    setReadoutMode(displayMode);
+    setSongTrainingResult('点击“开始检测”后，会按歌曲目标曲线实时判断有没有跑调。');
     drawPitchHistory();
+    saveCurrentSongAssetsToLibrary();
   } finally {
     songPitchAnalysisInProgress = false;
     updateSongPitchPlaybackButtons();
@@ -518,6 +594,7 @@ function clearSongPitchTrack() {
     volumeHistory = [];
   }
   resetPitchScoreDisplay();
+  setReadoutMode(displayMode);
   drawPitchHistory();
   updatePitchAccuracyButton();
 }
