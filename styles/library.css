@@ -1,0 +1,105 @@
+﻿.recording-library {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.recording-library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recording-library-header h2,
+.recording-library-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.recording-library-header span,
+.recording-library-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.recording-library-list {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.recording-library-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.recording-library-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.recording-library-select {
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.recording-library-select strong,
+.recording-library-select span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recording-library-select span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.recording-library-action {
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.recording-library-action.danger {
+  color: var(--danger);
+}
+
+.waveform-detail {
+  display: grid;
+  gap: 8px;
+}
+
+.waveform-detail .label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.waveform-detail .value {
+  font-size: 18px;
+  font-weight: 780;
+}
+

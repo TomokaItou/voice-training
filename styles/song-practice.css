@@ -1,0 +1,448 @@
+﻿.song-target-panel {
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.song-target-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.song-target-panel.is-collapsed .song-target-header {
+  margin-bottom: 0;
+}
+
+.song-target-header h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.song-target-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.song-target-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.song-target-collapse-button {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 8px 14px;
+}
+
+.song-target-content[hidden] {
+  display: none !important;
+}
+
+.practice-flow {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid rgba(12, 124, 114, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(228, 243, 239, 0.82), rgba(255, 255, 255, 0.68)),
+    var(--surface);
+}
+
+.practice-flow-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.practice-flow-header h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.practice-flow-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.practice-flow-state {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid rgba(12, 124, 114, 0.22);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 760;
+  padding: 6px 10px;
+}
+
+.practice-flow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.practice-flow-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid rgba(221, 217, 203, 0.9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--muted);
+  padding: 9px 10px;
+}
+
+.practice-flow-steps span {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.practice-flow-steps strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-flow-steps li.active {
+  border-color: rgba(12, 124, 114, 0.42);
+  color: var(--accent-strong);
+  background: #ffffff;
+}
+
+.practice-flow-steps li.active span,
+.practice-flow-steps li.done span {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.practice-flow-steps li.done {
+  color: var(--text);
+}
+
+.practice-flow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.practice-flow-actions button {
+  min-height: 42px;
+}
+
+.song-target-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.song-target-file {
+  margin: 0;
+}
+
+.song-target-playback {
+  justify-content: flex-end;
+}
+
+.song-target-status {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--border);
+}
+
+.song-target-status > div {
+  min-width: 0;
+  background: var(--surface);
+  padding: 10px 12px;
+}
+
+.song-target-status .label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.song-target-status .value {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
+.song-lyrics-panel {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.vocal-score-panel {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.vocal-score-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: #fbfcfa;
+}
+
+.vocal-score-header h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
+}
+
+.vocal-score-header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vocal-score-actions {
+  align-items: center;
+}
+
+.vocal-score-view-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.vocal-score-view-button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.vocal-score-view-button.active {
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.78) inset;
+}
+
+.vocal-score-sheet {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, #fffdfa 0%, #fbfaf5 100%);
+}
+
+.vocal-score-jianpu-sheet {
+  max-height: 520px;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+  background: #fffefa;
+}
+
+.vocal-score-sheet canvas {
+  width: auto;
+  max-width: none;
+  height: 260px;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: #fcfbf7;
+  box-shadow: none;
+}
+
+.vocal-score-jianpu-sheet canvas {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: auto;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: #fffefa;
+  box-shadow: none;
+}
+
+.vocal-score-text {
+  max-height: 220px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #263129;
+  font: 13px/1.65 "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: #ffffff;
+}
+
+.song-lyrics-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: #fbfcfa;
+}
+
+.song-lyrics-header h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
+}
+
+.song-lyrics-header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.song-lyrics-actions {
+  align-items: center;
+}
+
+.song-lyrics-language {
+  width: 96px;
+  min-width: 96px;
+  padding: 8px 9px;
+}
+
+.song-lyrics-model {
+  width: 126px;
+  min-width: 126px;
+  padding: 8px 9px;
+}
+
+.song-lyrics-progress {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+  display: grid;
+  gap: 7px;
+}
+
+.song-lyrics-progress-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-strong);
+}
+
+.song-lyrics-progress-bar span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f766e, #46a38c);
+  transition: width 0.2s ease;
+}
+
+.song-lyrics-progress.is-indeterminate .song-lyrics-progress-bar span {
+  width: 42%;
+  animation: songLyricsProgress 1.15s ease-in-out infinite;
+}
+
+.song-lyrics-progress > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@keyframes songLyricsProgress {
+  0% {
+    transform: translateX(-115%);
+  }
+  100% {
+    transform: translateX(245%);
+  }
+}
+
+.song-lyrics-text {
+  max-height: 240px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #263129;
+  font: 13px/1.65 "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: #ffffff;
+}
+
+.song-lyrics-alignment {
+  border-top: 1px solid var(--border);
+  background: #fbfcfa;
+}
+
+.song-lyrics-alignment-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.song-lyrics-alignment-header h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
+}
+
+.song-lyrics-alignment-header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.song-lyrics-alignment-text {
+  padding: 9px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+

@@ -567,6 +567,7 @@ async function analyzeSongPitchFile(file) {
     songPitchAnalysisInProgress = false;
     updateSongPitchPlaybackButtons();
     updatePitchAccuracyButton();
+    updateSongPracticeFlow();
   }
 }
 
@@ -587,6 +588,7 @@ function clearSongPitchTrack() {
   if (clearSongPitchButton) {
     clearSongPitchButton.disabled = true;
   }
+  updateSongPracticeFlow();
   if (offlineMode) {
     setOfflineMode(false);
     resetOfflineState();
