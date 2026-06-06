@@ -39,8 +39,8 @@ function setOfflineMode(enabled) {
   audioFileInput.disabled = offlineMode && offlineAnalysisInProgress;
   startButton.disabled = (offlineMode && !canStartSongPractice) || offlineAnalysisInProgress;
   stopButton.disabled = offlineMode || offlineAnalysisInProgress;
-  recordButton.disabled = (offlineMode && !canStartSongPractice) || offlineAnalysisInProgress;
-  stopRecordButton.disabled = offlineMode || offlineAnalysisInProgress;
+  recordButton.disabled = true;
+  stopRecordButton.disabled = true;
   pitchAlgorithmSelect.disabled = offlineAnalysisInProgress;
   displayModeSelect.disabled = offlineAnalysisInProgress;
   canvasScaleRange.disabled = offlineAnalysisInProgress;

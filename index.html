@@ -180,10 +180,10 @@
 
       <section class="controls">
         <div class="controls-main">
-          <button id="startButton" data-task-control="curve score breath range spectrogram volume formants">开始检测</button>
-          <button id="stopButton" data-task-control="curve score breath range spectrogram volume formants" disabled>停止</button>
-          <button id="recordButton" class="secondary" data-task-control="curve memory">开始录音</button>
-          <button id="stopRecordButton" class="secondary" data-task-control="curve memory" disabled>停止录音</button>
+          <button id="startButton" data-task-control="curve score breath range spectrogram volume formants memory">开始练习</button>
+          <button id="stopButton" data-task-control="curve score breath range spectrogram volume formants memory" disabled>停止</button>
+          <button id="recordButton" class="secondary" hidden aria-hidden="true">开始录音</button>
+          <button id="stopRecordButton" class="secondary" hidden aria-hidden="true" disabled>停止录音</button>
           <button id="breathCalibrateButton" class="secondary breath-control" data-task-control="breath" hidden>校准环境</button>
           <div class="status" id="status">未开始</div>
         </div>
@@ -500,6 +500,7 @@
                 <span>识别入口已移到录音库</span>
               </div>
               <div class="controls-inline song-lyrics-actions">
+                <button id="saveSongLyricsEditButton" class="secondary" type="button" disabled>保存编辑</button>
                 <button id="copySongLyricsButton" class="secondary" type="button" disabled>复制</button>
                 <button id="downloadSongLyricsButton" class="secondary" type="button" disabled>下载</button>
               </div>
@@ -510,7 +511,7 @@
               </div>
               <span id="songLyricsProgressText">准备识别...</span>
             </div>
-            <pre id="songLyricsText" class="song-lyrics-text">上传歌曲后，可以读取内嵌歌词，也可以启动本地 Whisper 服务后点击“Whisper识别”。</pre>
+            <textarea id="songLyricsText" class="song-lyrics-text" spellcheck="false">上传歌曲后，可以读取内嵌歌词，也可以启动本地 Whisper 服务后点击“Whisper识别”。</textarea>
             <div class="song-lyrics-alignment" id="songLyricsAlignmentPanel" hidden>
               <div class="song-lyrics-alignment-header">
                 <div>

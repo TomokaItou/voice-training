@@ -36,7 +36,7 @@
 
 .recording-library-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto auto;
   gap: 6px;
   align-items: center;
   padding: 7px;

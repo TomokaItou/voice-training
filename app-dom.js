@@ -134,6 +134,7 @@ const songLyricsAlignmentStatus = document.getElementById('songLyricsAlignmentSt
 const songLyricsAlignmentText = document.getElementById('songLyricsAlignmentText');
 const copySongLyricsAlignmentButton = document.getElementById('copySongLyricsAlignmentButton');
 const transcribeSongLyricsButton = document.getElementById('transcribeSongLyricsButton');
+const saveSongLyricsEditButton = document.getElementById('saveSongLyricsEditButton');
 const copySongLyricsButton = document.getElementById('copySongLyricsButton');
 const downloadSongLyricsButton = document.getElementById('downloadSongLyricsButton');
 const volumeMeterToggle = document.getElementById('volumeMeterToggle');

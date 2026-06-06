@@ -2,6 +2,7 @@
 // then fall back to a lightweight browser-side Mid/Side candidate split.
 
 const LOCAL_SEPARATION_ENDPOINT = 'http://127.0.0.1:8766/api/separate';
+const LOCAL_SEPARATION_HEALTH_ENDPOINT = 'http://127.0.0.1:8766/health';
 
 function setSongSeparationStatus(text, tone = 'neutral') {
   if (!songSeparationStatus) {
@@ -114,6 +115,15 @@ function storeSeparatedFiles(vocalFile, accompanimentFileForLibrary, source, sta
 }
 
 async function separateSongWithLocalService(file) {
+  const healthResponse = await fetch(LOCAL_SEPARATION_HEALTH_ENDPOINT);
+  const health = await healthResponse.json().catch(() => ({}));
+  if (!healthResponse.ok || !health.ok) {
+    throw new Error('本地 Demucs 服务未就绪');
+  }
+  if (!health.demucs_available) {
+    throw new Error(`本地 Demucs 环境不可用：${health.demucs_error || '未安装 demucs'}`);
+  }
+
   const formData = new FormData();
   formData.append('file', file, file.name || 'song.audio');
 
@@ -198,7 +208,8 @@ async function separateSongToLibraries(file, { auto = false } = {}) {
       return await separateSongWithLocalService(file);
     } catch (serviceError) {
       console.warn('Local Demucs separation unavailable; falling back to browser split.', serviceError);
-      setSongSeparationStatus('本地 Demucs 服务不可用，正在回退到浏览器候选分离...', 'warn');
+      const detail = serviceError?.message ? `：${serviceError.message}` : '';
+      setSongSeparationStatus(`本地 Demucs 服务不可用${detail}，正在回退到浏览器候选分离...`, 'warn');
       return await separateSongInBrowser(file);
     }
   } catch (error) {

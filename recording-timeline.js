@@ -254,6 +254,59 @@ function updateRecordingLibraryItem(id, patch) {
   return recording;
 }
 
+function renameRecordingLibraryItem(id) {
+  const recording = recordingLibrary.find((item) => item.id === id);
+  if (!recording) {
+    return;
+  }
+
+  const currentName = getRecordingLibraryName(recording);
+  const nextName = window.prompt('重命名录音', currentName);
+  if (nextName === null) {
+    return;
+  }
+
+  const cleanName = nextName.trim();
+  if (!cleanName || cleanName === currentName) {
+    return;
+  }
+
+  const updatedRecording = updateRecordingLibraryItem(id, { name: cleanName });
+  if (updatedRecording && selectedRecordingLibraryId === id) {
+    if (isRecordingLibraryRecording(updatedRecording)) {
+      setTimelineStatus(`已重命名为 ${cleanName}`);
+    } else {
+      setAnalysisStatus(`已重命名${getRecordingLibraryTypeLabel(updatedRecording)}：${cleanName}`);
+    }
+  }
+}
+
+function isRecordingLibraryItemPlaying(recording) {
+  return (
+    recordingPlaybackAudio &&
+    !recordingPlaybackAudio.paused &&
+    selectedRecordingLibraryId === recording.id
+  );
+}
+
+function playRecordingLibraryItem(recording) {
+  if (!recording?.blob) {
+    return;
+  }
+
+  if (isRecordingLibraryItemPlaying(recording)) {
+    stopRecordingPlayback();
+    renderRecordingLibrary();
+    return;
+  }
+
+  stopRecordingPlayback(false);
+  selectRecordingFromLibrary(recording.id);
+  prepareRecordingPlayback(recording.blob);
+  startRecordingPlayback(0);
+  setTimelineStatus(`正在播放 ${getRecordingLibraryName(recording)}`);
+}
+
 function saveCurrentSongAssetsToLibrary() {
   const recording = getSelectedRecordingLibraryItem();
   if (!recording || recording.type !== 'song') {
@@ -407,6 +460,7 @@ function renderRecordingLibrary() {
     const item = document.createElement('div');
     item.className = 'recording-library-item';
     item.classList.toggle('active', recording.id === selectedRecordingLibraryId);
+    const isPlaying = isRecordingLibraryItemPlaying(recording);
 
     const main = document.createElement('button');
     main.className = 'recording-library-select';
@@ -425,11 +479,23 @@ function renderRecordingLibrary() {
     main.append(title, meta);
     main.addEventListener('click', () => selectRecordingFromLibrary(recording.id));
 
+    const playButton = document.createElement('button');
+    playButton.className = 'recording-library-action';
+    playButton.type = 'button';
+    playButton.textContent = isPlaying ? '暂停' : '播放';
+    playButton.addEventListener('click', () => playRecordingLibraryItem(recording));
+
     const analyzeButton = document.createElement('button');
     analyzeButton.className = 'recording-library-action';
     analyzeButton.type = 'button';
     analyzeButton.textContent = '分析';
     analyzeButton.addEventListener('click', () => selectRecordingFromLibrary(recording.id, { analyze: true }));
+
+    const renameButton = document.createElement('button');
+    renameButton.className = 'recording-library-action';
+    renameButton.type = 'button';
+    renameButton.textContent = '重命名';
+    renameButton.addEventListener('click', () => renameRecordingLibraryItem(recording.id));
 
     const downloadButton = document.createElement('button');
     downloadButton.className = 'recording-library-action';
@@ -447,7 +513,7 @@ function renderRecordingLibrary() {
     removeButton.textContent = '删除';
     removeButton.addEventListener('click', () => removeRecordingFromLibrary(recording.id));
 
-    item.append(main, analyzeButton, downloadButton, removeButton);
+    item.append(main, playButton, analyzeButton, renameButton, downloadButton, removeButton);
     recordingLibraryList.append(item);
   });
 }
@@ -521,6 +587,45 @@ function getAccompanimentLibraryFile(item) {
   });
 }
 
+function isAccompanimentLibraryItemPlaying(item) {
+  return (
+    accompanimentAudio &&
+    !accompanimentAudio.paused &&
+    selectedAccompanimentLibraryId === item.id
+  );
+}
+
+async function playAccompanimentLibraryItem(item) {
+  if (!item?.blob || typeof loadAccompanimentFile !== 'function') {
+    return;
+  }
+
+  if (isAccompanimentLibraryItemPlaying(item)) {
+    accompanimentAudio.pause();
+    setAccompanimentStatus('已暂停');
+    renderAccompanimentLibrary();
+    return;
+  }
+
+  if (accompanimentAudio && !accompanimentAudio.paused) {
+    accompanimentAudio.pause();
+  }
+
+  selectedAccompanimentLibraryId = item.id;
+  const file = getAccompanimentLibraryFile(item);
+  loadAccompanimentFile(file, `正在试听：${getAccompanimentLibraryName(item)}`);
+  accompanimentAudio.addEventListener('ended', renderAccompanimentLibrary, { once: true });
+
+  try {
+    await accompanimentAudio.play();
+    setAccompanimentStatus(`正在播放：${getAccompanimentLibraryName(item)}`);
+  } catch (error) {
+    console.error(error);
+    setAccompanimentStatus('无法播放伴奏');
+  }
+  renderAccompanimentLibrary();
+}
+
 function renderAccompanimentLibrary() {
   if (!accompanimentLibraryList) {
     return;
@@ -539,6 +644,7 @@ function renderAccompanimentLibrary() {
     const row = document.createElement('div');
     row.className = 'recording-library-item';
     row.classList.toggle('active', item.id === selectedAccompanimentLibraryId);
+    const isPlaying = isAccompanimentLibraryItemPlaying(item);
 
     const main = document.createElement('button');
     main.className = 'recording-library-select';
@@ -550,6 +656,12 @@ function renderAccompanimentLibrary() {
     meta.textContent = `伴奏 · ${item.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${sourceText}`;
     main.append(title, meta);
     main.addEventListener('click', () => selectAccompanimentFromLibrary(item.id));
+
+    const playButton = document.createElement('button');
+    playButton.className = 'recording-library-action';
+    playButton.type = 'button';
+    playButton.textContent = isPlaying ? '暂停' : '播放';
+    playButton.addEventListener('click', () => playAccompanimentLibraryItem(item));
 
     const loadButton = document.createElement('button');
     loadButton.className = 'recording-library-action';
@@ -573,7 +685,7 @@ function renderAccompanimentLibrary() {
     removeButton.textContent = '删除';
     removeButton.addEventListener('click', () => removeAccompanimentFromLibrary(item.id));
 
-    row.append(main, loadButton, downloadButton, removeButton);
+    row.append(main, playButton, loadButton, downloadButton, removeButton);
     accompanimentLibraryList.append(row);
   });
 }
@@ -914,6 +1026,7 @@ function prepareRecordingPlayback(blob) {
   recordingPlaybackAudio.addEventListener('ended', () => {
     stopRecordingPlayback();
     selectRecordingTime(getRecordingDurationMs(), false);
+    renderRecordingLibrary();
   });
   if (timelinePlayPauseButton) {
     timelinePlayPauseButton.disabled = false;
@@ -929,6 +1042,7 @@ function startRecordingPlayback(timeMs = recordingSelectedTimeMs) {
     if (timelinePlayPauseButton) {
       timelinePlayPauseButton.textContent = '暂停';
     }
+    renderRecordingLibrary();
     updateRecordingPlaybackProgress();
   }).catch((error) => {
     console.error(error);
@@ -947,6 +1061,7 @@ function stopRecordingPlayback(resetButton = true) {
   if (resetButton && timelinePlayPauseButton) {
     timelinePlayPauseButton.textContent = '播放';
   }
+  renderRecordingLibrary();
 }
 
 function updateRecordingPlaybackProgress() {

@@ -1702,6 +1702,10 @@ function updateRecordingButtons() {
   updateSongPracticeFlow();
 }
 
+function shouldRecordWithMainSession() {
+  return trainingMode === 'curve' || trainingMode === 'memory';
+}
+
 async function startVoiceRecording() {
   if (offlineAnalysisInProgress) {
     return false;
@@ -1787,6 +1791,25 @@ function stopVoiceRecording({ reviewAfterStop = false } = {}) {
   updateSongPracticeFlow(reviewAfterStop ? '准备评估' : null);
 }
 
+async function startPracticeSession() {
+  if (shouldRecordWithMainSession()) {
+    await startVoiceRecording();
+    return;
+  }
+  await start();
+}
+
+function stopPracticeSession() {
+  stop();
+  if (recordButton) {
+    recordButton.disabled = false;
+  }
+  if (stopRecordButton) {
+    stopRecordButton.disabled = true;
+  }
+  updateSongPracticeFlow();
+}
+
 async function playSongPitchReference() {
   if (!songPitchAudio) {
     return false;
@@ -1852,8 +1875,8 @@ function resetPitchStabilizer() {
   clearSelectedPitchPoint();
 }
 
-startButton.addEventListener('click', start);
-stopButton.addEventListener('click', stop);
+startButton.addEventListener('click', startPracticeSession);
+stopButton.addEventListener('click', stopPracticeSession);
 pitchAlgorithmSelect.addEventListener('change', (event) => {
   pitchAlgorithm = event.target.value;
   resetPitchStabilizer();
@@ -2042,6 +2065,14 @@ separateSongButton?.addEventListener('click', () => {
 });
 transcribeSongLyricsButton?.addEventListener('click', () => {
   transcribeSongLyricsWithWhisper();
+});
+saveSongLyricsEditButton?.addEventListener('click', () => {
+  saveSongLyricsEdit();
+});
+songLyricsText?.addEventListener('input', () => {
+  if (!songLyricsTranscriptionInProgress) {
+    setSongLyricsStatus('歌词已修改，记得保存编辑', 'warn');
+  }
 });
 copySongLyricsButton?.addEventListener('click', async () => {
   try {

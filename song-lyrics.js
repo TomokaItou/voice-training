@@ -38,6 +38,9 @@ function updateSongLyricsButtons() {
   if (songLyricsModelSelect) {
     songLyricsModelSelect.disabled = songLyricsTranscriptionInProgress;
   }
+  if (saveSongLyricsEditButton) {
+    saveSongLyricsEditButton.disabled = songLyricsTranscriptionInProgress;
+  }
   if (copySongLyricsButton) {
     copySongLyricsButton.disabled = !hasLyrics;
   }
@@ -53,7 +56,10 @@ function renderSongLyrics(text, source = '') {
   songLyrics = normalizeLyricsText(text);
   songLyricsSource = source;
   if (songLyricsText) {
-    songLyricsText.textContent = songLyrics || '未识别到歌词。';
+    songLyricsText.value = songLyrics || '未识别到歌词。';
+  }
+  if (songLyricsText && 'value' in songLyricsText) {
+    songLyricsText.value = songLyrics || '未识别到歌词。';
   }
   updateSongLyricsButtons();
 }
@@ -71,7 +77,7 @@ function resetSongLyrics() {
   stopSongLyricsProgress();
   setSongLyricsStatus('未加载');
   if (songLyricsText) {
-    songLyricsText.textContent = '上传歌曲后，可以读取内嵌歌词，也可以启动本地 Whisper 服务后点击“Whisper识别”。';
+    songLyricsText.value = '上传歌曲后，可以读取内嵌歌词，也可以启动本地 Whisper 服务后点击“Whisper识别”。';
   }
   renderSongLyricsAlignment();
   updateSongLyricsButtons();
@@ -303,6 +309,44 @@ function looksLikeTimedLyrics(text) {
   return /\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?\]/.test(text);
 }
 
+function parseLyricTimestamp(timestamp) {
+  const match = String(timestamp || '').match(/^(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?$/);
+  if (!match) {
+    return null;
+  }
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  const fractionText = match[3] || '';
+  const fraction = fractionText ? Number(fractionText.padEnd(3, '0').slice(0, 3)) / 1000 : 0;
+  return minutes * 60 + seconds + fraction;
+}
+
+function buildSegmentsFromTimedLyrics(text) {
+  const rows = normalizeLyricsText(text)
+    .split('\n')
+    .map((line) => {
+      const match = line.match(/^\s*\[(\d{1,2}:\d{2}(?:[.:]\d{1,3})?)\]\s*(.*)$/);
+      if (!match) {
+        return null;
+      }
+      const start = parseLyricTimestamp(match[1]);
+      const lyricText = normalizeLyricsText(match[2]);
+      if (!Number.isFinite(start) || !lyricText) {
+        return null;
+      }
+      return { start, end: null, text: lyricText };
+    })
+    .filter(Boolean);
+
+  return rows.map((row, index) => {
+    const nextStart = rows[index + 1]?.start;
+    return {
+      ...row,
+      end: Number.isFinite(nextStart) && nextStart > row.start ? nextStart : row.start + 2,
+    };
+  });
+}
+
 function formatLyricsSource(source, text) {
   const timed = looksLikeTimedLyrics(text) ? '，含时间轴' : '';
   return `${source}${timed}`;
@@ -454,7 +498,7 @@ async function analyzeSongLyricsFile(file) {
     if (!match) {
       setSongLyricsStatus('未找到内嵌歌词', 'warn');
       if (songLyricsText) {
-        songLyricsText.textContent = '这个音频文件里没有识别到内嵌歌词标签。可以启动本地 Whisper 服务后点击“Whisper识别”来听写歌词。';
+        songLyricsText.value = '这个音频文件里没有识别到内嵌歌词标签。可以启动本地 Whisper 服务后点击“Whisper识别”来听写歌词。';
       }
       updateSongLyricsButtons();
       return;
@@ -470,7 +514,7 @@ async function analyzeSongLyricsFile(file) {
     console.error(error);
     setSongLyricsStatus('歌词识别失败', 'bad');
     if (songLyricsText) {
-      songLyricsText.textContent = '读取歌词时出错，请尝试换一个音频文件。';
+      songLyricsText.value = '读取歌词时出错，请尝试换一个音频文件。';
     }
   } finally {
     if (requestId === songLyricsRequestId) {
@@ -515,7 +559,7 @@ async function transcribeSongLyricsWithWhisper() {
   const modelName = songLyricsModelSelect?.value || 'small';
   setSongLyricsProgress('准备上传音频...', 3);
   if (songLyricsText) {
-    songLyricsText.textContent = `正在把歌曲发送到本地 Whisper 服务。\n当前模型：${modelName}\n日语歌词建议先做人声分离，识别会更准。`;
+    songLyricsText.value = `正在把歌曲发送到本地 Whisper 服务。\n当前模型：${modelName}\n日语歌词建议先做人声分离，识别会更准。`;
   }
 
   const formData = new FormData();
@@ -530,7 +574,7 @@ async function transcribeSongLyricsWithWhisper() {
     if (!text) {
       setSongLyricsStatus('Whisper未识别到歌词', 'warn');
       if (songLyricsText) {
-        songLyricsText.textContent = 'Whisper没有返回有效文本。可以尝试换 large-v3/medium 模型，或先分离人声再识别。';
+        songLyricsText.value = 'Whisper没有返回有效文本。可以尝试换 large-v3/medium 模型，或先分离人声再识别。';
       }
       return;
     }
@@ -545,7 +589,7 @@ async function transcribeSongLyricsWithWhisper() {
     console.error(error);
     setSongLyricsStatus('Whisper服务不可用', 'bad');
     if (songLyricsText) {
-      songLyricsText.textContent = `无法连接本地 Whisper 服务：${error.message}\n\n请先运行：python scripts/lyrics_whisper_server.py`;
+      songLyricsText.value = `无法连接本地 Whisper 服务：${error.message}\n\n请先运行：python scripts/lyrics_whisper_server.py`;
     }
   } finally {
     stopSongLyricsProgress();
@@ -616,6 +660,30 @@ async function copySongLyrics() {
   }
   await navigator.clipboard.writeText(songLyrics);
   setSongLyricsStatus('已复制歌词', 'good');
+}
+
+function saveSongLyricsEdit() {
+  if (!songLyricsText) {
+    return;
+  }
+
+  const editedLyrics = normalizeLyricsText(songLyricsText.value || songLyricsText.textContent || '');
+  songLyrics = editedLyrics;
+  songLyricsSource = songLyricsSource || '手动编辑';
+
+  const editedSegments = buildSegmentsFromTimedLyrics(editedLyrics);
+  if (editedSegments.length) {
+    songLyricsSegments = editedSegments;
+    buildSongLyricsCharAlignment(songLyricsSegments);
+  } else {
+    songLyricsSegments = [];
+    songLyricsCharAlignment = [];
+    renderSongLyricsAlignment();
+    saveCurrentSongAssetsToLibrary();
+  }
+
+  updateSongLyricsButtons();
+  setSongLyricsStatus('歌词编辑已保存', 'good');
 }
 
 async function copySongLyricsAlignment() {
