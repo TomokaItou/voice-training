@@ -429,6 +429,19 @@ function updateBreathDisplay(metrics, stability, now, voiceType) {
   if (breathDurationHeroValue) {
     breathDurationHeroValue.textContent = `${breathDurationSeconds.toFixed(1)}s`;
   }
+  if (typeof setTrainingFeedback === 'function' && trainingMode === 'breath') {
+    if (!breathCalibration.calibrated) {
+      setTrainingFeedback('先校准环境', '点“校准环境”并保持安静 2 秒，之后评分会更稳定。', '气息');
+    } else if (flowScore < breathActiveThreshold) {
+      setTrainingFeedback('轻轻开始吹气', '现在还没有稳定气流。对准麦克风，用小而连续的气流开始。', '气息');
+    } else if (stability !== null && stability < 55) {
+      setTrainingFeedback('气流有断续', `已经持续 ${breathDurationSeconds.toFixed(1)} 秒。下一步把气流放慢，目标是不中断。`, '气息', 'warn');
+    } else if (metrics.leakNoise > 0.62) {
+      setTrainingFeedback('漏气偏多', '声音里气声比较重。下一遍少推气，像细线一样匀速送出。', '气息', 'warn');
+    } else {
+      setTrainingFeedback('气息保持得住', `持续 ${breathDurationSeconds.toFixed(1)} 秒，稳定度 ${stability ?? '--'}%。继续延长但不要加猛气。`, '气息', 'good');
+    }
+  }
 }
 
 function hasRecentBreathData() {

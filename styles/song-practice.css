@@ -157,7 +157,7 @@
 
 .song-target-controls {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto;
+  grid-template-columns: minmax(220px, 1fr) auto;
   gap: 10px;
   align-items: center;
   margin-bottom: 12px;

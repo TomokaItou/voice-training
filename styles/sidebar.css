@@ -49,6 +49,48 @@
   gap: 10px;
 }
 
+.advanced-settings {
+  display: block;
+}
+
+.advanced-settings summary {
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 12px;
+}
+
+.advanced-settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-settings summary span {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 780;
+}
+
+.advanced-settings summary small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.advanced-settings[open] summary {
+  border-color: rgba(12, 124, 114, 0.32);
+  background: var(--accent-soft);
+}
+
+.advanced-settings > .sidebar-card {
+  margin-left: 10px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
 .sidebar-card:first-child {
   padding-top: 0;
 }

@@ -221,6 +221,9 @@ function getRecordingLibraryFile(recording) {
 
 function analyzeRecordingLibraryItem(recording) {
   const file = getRecordingLibraryFile(recording);
+  if (typeof showTrainingView === 'function') {
+    showTrainingView('curve');
+  }
   if (recording.type === 'song') {
     if (recording.songPitchTrack?.length || recording.vocalScoreSummary || recording.songLyrics) {
       restoreSongAssetsFromLibrary(recording);
@@ -608,6 +611,9 @@ function selectAccompanimentFromLibrary(id) {
   const file = getAccompanimentLibraryFile(item);
   if (typeof loadAccompanimentFile === 'function') {
     loadAccompanimentFile(file, `已从伴奏库加载：${getAccompanimentLibraryName(item)}`);
+  }
+  if (typeof showTrainingView === 'function') {
+    showTrainingView('curve');
   }
   renderAccompanimentLibrary();
 }

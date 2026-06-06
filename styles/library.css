@@ -103,3 +103,105 @@
   font-weight: 780;
 }
 
+.library-page {
+  min-height: calc(100vh - 64px);
+  display: grid;
+  align-items: start;
+  padding-top: clamp(12px, 5vh, 52px);
+}
+
+.library-page-card {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: clamp(22px, 3vw, 36px);
+  border: 1px solid rgba(187, 180, 162, 0.75);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(255, 252, 246, 0.98)),
+    var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.library-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.library-page-header h1 {
+  margin: 10px 0 8px;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.05;
+}
+
+.library-page-header p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.library-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.library-page-switcher {
+  display: inline-flex;
+  width: fit-content;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.library-page-panel {
+  margin-top: 0;
+}
+
+.library-page .recording-library-list {
+  max-height: min(58vh, 620px);
+}
+
+.library-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.library-tool-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid rgba(221, 217, 203, 0.9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 16px;
+}
+
+.library-tool-card h2 {
+  margin: 0 0 5px;
+  font-size: 18px;
+}
+
+.library-tool-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.library-tool-card .file-input {
+  margin: 0;
+}
+
+.lyrics-tool-card .song-lyrics-actions {
+  gap: 8px;
+}

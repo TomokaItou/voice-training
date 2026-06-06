@@ -89,28 +89,86 @@
             <span class="mode-desc" id="accompanimentLibraryEntryStatus">暂无伴奏</span>
           </button>
         </div>
+      </div>
+    </section>
 
-        <div class="launcher-library-detail" id="launcherLibraryDetail" hidden>
-          <section class="recording-library" id="recordingLibraryPanel" hidden>
-            <div class="recording-library-header">
-              <div>
-                <h2>录音库</h2>
-                <span id="recordingLibraryStatus">暂无录音</span>
-              </div>
-            </div>
-            <div class="recording-library-list" id="recordingLibraryList"></div>
-          </section>
-
-          <section class="recording-library accompaniment-library" id="accompanimentLibraryPanel" hidden>
-            <div class="recording-library-header">
-              <div>
-                <h2>伴奏库</h2>
-                <span id="accompanimentLibraryStatus">暂无伴奏</span>
-              </div>
-            </div>
-            <div class="recording-library-list" id="accompanimentLibraryList"></div>
-          </section>
+    <section class="library-page" id="libraryPage" hidden>
+      <div class="library-page-card">
+        <div class="library-page-header">
+          <div>
+            <span class="launcher-kicker">素材库</span>
+            <h1 id="libraryPageTitle">录音库</h1>
+            <p id="libraryPageDescription">管理录音、歌曲目标和分析结果。</p>
+          </div>
+          <div class="library-page-actions">
+            <button id="libraryOpenCurveButton" type="button">去音高曲线</button>
+            <button id="libraryBackButton" class="secondary" type="button">← 返回首页</button>
+          </div>
         </div>
+
+        <div class="library-page-switcher" aria-label="素材库切换">
+          <button id="recordingLibraryTabButton" class="curve-tab active" type="button">录音库</button>
+          <button id="accompanimentLibraryTabButton" class="curve-tab" type="button">伴奏库</button>
+        </div>
+
+        <section class="library-tools" id="libraryToolsPanel">
+          <div class="library-tool-card">
+            <div>
+              <h2>上传歌曲</h2>
+              <p>导入歌曲后会生成目标曲线，并保存到录音库。</p>
+            </div>
+            <input type="file" id="songPitchInput" accept="audio/*" class="file-input song-target-file" />
+          </div>
+          <div class="library-tool-card">
+            <div>
+              <h2>人声/伴奏分离</h2>
+              <p id="songSeparationStatus" class="song-separation-status">上传歌曲后会自动尝试分离人声和伴奏。</p>
+            </div>
+            <button id="separateSongButton" class="secondary" type="button" disabled>分离当前歌曲</button>
+          </div>
+          <div class="library-tool-card lyrics-tool-card">
+            <div>
+              <h2>歌词语音识别</h2>
+              <p id="songLyricsStatus">上传歌曲或人声后，可以启动本地 Whisper 服务识别歌词。</p>
+            </div>
+            <div class="controls-inline song-lyrics-actions">
+              <select id="songLyricsLanguageSelect" class="select song-lyrics-language" aria-label="Whisper识别语言">
+                <option value="auto">自动</option>
+                <option value="ja">日语</option>
+                <option value="zh">中文</option>
+                <option value="en">英语</option>
+                <option value="ko">韩语</option>
+              </select>
+              <select id="songLyricsModelSelect" class="select song-lyrics-model" aria-label="Whisper模型">
+                <option value="small" selected>small 快</option>
+                <option value="medium">medium 准</option>
+                <option value="large-v3">large-v3 最准</option>
+                <option value="base">base 很快</option>
+              </select>
+              <button id="transcribeSongLyricsButton" class="secondary" type="button" disabled>Whisper识别</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="recording-library library-page-panel" id="recordingLibraryPanel">
+          <div class="recording-library-header">
+            <div>
+              <h2>录音库</h2>
+              <span id="recordingLibraryStatus">暂无录音</span>
+            </div>
+          </div>
+          <div class="recording-library-list" id="recordingLibraryList"></div>
+        </section>
+
+        <section class="recording-library accompaniment-library library-page-panel" id="accompanimentLibraryPanel" hidden>
+          <div class="recording-library-header">
+            <div>
+              <h2>伴奏库</h2>
+              <span id="accompanimentLibraryStatus">暂无伴奏</span>
+            </div>
+          </div>
+          <div class="recording-library-list" id="accompanimentLibraryList"></div>
+        </section>
       </div>
     </section>
 
@@ -122,17 +180,26 @@
 
       <section class="controls">
         <div class="controls-main">
-          <button id="startButton">开始检测</button>
-          <button id="stopButton" disabled>停止</button>
-          <button id="recordButton" class="secondary">开始录音</button>
-          <button id="stopRecordButton" class="secondary" disabled>停止录音</button>
-          <button id="breathCalibrateButton" class="secondary breath-control" hidden>校准环境</button>
+          <button id="startButton" data-task-control="curve score breath range spectrogram volume formants">开始检测</button>
+          <button id="stopButton" data-task-control="curve score breath range spectrogram volume formants" disabled>停止</button>
+          <button id="recordButton" class="secondary" data-task-control="curve memory">开始录音</button>
+          <button id="stopRecordButton" class="secondary" data-task-control="curve memory" disabled>停止录音</button>
+          <button id="breathCalibrateButton" class="secondary breath-control" data-task-control="breath" hidden>校准环境</button>
           <div class="status" id="status">未开始</div>
         </div>
         <div class="controls-side">
           <button id="backToHomeButton" class="secondary sidebar-toggle">← 返回</button>
           <button id="sidebarToggle" class="secondary sidebar-toggle" aria-expanded="false">设置</button>
         </div>
+      </section>
+
+      <section class="training-feedback" id="trainingFeedbackPanel">
+        <div>
+          <span class="label">练习建议</span>
+          <h2 id="trainingFeedbackTitle">先开始一次练习</h2>
+          <p id="trainingFeedbackText">系统会把音高、稳定度和录音结果翻译成下一步练习建议。</p>
+        </div>
+        <span id="trainingFeedbackBadge" class="training-feedback-badge">等待</span>
       </section>
 
       <section class="curve-switcher" id="curveSwitcher" hidden>
@@ -354,7 +421,7 @@
               </li>
             </ol>
             <div class="practice-flow-actions">
-              <button id="songPracticeChooseButton" class="secondary" type="button">选择歌曲</button>
+              <button id="songPracticeChooseButton" class="secondary" type="button">去录音库选歌</button>
               <button id="songPracticeStartButton" type="button" disabled>开始跟唱</button>
               <button id="songPracticeStopReviewButton" class="secondary" type="button" disabled>
                 停止并评估
@@ -363,16 +430,13 @@
           </div>
 
           <div class="song-target-controls">
-            <input type="file" id="songPitchInput" accept="audio/*" class="file-input song-target-file" />
             <div class="controls-inline song-target-playback">
               <button id="playSongPitchButton" class="secondary" disabled>播放</button>
               <button id="pauseSongPitchButton" class="secondary" disabled>暂停</button>
               <button id="stopSongPitchButton" class="secondary" disabled>停止</button>
             </div>
-            <button id="separateSongButton" class="secondary" type="button" disabled>分离人声/伴奏</button>
             <button id="clearSongPitchButton" class="secondary" disabled>清除曲线</button>
           </div>
-          <p id="songSeparationStatus" class="song-separation-status">上传歌曲后会自动尝试分离人声和伴奏。</p>
           <div class="song-target-status">
             <div>
               <span class="label">提取状态</span>
@@ -433,23 +497,9 @@
             <div class="song-lyrics-header">
               <div>
                 <h3>歌词识别</h3>
-                <span id="songLyricsStatus">未加载</span>
+                <span>识别入口已移到录音库</span>
               </div>
               <div class="controls-inline song-lyrics-actions">
-                <select id="songLyricsLanguageSelect" class="select song-lyrics-language" aria-label="Whisper识别语言">
-                  <option value="auto">自动</option>
-                  <option value="ja">日语</option>
-                  <option value="zh">中文</option>
-                  <option value="en">英语</option>
-                  <option value="ko">韩语</option>
-                </select>
-                <select id="songLyricsModelSelect" class="select song-lyrics-model" aria-label="Whisper模型">
-                  <option value="small" selected>small 快</option>
-                  <option value="medium">medium 准</option>
-                  <option value="large-v3">large-v3 最准</option>
-                  <option value="base">base 很快</option>
-                </select>
-                <button id="transcribeSongLyricsButton" class="secondary" type="button" disabled>Whisper识别</button>
                 <button id="copySongLyricsButton" class="secondary" type="button" disabled>复制</button>
                 <button id="downloadSongLyricsButton" class="secondary" type="button" disabled>下载</button>
               </div>
@@ -694,7 +744,12 @@
         <h2>设置</h2>
         <button id="closeSidebarButton" class="secondary sidebar-close-button" type="button">关闭</button>
       </div>
-      <div class="sidebar-card">
+      <details class="sidebar-card advanced-settings" data-task-section="curve spectrogram volume formants">
+        <summary>
+          <span>高级参数</span>
+          <small>算法、频谱、刻度和显示细节</small>
+        </summary>
+      <div class="sidebar-card" data-task-section="formants spectrogram">
         <h2>共振峰 (Formants)</h2>
         <label class="toggle">
           <input type="checkbox" id="formantToggle" />
@@ -713,7 +768,7 @@
         </div>
         <div class="formant-status" id="formantStatus"></div>
       </div>
-      <div class="sidebar-card">
+      <div class="sidebar-card" data-task-section="curve">
         <h2>音高算法</h2>
         <label class="field">
           <span class="label">检测算法</span>
@@ -726,7 +781,7 @@
         </label>
         <p class="hint">可切换不同音高检测算法进行对比。</p>
       </div>
-      <div class="sidebar-card">
+      <div class="sidebar-card" data-task-section="curve spectrogram volume formants">
         <h2>音高刻度</h2>
         <label class="field">
           <span class="label">刻度模式</span>
@@ -738,20 +793,7 @@
         </label>
         <p class="hint">固定刻度下，范围保持 50–500 Hz，仅曲线移动。</p>
       </div>
-      <div class="sidebar-card">
-        <h2>音准目标线</h2>
-        <label class="toggle">
-          <input type="checkbox" id="targetPitchToggle" checked />
-          <span class="toggle-pill"></span>
-          <span class="toggle-text">显示目标线</span>
-        </label>
-        <label class="field">
-          <span class="label">目标音高 (Hz)</span>
-          <input type="number" id="targetPitchInput" class="input" min="50" max="1000" step="1" value="300" />
-        </label>
-        <p class="hint">目标线会与实时音高曲线叠加显示，方便对齐练习。</p>
-      </div>
-      <div class="sidebar-card">
+      <div class="sidebar-card" data-task-section="curve spectrogram volume formants">
         <h2>显示模式</h2>
         <label class="field">
           <span class="label">视图</span>
@@ -784,7 +826,7 @@
         </label>
         <p class="hint">切换为频谱图时，画布显示实时声谱。</p>
       </div>
-      <div class="sidebar-card">
+      <div class="sidebar-card" data-task-section="curve spectrogram volume formants">
         <h2>窗口缩放</h2>
         <label class="field">
           <span class="label">显示大小</span>
@@ -802,7 +844,21 @@
           <span class="value" id="canvasScaleValue">100%</span>
         </div>
       </div>
-      <div class="sidebar-card">
+      </details>
+      <div class="sidebar-card" data-task-section="score">
+        <h2>音准目标线</h2>
+        <label class="toggle">
+          <input type="checkbox" id="targetPitchToggle" checked />
+          <span class="toggle-pill"></span>
+          <span class="toggle-text">显示目标线</span>
+        </label>
+        <label class="field">
+          <span class="label">目标音高 (Hz)</span>
+          <input type="number" id="targetPitchInput" class="input" min="50" max="1000" step="1" value="300" />
+        </label>
+        <p class="hint">目标线会与实时音高曲线叠加显示，方便对齐练习。</p>
+      </div>
+      <div class="sidebar-card" data-task-section="curve">
         <h2>离线分析</h2>
         <input type="file" id="audioFileInput" accept="audio/*" class="file-input" />
         <button id="analyzeRecordingButton" class="secondary" disabled>分析最近录音</button>
@@ -817,7 +873,7 @@
           <span class="value" id="analysisStatus">未开始</span>
         </div>
       </div>
-      <div class="sidebar-card">
+      <div class="sidebar-card" data-task-section="curve">
         <h2>伴奏播放</h2>
         <input type="file" id="accompanimentInput" accept="audio/*" class="file-input" />
         <div class="controls-inline">
