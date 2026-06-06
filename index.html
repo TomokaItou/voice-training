@@ -52,6 +52,39 @@
           <p id="songSearchStatus" class="song-search-status">输入关键词后点击搜索</p>
           <ul id="songSearchResults" class="song-search-results" aria-live="polite"></ul>
         </div>
+
+        <div class="launcher-library-grid">
+          <button id="openRecordingLibraryButton" class="mode-button library-mode" type="button">
+            <span class="mode-title">录音库</span>
+            <span class="mode-desc" id="recordingLibraryEntryStatus">暂无录音</span>
+          </button>
+          <button id="openAccompanimentLibraryButton" class="mode-button library-mode accompaniment-mode" type="button">
+            <span class="mode-title">伴奏库</span>
+            <span class="mode-desc" id="accompanimentLibraryEntryStatus">暂无伴奏</span>
+          </button>
+        </div>
+
+        <div class="launcher-library-detail" id="launcherLibraryDetail" hidden>
+          <section class="recording-library" id="recordingLibraryPanel" hidden>
+            <div class="recording-library-header">
+              <div>
+                <h2>录音库</h2>
+                <span id="recordingLibraryStatus">暂无录音</span>
+              </div>
+            </div>
+            <div class="recording-library-list" id="recordingLibraryList"></div>
+          </section>
+
+          <section class="recording-library accompaniment-library" id="accompanimentLibraryPanel" hidden>
+            <div class="recording-library-header">
+              <div>
+                <h2>伴奏库</h2>
+                <span id="accompanimentLibraryStatus">暂无伴奏</span>
+              </div>
+            </div>
+            <div class="recording-library-list" id="accompanimentLibraryList"></div>
+          </section>
+        </div>
       </div>
     </section>
 
@@ -275,8 +308,10 @@
               <button id="pauseSongPitchButton" class="secondary" disabled>暂停</button>
               <button id="stopSongPitchButton" class="secondary" disabled>停止</button>
             </div>
+            <button id="separateSongButton" class="secondary" type="button" disabled>分离人声/伴奏</button>
             <button id="clearSongPitchButton" class="secondary" disabled>清除曲线</button>
           </div>
+          <p id="songSeparationStatus" class="song-separation-status">上传歌曲后会自动尝试分离人声和伴奏。</p>
           <div class="song-target-status">
             <div>
               <span class="label">提取状态</span>
@@ -711,13 +746,6 @@
         <input type="file" id="audioFileInput" accept="audio/*" class="file-input" />
         <button id="analyzeRecordingButton" class="secondary" disabled>分析最近录音</button>
         <button id="downloadRecordingButton" class="secondary" disabled>下载最近录音</button>
-        <div class="recording-library" id="recordingLibraryPanel">
-          <div class="recording-library-header">
-            <h3>录音库</h3>
-            <span id="recordingLibraryStatus">暂无录音</span>
-          </div>
-          <div class="recording-library-list" id="recordingLibraryList"></div>
-        </div>
         <button id="clearFileButton" class="secondary" disabled>清除文件/返回实时</button>
         <div class="file-status">
           <span class="label">数据源</span>
@@ -766,6 +794,7 @@
     <script src="vocal-score.js"></script>
     <script src="song-lyrics.js"></script>
     <script src="recording-timeline.js"></script>
+    <script src="vocal-separation.js"></script>
     <script src="spectrogram.js"></script>
     <script src="audio-engine.js"></script>
     <script src="app.js"></script>

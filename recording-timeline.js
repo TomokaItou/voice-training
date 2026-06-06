@@ -49,22 +49,37 @@ function resetRecordingTimeline({ keepBlob = false } = {}) {
 }
 
 function updateRecordingLibraryStatus() {
-  if (!recordingLibraryStatus) {
-    return;
+  const text = recordingLibrary.length ? `${recordingLibrary.length} 条录音` : '暂无录音';
+  if (recordingLibraryStatus) {
+    recordingLibraryStatus.textContent = text;
   }
-  recordingLibraryStatus.textContent = recordingLibrary.length
-    ? `${recordingLibrary.length} 条录音`
-    : '暂无录音';
+  if (recordingLibraryEntryStatus) {
+    recordingLibraryEntryStatus.textContent = text;
+  }
 }
 
+function updateAccompanimentLibraryStatus() {
+  const text = accompanimentLibrary.length ? `${accompanimentLibrary.length} 条伴奏` : '暂无伴奏';
+  if (accompanimentLibraryStatus) {
+    accompanimentLibraryStatus.textContent = text;
+  }
+  if (accompanimentLibraryEntryStatus) {
+    accompanimentLibraryEntryStatus.textContent = text;
+  }
+}
 function openRecordingLibraryDb() {
   if (!window.indexedDB) {
     return Promise.resolve(null);
   }
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('voice-training-recordings', 1);
+    const request = indexedDB.open('voice-training-recordings', 2);
     request.onupgradeneeded = () => {
-      request.result.createObjectStore('recordings', { keyPath: 'id' });
+      if (!request.result.objectStoreNames.contains('recordings')) {
+        request.result.createObjectStore('recordings', { keyPath: 'id' });
+      }
+      if (!request.result.objectStoreNames.contains('accompaniments')) {
+        request.result.createObjectStore('accompaniments', { keyPath: 'id' });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -99,6 +114,34 @@ async function deleteRecordingLibraryItem(id) {
   db.close();
 }
 
+async function saveAccompanimentLibraryItem(item) {
+  const db = await openRecordingLibraryDb();
+  if (!db) {
+    return;
+  }
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction('accompaniments', 'readwrite');
+    transaction.objectStore('accompaniments').put(item);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
+async function deleteAccompanimentLibraryItem(id) {
+  const db = await openRecordingLibraryDb();
+  if (!db) {
+    return;
+  }
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction('accompaniments', 'readwrite');
+    transaction.objectStore('accompaniments').delete(id);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
 async function loadRecordingLibrary() {
   try {
     const db = await openRecordingLibraryDb();
@@ -115,6 +158,7 @@ async function loadRecordingLibrary() {
     recordingLibrary = recordingLibrary
       .map((recording) => ({
         ...recording,
+        type: recording.type || 'recording',
         createdAt: new Date(recording.createdAt),
         frames: Array.isArray(recording.frames) ? recording.frames : [],
       }))
@@ -126,10 +170,170 @@ async function loadRecordingLibrary() {
   renderRecordingLibrary();
 }
 
+async function loadAccompanimentLibrary() {
+  try {
+    const db = await openRecordingLibraryDb();
+    if (!db) {
+      renderAccompanimentLibrary();
+      return;
+    }
+    accompanimentLibrary = await new Promise((resolve, reject) => {
+      const request = db.transaction('accompaniments', 'readonly').objectStore('accompaniments').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    accompanimentLibrary = accompanimentLibrary
+      .map((item) => ({
+        ...item,
+        createdAt: new Date(item.createdAt),
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 24);
+  } catch (error) {
+    console.error(error);
+  }
+  renderAccompanimentLibrary();
+}
+
 function getRecordingLibraryName(recording) {
   const index = recordingLibrary.findIndex((item) => item.id === recording.id);
   const fallbackIndex = index >= 0 ? index + 1 : recordingLibrary.length + 1;
   return recording.name || `录音 ${fallbackIndex}`;
+}
+
+function getRecordingLibraryTypeLabel(recording) {
+  if (recording.type === 'song') return '歌曲';
+  if (recording.type === 'audio') return '音频';
+  return '录音';
+}
+
+function isRecordingLibraryRecording(recording) {
+  return !recording.type || recording.type === 'recording';
+}
+
+function getRecordingLibraryFile(recording) {
+  return new File([recording.blob], getRecordingLibraryName(recording), {
+    type: recording.blob?.type || recording.mimeType || 'audio/webm',
+    lastModified: recording.createdAt?.getTime?.() || Date.now(),
+  });
+}
+
+function analyzeRecordingLibraryItem(recording) {
+  const file = getRecordingLibraryFile(recording);
+  if (recording.type === 'song') {
+    if (recording.songPitchTrack?.length || recording.vocalScoreSummary || recording.songLyrics) {
+      restoreSongAssetsFromLibrary(recording);
+      return;
+    }
+    analyzeSongPitchFile(file);
+    return;
+  }
+  if (recording.type === 'audio') {
+    analyzeAudioFile(file);
+    return;
+  }
+  analyzeRecordingBlob(recording.blob);
+}
+
+function getSelectedRecordingLibraryItem() {
+  return recordingLibrary.find((item) => item.id === selectedRecordingLibraryId) || null;
+}
+
+function updateRecordingLibraryItem(id, patch) {
+  const recording = recordingLibrary.find((item) => item.id === id);
+  if (!recording) {
+    return null;
+  }
+  Object.assign(recording, patch);
+  saveRecordingLibraryItem(recording).catch((error) => console.error(error));
+  renderRecordingLibrary();
+  return recording;
+}
+
+function saveCurrentSongAssetsToLibrary() {
+  const recording = getSelectedRecordingLibraryItem();
+  if (!recording || recording.type !== 'song') {
+    return;
+  }
+  updateRecordingLibraryItem(recording.id, {
+    songPitchTrack: songPitchTrack.map((point) => ({ ...point })),
+    songPitchFileName,
+    vocalScoreNotes: vocalScoreNotes.map((note) => ({ ...note })),
+    vocalScoreRests: vocalScoreRests.map((rest) => ({ ...rest })),
+    vocalScoreSummary: vocalScoreSummary ? { ...vocalScoreSummary } : null,
+    vocalScoreSourceName,
+    songLyrics,
+    songLyricsSource,
+    songLyricsFileName,
+    songLyricsSegments: songLyricsSegments.map((segment) => ({ ...segment })),
+    songLyricsCharAlignment: songLyricsCharAlignment.map((item) => ({ ...item })),
+    savedAssetsAt: new Date(),
+  });
+}
+
+function restoreSongAssetsFromLibrary(recording) {
+  selectedRecordingLibraryId = recording.id;
+  const file = getRecordingLibraryFile(recording);
+  songPitchTrack = (recording.songPitchTrack || []).map((point) => ({ ...point }));
+  songPitchFileName = recording.songPitchFileName || recording.name || '';
+  vocalScoreNotes = (recording.vocalScoreNotes || []).map((note) => ({ ...note }));
+  vocalScoreRests = (recording.vocalScoreRests || []).map((rest) => ({ ...rest }));
+  vocalScoreSummary = recording.vocalScoreSummary ? { ...recording.vocalScoreSummary } : null;
+  vocalScoreSourceName = recording.vocalScoreSourceName || songPitchFileName;
+  songLyricsSegments = (recording.songLyricsSegments || []).map((segment) => ({ ...segment }));
+  songLyricsCharAlignment = (recording.songLyricsCharAlignment || []).map((item) => ({ ...item }));
+  songLyricsFileName = recording.songLyricsFileName || recording.name || '';
+  songLyricsAudioFile = file;
+
+  if (recording.songLyrics) {
+    renderSongLyrics(recording.songLyrics, recording.songLyricsSource || '录音库');
+  } else {
+    renderSongLyrics('', '');
+  }
+  renderSongLyricsAlignment();
+
+  if (vocalScoreText) {
+    vocalScoreText.textContent = vocalScoreNotes.length && vocalScoreSummary
+      ? renderVocalScoreText(vocalScoreNotes, vocalScoreSummary)
+      : '上传歌曲后，会把主旋律音高整理成可读简谱，并可导出 MusicXML 到打谱软件继续编辑。';
+  }
+  if (vocalScoreNotes.length && vocalScoreSummary) {
+    setVocalScoreStatus(`已载入 ${vocalScoreSummary.noteCount} 个音符`, 'good');
+    updateVocalScoreButtons(true);
+  } else {
+    resetVocalScore();
+  }
+  setVocalScoreView(vocalScoreView);
+
+  prepareSongPitchPlayback(file);
+  songPitchEnabled = Boolean(songPitchTrack.length);
+  if (songPitchToggle) {
+    songPitchToggle.checked = songPitchEnabled;
+  }
+  if (clearSongPitchButton) {
+    clearSongPitchButton.disabled = !songPitchTrack.length;
+  }
+  if (songPitchTrack.length) {
+    const pitches = songPitchTrack.map((point) => point.pitch).filter(Boolean);
+    setSongPitchStatus('已从录音库载入', 'good');
+    if (songPitchStats) {
+      songPitchStats.textContent = pitches.length
+        ? `${formatTimeSeconds(songPitchTrack[songPitchTrack.length - 1]?.timeMs || 0)} / ${Math.round(Math.min(...pitches))}-${Math.round(Math.max(...pitches))} Hz`
+        : `${formatTimeSeconds(songPitchTrack[songPitchTrack.length - 1]?.timeMs || 0)}`;
+    }
+    setOfflineMode(true);
+    setDataSourceLabel('录音库歌曲');
+    setAnalysisStatus('已载入保存的歌曲曲线、乐谱和歌词');
+    resetOfflineWindow();
+    pitchHistory = songPitchTrack.map((point) => ({ time: point.timeMs, pitch: point.pitch }));
+    volumeHistory = [];
+    resetPitchScoreDisplay();
+    setReadoutMode(displayMode);
+    setSongTrainingResult('点击“开始检测”后，会按歌曲目标曲线实时判断有没有跑调。');
+    drawPitchHistory();
+  }
+  renderRecordingLibrary();
 }
 
 function selectRecordingFromLibrary(id, { analyze = false } = {}) {
@@ -138,23 +342,32 @@ function selectRecordingFromLibrary(id, { analyze = false } = {}) {
     return;
   }
   selectedRecordingLibraryId = id;
-  lastRecordingBlob = recording.blob;
-  recordingTimelineFrames = recording.frames.map((frame) => ({
-    ...frame,
-    samples: Array.isArray(frame.samples) ? [...frame.samples] : [],
-  }));
-  recordingTimelineDurationMs = recording.durationMs;
-  recordingSelectedTimeMs = 0;
-  if (recordingTimelinePanel) {
-    recordingTimelinePanel.hidden = false;
+  if (isRecordingLibraryRecording(recording)) {
+    lastRecordingBlob = recording.blob;
+    recordingTimelineFrames = recording.frames.map((frame) => ({
+      ...frame,
+      samples: Array.isArray(frame.samples) ? [...frame.samples] : [],
+    }));
+    recordingTimelineDurationMs = recording.durationMs;
+    recordingSelectedTimeMs = 0;
+    if (recordingTimelinePanel) {
+      recordingTimelinePanel.hidden = false;
+    }
+    prepareRecordingPlayback(lastRecordingBlob);
+    selectRecordingTime(0, false);
+    setTimelineStatus(`已载入${getRecordingLibraryName(recording)}，可回放或分析`);
+    updateRecordingButtons();
+  } else if (recording.type === 'song' && (recording.songPitchTrack?.length || recording.vocalScoreSummary || recording.songLyrics)) {
+    restoreSongAssetsFromLibrary(recording);
+    if (analyze) {
+      return;
+    }
+  } else {
+    setAnalysisStatus(`已选择${getRecordingLibraryTypeLabel(recording)}：${getRecordingLibraryName(recording)}`);
   }
-  prepareRecordingPlayback(lastRecordingBlob);
-  selectRecordingTime(0, false);
-  setTimelineStatus(`已载入${getRecordingLibraryName(recording)}，可回放或分析`);
-  updateRecordingButtons();
   renderRecordingLibrary();
   if (analyze) {
-    analyzeRecordingBlob(lastRecordingBlob);
+    analyzeRecordingLibraryItem(recording);
   }
 }
 
@@ -198,7 +411,14 @@ function renderRecordingLibrary() {
     const title = document.createElement('strong');
     title.textContent = getRecordingLibraryName(recording);
     const meta = document.createElement('span');
-    meta.textContent = `${formatTimeSeconds(recording.durationMs)} · ${recording.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const durationText = recording.durationMs ? `${formatTimeSeconds(recording.durationMs)} · ` : '';
+    const savedParts = [];
+    if (recording.isPreview) savedParts.push('试听');
+    if (recording.source) savedParts.push(recording.source);
+    if (recording.vocalScoreSummary) savedParts.push('已存乐谱');
+    if (recording.songLyrics) savedParts.push('已存歌词');
+    const savedText = savedParts.length ? ` · ${savedParts.join(' / ')}` : '';
+    meta.textContent = `${getRecordingLibraryTypeLabel(recording)} · ${durationText}${recording.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${savedText}`;
     main.append(title, meta);
     main.addEventListener('click', () => selectRecordingFromLibrary(recording.id));
 
@@ -213,7 +433,8 @@ function renderRecordingLibrary() {
     downloadButton.type = 'button';
     downloadButton.textContent = '下载';
     downloadButton.addEventListener('click', () => {
-      const filename = `${getRecordingLibraryName(recording).replace(/[\\/:*?"<>|]+/g, '-')}.webm`;
+      const cleanName = getRecordingLibraryName(recording).replace(/[\\/:*?"<>|]+/g, '-');
+      const filename = /\.[a-z0-9]{2,6}$/i.test(cleanName) ? cleanName : `${cleanName}.webm`;
       downloadBlob(recording.blob, filename);
     });
 
@@ -236,7 +457,9 @@ function addRecordingToLibrary(blob) {
   const recording = {
     id,
     name: `录音 ${recordingLibrary.length + 1}`,
+    type: 'recording',
     blob,
+    mimeType: blob.type || 'audio/webm',
     durationMs: getRecordingDurationMs(),
     frames: recordingTimelineFrames.map((frame) => ({
       ...frame,
@@ -252,6 +475,154 @@ function addRecordingToLibrary(blob) {
   renderRecordingLibrary();
   saveRecordingLibraryItem(recording).catch((error) => console.error(error));
   return recording;
+}
+
+function addAudioFileToLibrary(file, type = 'audio', metadata = {}) {
+  if (!file) {
+    return null;
+  }
+  const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const recording = {
+    id,
+    name: file.name || (type === 'song' ? `歌曲 ${recordingLibrary.length + 1}` : `音频 ${recordingLibrary.length + 1}`),
+    type,
+    blob: file,
+    mimeType: file.type || 'audio/*',
+    durationMs: 0,
+    frames: [],
+    createdAt: new Date(),
+    source: metadata.source || '',
+    sourceUrl: metadata.sourceUrl || '',
+    isPreview: Boolean(metadata.isPreview),
+  };
+  recordingLibrary.unshift(recording);
+  if (recordingLibrary.length > 24) {
+    recordingLibrary = recordingLibrary.slice(0, 24);
+  }
+  selectedRecordingLibraryId = id;
+  renderRecordingLibrary();
+  saveRecordingLibraryItem(recording).catch((error) => console.error(error));
+  return recording;
+}
+
+function getAccompanimentLibraryName(item) {
+  const index = accompanimentLibrary.findIndex((entry) => entry.id === item.id);
+  const fallbackIndex = index >= 0 ? index + 1 : accompanimentLibrary.length + 1;
+  return item.name || `伴奏 ${fallbackIndex}`;
+}
+
+function getAccompanimentLibraryFile(item) {
+  return new File([item.blob], getAccompanimentLibraryName(item), {
+    type: item.blob?.type || item.mimeType || 'audio/wav',
+    lastModified: item.createdAt?.getTime?.() || Date.now(),
+  });
+}
+
+function renderAccompanimentLibrary() {
+  if (!accompanimentLibraryList) {
+    return;
+  }
+  accompanimentLibraryList.innerHTML = '';
+  updateAccompanimentLibraryStatus();
+  if (!accompanimentLibrary.length) {
+    const empty = document.createElement('div');
+    empty.className = 'recording-library-empty';
+    empty.textContent = '上传歌曲并分离后，伴奏会保存到这里';
+    accompanimentLibraryList.append(empty);
+    return;
+  }
+
+  accompanimentLibrary.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'recording-library-item';
+    row.classList.toggle('active', item.id === selectedAccompanimentLibraryId);
+
+    const main = document.createElement('button');
+    main.className = 'recording-library-select';
+    main.type = 'button';
+    const title = document.createElement('strong');
+    title.textContent = getAccompanimentLibraryName(item);
+    const meta = document.createElement('span');
+    const sourceText = item.source ? ` · ${item.source}` : '';
+    meta.textContent = `伴奏 · ${item.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${sourceText}`;
+    main.append(title, meta);
+    main.addEventListener('click', () => selectAccompanimentFromLibrary(item.id));
+
+    const loadButton = document.createElement('button');
+    loadButton.className = 'recording-library-action';
+    loadButton.type = 'button';
+    loadButton.textContent = '加载';
+    loadButton.addEventListener('click', () => selectAccompanimentFromLibrary(item.id));
+
+    const downloadButton = document.createElement('button');
+    downloadButton.className = 'recording-library-action';
+    downloadButton.type = 'button';
+    downloadButton.textContent = '下载';
+    downloadButton.addEventListener('click', () => {
+      const cleanName = getAccompanimentLibraryName(item).replace(/[\\/:*?"<>|]+/g, '-');
+      const filename = /\.[a-z0-9]{2,6}$/i.test(cleanName) ? cleanName : `${cleanName}.wav`;
+      downloadBlob(item.blob, filename);
+    });
+
+    const removeButton = document.createElement('button');
+    removeButton.className = 'recording-library-action danger';
+    removeButton.type = 'button';
+    removeButton.textContent = '删除';
+    removeButton.addEventListener('click', () => removeAccompanimentFromLibrary(item.id));
+
+    row.append(main, loadButton, downloadButton, removeButton);
+    accompanimentLibraryList.append(row);
+  });
+}
+
+function addAccompanimentToLibrary(file, metadata = {}) {
+  if (!file) {
+    return null;
+  }
+  const id = `accompaniment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const item = {
+    id,
+    name: file.name || `伴奏 ${accompanimentLibrary.length + 1}`,
+    blob: file,
+    mimeType: file.type || 'audio/wav',
+    createdAt: new Date(),
+    source: metadata.source || '',
+    sourceUrl: metadata.sourceUrl || '',
+  };
+  accompanimentLibrary.unshift(item);
+  if (accompanimentLibrary.length > 24) {
+    accompanimentLibrary = accompanimentLibrary.slice(0, 24);
+  }
+  selectedAccompanimentLibraryId = id;
+  renderAccompanimentLibrary();
+  saveAccompanimentLibraryItem(item).catch((error) => console.error(error));
+  return item;
+}
+
+function selectAccompanimentFromLibrary(id) {
+  const item = accompanimentLibrary.find((entry) => entry.id === id);
+  if (!item) {
+    return;
+  }
+  selectedAccompanimentLibraryId = id;
+  const file = getAccompanimentLibraryFile(item);
+  if (typeof loadAccompanimentFile === 'function') {
+    loadAccompanimentFile(file, `已从伴奏库加载：${getAccompanimentLibraryName(item)}`);
+  }
+  renderAccompanimentLibrary();
+}
+
+function removeAccompanimentFromLibrary(id) {
+  const index = accompanimentLibrary.findIndex((item) => item.id === id);
+  if (index < 0) {
+    return;
+  }
+  accompanimentLibrary.splice(index, 1);
+  deleteAccompanimentLibraryItem(id).catch((error) => console.error(error));
+  if (selectedAccompanimentLibraryId === id) {
+    selectedAccompanimentLibraryId = null;
+  }
+  renderAccompanimentLibrary();
 }
 
 function captureRecordingFrame(now, rms, pitch) {
@@ -596,6 +967,18 @@ function formatSignedCents(cents) {
   return `${sign}${cents.toFixed(1)} cents`;
 }
 
+function normalizeSongPracticeCents(cents) {
+  if (!Number.isFinite(cents)) {
+    return cents;
+  }
+  return cents - 1200 * Math.round(cents / 1200);
+}
+
+function getScoringCentsError(frequency, targetFrequency) {
+  const cents = frequencyToCentsError(frequency, targetFrequency);
+  return hasSongPitchTarget() ? normalizeSongPracticeCents(cents) : cents;
+}
+
 function hasSongPitchTarget() {
   return songPitchEnabled && songPitchTrack.length > 0;
 }
@@ -606,6 +989,9 @@ function getSongPracticeTimeMs(now = performance.now()) {
   }
   if (accompanimentAudio && !accompanimentAudio.paused && Number.isFinite(accompanimentAudio.currentTime)) {
     return accompanimentAudio.currentTime * 1000;
+  }
+  if (hasSongPitchTarget() && songPracticeStartTime > 0) {
+    return Math.max(0, now - songPracticeStartTime);
   }
   if (sessionStartTime > 0) {
     return Math.max(0, now - sessionStartTime);
@@ -676,6 +1062,9 @@ function getSongPracticeTimeForPoint(pointTime, now = performance.now()) {
     const elapsedFromPointMs = Math.max(0, now - pointTime);
     return Math.max(0, accompanimentAudio.currentTime * 1000 - elapsedFromPointMs);
   }
+  if (hasSongPitchTarget() && songPracticeStartTime > 0) {
+    return Math.max(0, pointTime - songPracticeStartTime);
+  }
   return Math.max(0, pointTime - sessionStartTime);
 }
 
@@ -688,7 +1077,7 @@ function getPitchScoreWindow(now = performance.now()) {
       return {
         ...point,
         targetPitch,
-        cents: frequencyToCentsError(point.pitch, targetPitch),
+        cents: getScoringCentsError(point.pitch, targetPitch),
       };
     })
     .filter((point) => Number.isFinite(point.cents));
@@ -704,7 +1093,7 @@ function computePitchScoreStats(now = performance.now()) {
   const currentTargetPitch = getScoringTargetPitchForTime(getSongPracticeTimeMs(now));
   const lastWindowPoint = windowPoints[windowPoints.length - 1];
   const currentCents = currentTargetPitch
-    ? frequencyToCentsError(currentPitch, currentTargetPitch)
+    ? getScoringCentsError(currentPitch, currentTargetPitch)
     : lastWindowPoint.cents;
 
   const absErrors = windowPoints.map((point) => Math.abs(point.cents));

@@ -251,6 +251,7 @@ async function start() {
     }
     clearBreathReport();
     sessionStartTime = performance.now();
+    songPracticeStartTime = 0;
     lastFormantUpdate = 0;
     lastFormantTimestamp = 0;
     resetFormants();

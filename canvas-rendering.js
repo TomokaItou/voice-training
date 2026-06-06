@@ -80,15 +80,36 @@ function mapSongPitchTimeToCanvasTime(point, state) {
   return sessionStartTime + point.timeMs;
 }
 
+function getSongPitchDisplayOctaveRatio() {
+  if (
+    typeof isPitchCurveSongPracticeActive !== 'function' ||
+    !isPitchCurveSongPracticeActive() ||
+    !currentPitch ||
+    currentPitch <= 0 ||
+    typeof getScoringTargetPitchForTime !== 'function' ||
+    typeof getSongPracticeTimeMs !== 'function'
+  ) {
+    return 1;
+  }
+  const targetPitch = getScoringTargetPitchForTime(getSongPracticeTimeMs());
+  const cents = frequencyToCentsError(currentPitch, targetPitch);
+  if (!Number.isFinite(cents)) {
+    return 1;
+  }
+  return 2 ** Math.round(cents / 1200);
+}
+
 function getVisibleSongPitchPoints(state) {
   if (!hasSongPitchTarget() || !state) {
     return [];
   }
   const maxTime = state.minTime + state.durationMs;
+  const octaveRatio = getSongPitchDisplayOctaveRatio();
   return songPitchTrack
     .map((point) => ({
       ...point,
       time: mapSongPitchTimeToCanvasTime(point, state),
+      pitch: point.pitch ? point.pitch * octaveRatio : point.pitch,
     }))
     .filter((point) => point.time >= state.minTime && point.time <= maxTime);
 }
