@@ -33,6 +33,7 @@
   .range-history-item,
   .song-target-controls,
   .song-target-status,
+  .song-practice-review-grid,
   .memory-zone-card,
   .memory-controls,
   .memory-control-field,
@@ -313,6 +314,8 @@ header h1 {
 
 .training-entry-main {
   min-height: 284px;
+  position: relative;
+  z-index: 1;
 }
 
 .training-entry-main .mode-title {
@@ -324,6 +327,8 @@ header h1 {
   display: grid;
   grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 10px;
+  position: relative;
+  z-index: 2;
 }
 
 .practice-card {
@@ -496,6 +501,7 @@ header h1 {
   height: 94px;
   border-radius: 999px;
   background: rgba(12, 124, 114, 0.1);
+  pointer-events: none;
 }
 
 .mode-button:hover {
@@ -804,6 +810,7 @@ header p {
 }
 
 .song-target-status,
+.song-practice-review-grid,
 .pitch-score-grid,
 .range-grid,
 .memory-metrics,
@@ -1015,6 +1022,10 @@ canvas {
     display: grid;
   }
 
+  .song-practice-review-header {
+    display: grid;
+  }
+
   .training-feedback {
     display: grid;
   }
@@ -1027,7 +1038,15 @@ canvas {
     width: fit-content;
   }
 
+  .song-practice-review-badge {
+    width: fit-content;
+  }
+
   .practice-flow-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .song-practice-review-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1116,7 +1135,15 @@ canvas {
     padding: 14px;
   }
 
+  .song-practice-review {
+    padding: 14px;
+  }
+
   .practice-flow-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .song-practice-review-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1194,5 +1221,495 @@ canvas {
 
   canvas {
     min-height: 240px;
+  }
+}
+
+.song-target-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.song-target-panel,
+.chart.song-practice-empty {
+  margin-left: 32px;
+  margin-right: 32px;
+}
+
+.song-target-panel .practice-flow {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pitch-score-dashboard.score-training {
+  grid-template-columns: minmax(260px, 0.72fr) minmax(420px, 1.28fr);
+  gap: 14px;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.pitch-score-dashboard.score-training .pitch-score-main,
+.pitch-score-dashboard.score-training .pitch-score-grid {
+  border: 0;
+  box-shadow: none;
+}
+
+.pitch-score-dashboard.score-training .pitch-score-main {
+  min-height: 146px;
+  padding: 18px 0;
+  background: transparent;
+}
+
+.pitch-score-dashboard.score-training .pitch-score-value {
+  color: var(--accent-strong);
+  font-size: 58px;
+  letter-spacing: 0;
+}
+
+.pitch-score-dashboard.score-training .pitch-score-grid {
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+  background: transparent;
+  overflow: visible;
+}
+
+.pitch-score-dashboard.score-training .pitch-score-grid > div {
+  border: 0;
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.64);
+  box-shadow: none;
+  padding: 13px 14px;
+}
+
+.pitch-score-dashboard.score-training .pitch-score-grid > div:nth-child(6) {
+  display: none;
+}
+
+.practice-controls.score-controls {
+  margin-top: 0;
+  margin-bottom: 18px;
+}
+
+.practice-controls.score-controls .controls-main {
+  justify-content: flex-start;
+}
+
+.practice-controls.score-controls #startButton {
+  min-width: 190px;
+  min-height: 54px;
+  padding-inline: 26px;
+  font-size: 17px;
+}
+
+.score-chart-placeholder {
+  display: grid;
+  min-height: 96px;
+  margin: 0 32px 16px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 720;
+  text-align: center;
+}
+
+.score-chart-placeholder[hidden] {
+  display: none !important;
+}
+
+.breath-dashboard {
+  grid-template-columns: minmax(240px, 0.72fr) minmax(360px, 1.28fr);
+  gap: 18px;
+  margin: 0 32px 14px;
+}
+
+.breath-score-panel,
+.breath-state-panel {
+  border: 0;
+  box-shadow: none;
+}
+
+.breath-score-panel {
+  min-height: 164px;
+  padding: 18px 0;
+  background: transparent;
+}
+
+.breath-score-value {
+  color: var(--accent-strong);
+  font-size: 58px;
+  letter-spacing: 0;
+}
+
+.breath-score-caption {
+  max-width: 260px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.breath-state-panel {
+  align-content: center;
+  padding: 0;
+  background: transparent;
+}
+
+.breath-voice-summary {
+  display: none;
+}
+
+.breath-state-meta {
+  grid-template-columns: repeat(2, minmax(130px, 1fr));
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.breath-state-meta > div,
+.breath-report-grid > div {
+  border: 0;
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.66);
+  box-shadow: none;
+}
+
+.breath-state-meta .value {
+  font-size: 28px;
+}
+
+.breath-detail-panel {
+  margin: 0 32px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.breath-detail-panel[hidden] {
+  display: none !important;
+}
+
+.breath-detail-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 760;
+  list-style: none;
+}
+
+.breath-detail-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.breath-detail-panel summary::after {
+  content: "+";
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(238, 241, 237, 0.88);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.breath-detail-panel[open] summary::after {
+  content: "-";
+}
+
+.breath-detail-panel summary small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.breath-detail-panel .breath-metric-strip {
+  border: 0;
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.7);
+  gap: 1px;
+}
+
+.breath-detail-panel .breath-metric-strip > div {
+  background: transparent;
+}
+
+.practice-controls.breath-controls {
+  margin: 0 32px 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.practice-controls.breath-controls .controls-main {
+  justify-content: flex-start;
+}
+
+.practice-controls.breath-controls #startButton {
+  min-width: 190px;
+  min-height: 54px;
+  padding-inline: 26px;
+  font-size: 17px;
+}
+
+.breath-chart-placeholder {
+  display: grid;
+  min-height: 96px;
+  margin: 0 32px 16px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 720;
+  text-align: center;
+}
+
+.breath-chart-placeholder[hidden] {
+  display: none !important;
+}
+
+.chart.breath-practice-empty {
+  display: none;
+}
+
+.breath-report {
+  margin: 0 32px 14px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.breath-report-header {
+  align-items: flex-start;
+}
+
+.breath-report h2 {
+  margin-bottom: 6px;
+}
+
+.breath-report-feedback {
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.72);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .breath-dashboard {
+    grid-template-columns: 1fr;
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  .breath-state-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .breath-detail-panel,
+  .practice-controls.breath-controls,
+  .breath-chart-placeholder,
+  .breath-report {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+}
+
+.range-dashboard {
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin: 0 32px 16px;
+}
+
+.range-main,
+.range-grid,
+.range-actions,
+.range-history-panel {
+  border: 0;
+  box-shadow: none;
+}
+
+.range-main {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.range-value {
+  color: var(--accent-strong);
+  font-size: 44px;
+  letter-spacing: 0;
+}
+
+.range-caption {
+  max-width: 620px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.range-track-panel {
+  display: grid;
+  gap: 10px;
+  padding: 16px 0 4px;
+}
+
+.range-track-panel[hidden] {
+  display: none !important;
+}
+
+.range-track-labels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.range-track-labels span:nth-child(2) {
+  text-align: center;
+  color: var(--text);
+}
+
+.range-track-labels span:nth-child(3) {
+  text-align: right;
+}
+
+.range-track {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(238, 241, 237, 0.92);
+  overflow: hidden;
+}
+
+.range-track-fill {
+  position: absolute;
+  inset-block: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(37, 111, 156, 0.22), rgba(12, 124, 114, 0.34));
+}
+
+.range-track-current {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  box-shadow: 0 4px 14px rgba(12, 124, 114, 0.2);
+  transform: translate(-50%, -50%);
+}
+
+.range-track-caption {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.range-grid {
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  gap: 10px;
+  background: transparent;
+}
+
+.range-grid > div {
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.66);
+  padding: 13px 14px;
+}
+
+.range-dashboard[data-phase='ready'] .range-track-panel,
+.range-dashboard[data-phase='ready'] .range-grid,
+.range-dashboard[data-phase='ready'] .range-actions,
+.range-dashboard[data-phase='testing'] .range-result-metric,
+.range-dashboard[data-phase='testing'] .range-sample-metric,
+.range-dashboard[data-phase='testing'] .range-actions {
+  display: none;
+}
+
+.range-dashboard[data-phase='testing'] .range-grid {
+  grid-template-columns: minmax(180px, 280px);
+}
+
+.range-dashboard[data-phase='complete'] .range-live-metric {
+  display: none;
+}
+
+.range-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+}
+
+.range-actions button {
+  width: auto;
+  min-width: 132px;
+}
+
+.range-feedback {
+  margin: 2px 0 0;
+  max-width: 760px;
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.72);
+  padding: 14px 16px;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.practice-controls.range-controls {
+  margin: 0 32px 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.practice-controls.range-controls .controls-main {
+  justify-content: flex-start;
+}
+
+.practice-controls.range-controls #startButton {
+  min-width: 190px;
+  min-height: 54px;
+  padding-inline: 26px;
+  font-size: 17px;
+}
+
+.range-history-panel {
+  margin: 0 32px 18px;
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: 760px) {
+  .range-dashboard,
+  .practice-controls.range-controls,
+  .range-history-panel {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  .range-track-labels {
+    grid-template-columns: 1fr;
+  }
+
+  .range-track-labels span,
+  .range-track-labels span:nth-child(2),
+  .range-track-labels span:nth-child(3) {
+    text-align: left;
+  }
+
+  .range-grid {
+    grid-template-columns: 1fr;
   }
 }

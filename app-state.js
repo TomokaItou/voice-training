@@ -113,11 +113,15 @@ let breathCalibration = {
   score: 0,
 };
 let breathCalibrationInProgress = false;
+let breathSessionCompleted = false;
 let pitchScoreLastTone = 'neutral';
 let rangeSamples = [];
 let rangeLastPitch = null;
 let rangeHistoryRecords = [];
+let rangeTrainingPhase = 'ready';
+let rangeHistoryExpanded = false;
 let songPracticeAutoReviewPending = false;
+let songPracticeLastReview = null;
 let rhythmBpm = Number(rhythmBpmInput?.value || 90);
 let rhythmBeatsPerBar = Number(rhythmMeterSelect?.value || 4);
 let rhythmPattern = rhythmPatternSelect?.value || 'quarter';
@@ -136,3 +140,10 @@ let songRhythmBeats = [];
 let songRhythmBpm = null;
 let songRhythmSummary = null;
 let songRhythmAnalysisInProgress = false;
+let s88FrameHistory = [];
+let s88OnsetWindow = [];
+let s88ActiveOnset = null;
+let s88LastRms = 0;
+let s88LastUpdate = 0;
+let s88TargetProfile = null;
+let s88UserProfile = null;

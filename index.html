@@ -22,7 +22,7 @@
         </div>
 
         <section class="training-entry" aria-label="训练入口">
-          <button id="openCurveModeButton" class="mode-button practice-card practice-card-primary training-entry-main">
+          <button id="openCurveModeButton" class="mode-button practice-card practice-card-primary training-entry-main" type="button" data-training-mode="curve">
             <span class="practice-tag">今日推荐</span>
             <span class="mode-title">跟唱一首歌</span>
             <span class="mode-desc">选择歌曲或上传伴奏，边唱边看目标曲线，结束后回听自己的录音。</span>
@@ -30,19 +30,19 @@
           </button>
 
           <div class="quick-practice-list" aria-label="快速练习">
-            <button id="openPitchScoreModeButton" class="mode-button practice-card quick-practice-card score-mode">
+            <button id="openPitchScoreModeButton" class="mode-button practice-card quick-practice-card score-mode" type="button" data-training-mode="score">
               <span class="practice-tag">3 分钟</span>
               <span class="mode-title">音准稳定</span>
               <span class="mode-desc">对准一个目标音，练偏高偏低和稳定度。</span>
               <span class="practice-action">练音准</span>
             </button>
-            <button id="openBreathModeButton" class="mode-button practice-card quick-practice-card breath-mode">
+            <button id="openBreathModeButton" class="mode-button practice-card quick-practice-card breath-mode" type="button" data-training-mode="breath">
               <span class="practice-tag">2 分钟</span>
               <span class="mode-title">气息状态</span>
               <span class="mode-desc">测出气流、漏气感和持续稳定度。</span>
               <span class="practice-action">测气息</span>
             </button>
-            <button id="openRhythmModeButton" class="mode-button practice-card quick-practice-card rhythm-mode">
+            <button id="openRhythmModeButton" class="mode-button practice-card quick-practice-card rhythm-mode" type="button" data-training-mode="rhythm">
               <span class="practice-tag">2 分钟</span>
               <span class="mode-title">节奏起音</span>
               <span class="mode-desc">跟节拍器练短音，减少抢拍和拖拍。</span>
@@ -86,17 +86,21 @@
             </span>
           </summary>
           <div class="tool-grid">
-            <button id="openRangeModeButton" class="mode-button compact-tool range-mode">
+            <button id="openRangeModeButton" class="mode-button compact-tool range-mode" type="button" data-training-mode="range">
               <span class="mode-title">音域测量</span>
               <span class="mode-desc">记录稳定跨度</span>
             </button>
-            <button id="openSpectrogramModeButton" class="mode-button compact-tool secondary-mode">
+            <button id="openSpectrogramModeButton" class="mode-button compact-tool secondary-mode" type="button" data-training-mode="spectrogram">
               <span class="mode-title">频谱图</span>
               <span class="mode-desc">看泛音和能量</span>
             </button>
-            <button id="openMemoryModeButton" class="mode-button compact-tool memory-mode">
+            <button id="openMemoryModeButton" class="mode-button compact-tool memory-mode" type="button" data-training-mode="memory">
               <span class="mode-title">记忆感知</span>
               <span class="mode-desc">分析保持和恢复路径</span>
+            </button>
+            <button id="openActionPathModeButton" class="mode-button compact-tool action-path-mode" type="button" data-training-mode="action">
+              <span class="mode-title">动作路径 S88</span>
+              <span class="mode-desc">Twang 与起音轨迹</span>
             </button>
           </div>
         </details>
@@ -250,44 +254,38 @@
         <span id="trainingFeedbackBadge" class="training-feedback-badge">等待</span>
       </section>
 
-      <details class="curve-switcher-details" id="curveSwitcherDetails" hidden>
-        <summary>
-          <span>分析视图</span>
-          <small>曲线、音量、共振峰</small>
-        </summary>
-        <section class="curve-switcher" id="curveSwitcher" hidden>
-          <button id="songGameViewButton" class="curve-tab active" type="button">游戏谱面</button>
-          <button id="curvePitchButton" class="curve-tab" type="button">分析曲线</button>
-          <button id="curveVolumeButton" class="curve-tab" type="button">音量曲线</button>
-          <button id="curveFormantButton" class="curve-tab" type="button">共振峰曲线</button>
-        </section>
-      </details>
-
       <section class="breath-dashboard" id="breathDashboard" hidden>
         <div class="breath-score-panel">
-          <span class="label">出气评分</span>
+          <span class="label">出气控制评分</span>
           <span class="breath-score-value" id="breathScoreHeroValue">--%</span>
-          <span class="breath-score-caption">综合气流、高频气声和漏气噪声</span>
+          <span class="breath-score-caption">保持平稳、连续的气流，不要一开始就用最大气流。</span>
         </div>
         <div class="breath-state-panel">
-          <div>
+          <div class="breath-voice-summary">
             <span class="label">声音类型</span>
             <span class="breath-state-value" id="breathVoiceHeroValue">--</span>
           </div>
           <div class="breath-state-meta">
             <div>
-              <span class="label">稳定度</span>
+              <span class="label">气流稳定度</span>
               <span class="value" id="breathStabilityHeroValue">--%</span>
             </div>
             <div>
-              <span class="label">持续</span>
+              <span class="label">持续时间</span>
               <span class="value" id="breathDurationHeroValue">0.0s</span>
             </div>
           </div>
         </div>
+      </section>
+
+      <details class="breath-detail-panel" id="breathDetailPanel" hidden>
+        <summary>
+          <span>详细数据</span>
+          <small>出气力度、高频气声、气流噪声</small>
+        </summary>
         <div class="breath-metric-strip">
           <div>
-            <span class="label">气流强度</span>
+            <span class="label">出气力度</span>
             <span class="value" id="breathEffortHeroValue">--%</span>
           </div>
           <div>
@@ -303,7 +301,7 @@
             <span class="value" id="breathCalibrationHeroValue">未校准</span>
           </div>
         </div>
-      </section>
+      </details>
 
       <section class="readout">
         <div>
@@ -346,13 +344,13 @@
 
       <section class="pitch-score-dashboard" id="pitchScoreDashboard" hidden>
         <div class="pitch-score-main">
-          <span class="label">实时音准</span>
+          <span class="label">当前音高</span>
           <span class="pitch-score-value" id="pitchScoreValue">--</span>
           <span class="pitch-score-caption" id="pitchScoreCaption">开始检测后，对准目标音持续发声。</span>
         </div>
         <div class="pitch-score-grid">
           <div>
-            <span class="label">目标音</span>
+            <span class="label">音名</span>
             <span class="value" id="pitchScoreTargetValue">300 Hz</span>
           </div>
           <div>
@@ -380,39 +378,53 @@
 
       <section class="range-dashboard" id="rangeDashboard" hidden>
         <div class="range-main">
-          <span class="label">当前音域</span>
+          <span class="label" id="rangeStageLabel">音域训练模式</span>
           <span class="range-value" id="rangeSpanValue">--</span>
           <span class="range-caption" id="rangeCaption">点击开始检测后，从舒适低音滑到高音，再回到中声区。</span>
         </div>
+        <div class="range-track-panel" id="rangeTrackPanel" hidden>
+          <div class="range-track-labels">
+            <span id="rangeTrackLowValue">最低音 --</span>
+            <span id="rangeTrackCurrentValue">当前音 --</span>
+            <span id="rangeTrackHighValue">最高音 --</span>
+          </div>
+          <div class="range-track">
+            <span class="range-track-fill" id="rangeTrackFill"></span>
+            <span class="range-track-current" id="rangeTrackCurrent"></span>
+          </div>
+          <div class="range-track-caption" id="rangeTrackCaption">最低音 ← 当前音 → 最高音</div>
+        </div>
         <div class="range-grid">
-          <div>
+          <div class="range-live-metric">
             <span class="label">当前音</span>
             <span class="value" id="rangeCurrentValue">--</span>
           </div>
-          <div>
+          <div class="range-result-metric">
             <span class="label">最低稳定音</span>
             <span class="value" id="rangeLowestValue">--</span>
           </div>
-          <div>
+          <div class="range-result-metric">
             <span class="label">最高稳定音</span>
             <span class="value" id="rangeHighestValue">--</span>
           </div>
-          <div>
+          <div class="range-result-metric">
             <span class="label">舒适音区</span>
             <span class="value" id="rangeComfortValue">--</span>
           </div>
-          <div>
+          <div class="range-result-metric">
             <span class="label">稳定度</span>
             <span class="value" id="rangeStabilityValue">--%</span>
           </div>
-          <div>
+          <div class="range-sample-metric">
             <span class="label">有效采样</span>
             <span class="value" id="rangeSampleValue">0</span>
           </div>
         </div>
+        <p class="range-feedback" id="rangeFeedback" hidden>测试结束后会给出下一步练习建议。</p>
         <div class="range-actions">
           <button id="rangeSaveButton" class="secondary" type="button" disabled>保存本次结果</button>
-          <button id="rangeResetButton" class="secondary" type="button">重置本次测量</button>
+          <button id="rangeResetButton" class="secondary" type="button">重新测试</button>
+          <button id="rangeHistoryToggleButton" class="secondary" type="button">查看历史</button>
         </div>
       </section>
 
@@ -505,14 +517,9 @@
       <section class="song-target-panel is-collapsed" id="songTargetPanel">
         <div class="song-target-header">
           <div>
-            <h2>跟唱主控台</h2>
-            <p>准备一首歌，系统会自动生成旋律目标和节奏拍点，然后带你录一遍并评估。</p>
+            <h2>当前歌曲</h2>
+            <p>选择一首歌，跟着目标曲线唱一遍。</p>
           </div>
-          <label class="toggle song-target-toggle">
-            <input type="checkbox" id="songPitchToggle" checked />
-            <span class="toggle-pill"></span>
-            <span class="toggle-text">显示曲线</span>
-          </label>
           <button
             id="songTargetCollapseButton"
             class="secondary song-target-collapse-button"
@@ -520,50 +527,78 @@
             aria-expanded="false"
             aria-controls="songTargetContent"
           >
-            展开
+            设置
           </button>
         </div>
         <div class="song-target-content" id="songTargetContent" hidden>
           <div class="practice-flow" id="songPracticeFlow">
             <div class="practice-flow-header">
               <div>
-                <h3>一键跟唱流程</h3>
-                <p id="songPracticeFlowHint">先选一首歌，系统会生成目标曲线，然后带你录一遍并自动评估。</p>
+                <h3 id="songPracticeSongTitle">还没有选择歌曲</h3>
+                <p id="songPracticeFlowHint">选好歌曲后就可以开始唱。</p>
               </div>
               <span id="songPracticeFlowState" class="practice-flow-state">等待歌曲</span>
             </div>
-            <ol class="practice-flow-steps" aria-label="跟唱流程步骤">
-              <li id="songPracticeStepSong" class="active">
-                <span>1</span>
-                <strong>选歌</strong>
-              </li>
-              <li id="songPracticeStepTarget">
-                <span>2</span>
-                <strong>生成目标</strong>
-              </li>
-              <li id="songPracticeStepRecord">
-                <span>3</span>
-                <strong>跟唱录音</strong>
-              </li>
-              <li id="songPracticeStepReview">
-                <span>4</span>
-                <strong>自动评估</strong>
-              </li>
-            </ol>
+            <div class="song-practice-meta">
+              <span id="songPracticeTargetStatus">目标曲线：未生成</span>
+              <span id="songPracticeAccompanimentStatus">伴奏：未选择</span>
+            </div>
             <div class="practice-flow-actions">
-              <button id="songPracticeChooseButton" class="secondary" type="button">去录音库选歌</button>
+              <button id="songPracticeChooseButton" class="secondary" type="button">选择歌曲</button>
               <button id="songPracticeStartButton" type="button" disabled>开始跟唱</button>
-              <button id="songPracticeStopReviewButton" class="secondary" type="button" disabled>
-                停止并评估
-              </button>
+            </div>
+            <div class="song-chart-placeholder" id="songChartPlaceholder" hidden>
+              录音后将在这里显示你的音高曲线和目标曲线
             </div>
           </div>
 
+          <section class="song-practice-review" id="songPracticeReviewPanel" hidden>
+            <div class="song-practice-review-header">
+              <div>
+                <span class="label">本轮复盘</span>
+                <h3 id="songPracticeReviewTitle">等待完成一遍跟唱</h3>
+              </div>
+              <span id="songPracticeReviewBadge" class="song-practice-review-badge">等待</span>
+            </div>
+            <div class="song-practice-review-grid" aria-label="跟唱复盘指标">
+              <div>
+                <span class="label">综合</span>
+                <span class="value" id="songPracticeReviewScore">--</span>
+              </div>
+              <div>
+                <span class="label">音准</span>
+                <span class="value" id="songPracticeReviewPitch">--</span>
+              </div>
+              <div>
+                <span class="label">节奏</span>
+                <span class="value" id="songPracticeReviewRhythm">--</span>
+              </div>
+              <div>
+                <span class="label">覆盖</span>
+                <span class="value" id="songPracticeReviewCoverage">--</span>
+              </div>
+            </div>
+            <div class="song-practice-review-body">
+              <p id="songPracticeReviewSummary">跟唱结束后会在这里看到本轮结果。</p>
+              <p id="songPracticeReviewNextStep">下一遍会给你一个明确动作。</p>
+            </div>
+            <div class="song-practice-review-actions">
+              <button id="songPracticeRepeatButton" type="button">再唱一遍</button>
+              <button id="songPracticeReplayButton" class="secondary" type="button" disabled>回放录音</button>
+              <button id="songPracticeReviewLibraryButton" class="secondary" type="button">查看录音库</button>
+            </div>
+          </section>
+
           <details class="song-assets-details song-target-details">
             <summary>
-              <span>播放和目标状态</span>
-              <small>参考音频、曲线信息、训练结果</small>
+              <span>高级分析</span>
+              <small>曲线、音量、共振峰、导出</small>
             </summary>
+            <label class="toggle song-target-toggle">
+              <input type="checkbox" id="songPitchToggle" checked />
+              <span class="toggle-pill"></span>
+              <span class="toggle-text">显示目标曲线</span>
+            </label>
             <div class="song-target-controls">
               <div class="controls-inline song-target-playback">
                 <button id="playSongPitchButton" class="secondary" disabled>播放</button>
@@ -758,10 +793,95 @@
         <div class="memory-recommendation" id="memoryRecommendation">暂无路径推荐。</div>
       </section>
 
+      <section class="s88-dashboard" id="s88Dashboard" hidden>
+        <section class="s88-recommendation-card">
+          <span class="label">推荐动作</span>
+          <h2 id="s88TrajectoryValue">先准备目标和录音</h2>
+          <div class="s88-confidence-row">
+            <span id="s88RecommendationStars">☆☆☆☆☆</span>
+            <span id="s88RecommendationConfidence">等待对比</span>
+          </div>
+          <p id="s88Advice">先录制当前声音并上传目标声音，系统会推荐下一步动作。</p>
+        </section>
+
+        <section class="s88-action-grid" aria-label="四个可执行发声动作">
+          <article class="s88-action-card" id="s88BreathinessCard">
+            <span class="label">Breathiness / 气声感</span>
+            <strong id="s88BreathinessAdvice">--</strong>
+            <span class="s88-action-strength" id="s88BreathinessStrength">--</span>
+            <p id="s88BreathinessCopy">上传目标声音并对比录音后显示调整方向。</p>
+          </article>
+          <article class="s88-action-card" id="s88ClosureCard">
+            <span class="label">Closure / 闭合感</span>
+            <strong id="s88ClosureAdvice">--</strong>
+            <span class="s88-action-strength" id="s88ClosureStrength">--</span>
+            <p id="s88ClosureCopy">系统会判断需要更清晰闭合，还是放松压力。</p>
+          </article>
+          <article class="s88-action-card" id="s88TwangCard">
+            <span class="label">Twang / 集中度</span>
+            <strong id="s88TwangAdvice">--</strong>
+            <span class="s88-action-strength" id="s88TwangStrength">--</span>
+            <p id="s88TwangCopy">练习声音集中度和明亮感，不只看高频能量。</p>
+          </article>
+          <article class="s88-action-card" id="s88OnsetCard">
+            <span class="label">Onset / 起音力度</span>
+            <strong id="s88OnsetAdvice">--</strong>
+            <span class="s88-action-strength" id="s88OnsetStrength">--</span>
+            <p id="s88OnsetCopy">系统会关注开始发声的前 300 ms 是否过硬或过软。</p>
+          </article>
+        </section>
+
+        <div class="s88-target-panel">
+          <div>
+            <span class="label">目标声音对比</span>
+            <strong id="s88TargetStatus">尚未上传目标声音</strong>
+          </div>
+          <input id="s88TargetInput" class="file-input" type="file" accept="audio/*" />
+          <button id="s88CompareButton" class="secondary" type="button" disabled>对比最近录音</button>
+          <span id="s88UserStatus">录制你的声音后，对比目标声音并生成动作建议。</span>
+        </div>
+
+        <details class="s88-advanced-panel">
+          <summary>
+            <span>高级分析</span>
+            <small>phi、耦合和动作特征</small>
+          </summary>
+          <div class="s88-advanced-grid">
+            <div>
+              <span class="label">Delta phiSN</span>
+              <span class="value" id="s88PhiSnDelta">--</span>
+            </div>
+            <div>
+              <span class="label">Delta phiEtex</span>
+              <span class="value" id="s88PhiEtexDelta">--</span>
+            </div>
+            <div>
+              <span class="label">Twang-like path</span>
+              <span class="value" id="s88TwangValue">--%</span>
+            </div>
+            <div>
+              <span class="label">Onset hardness</span>
+              <span class="value" id="s88OnsetValue">--%</span>
+            </div>
+            <div>
+              <span class="label">Pitch/loudness coupling</span>
+              <span class="value" id="s88CouplingValue">--</span>
+            </div>
+            <div>
+              <span class="label">Action residual</span>
+              <span class="value" id="s88ResidualValue">--</span>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <div class="score-chart-placeholder" id="scoreChartPlaceholder" hidden>
+        开始检测后将在这里显示实时音高曲线
+      </div>
 
       <section class="breath-report" id="breathReport" hidden>
         <div class="breath-report-header">
-          <h2>本次出气报告</h2>
+          <h2>本次反馈</h2>
           <span id="breathReportSummary">--</span>
         </div>
         <div class="breath-report-grid">
@@ -797,7 +917,17 @@
         <p id="breathReportFeedback" class="breath-report-feedback">--</p>
       </section>
 
+      <div class="breath-chart-placeholder" id="breathChartPlaceholder" hidden>
+        开始检测后，这里会显示你的气流稳定曲线
+      </div>
+
       <section class="chart">
+        <div class="chart-practice-feedback" id="s88LiveFeedbackPanel" hidden>
+          <div>
+            <span class="label">实时练习反馈</span>
+            <strong id="s88LiveFeedback">等待开始练习</strong>
+          </div>
+        </div>
         <div class="meter-column" id="volumeMeterColumn">
           <div class="meter" id="volumeMeter">
             <span class="meter-title">音量</span>
@@ -829,14 +959,28 @@
         </div>
       </section>
 
+      <details class="curve-switcher-details" id="curveSwitcherDetails" hidden>
+        <summary>
+          <span>高级分析</span>
+          <small>曲线、音量、共振峰</small>
+        </summary>
+        <section class="curve-switcher" id="curveSwitcher" hidden>
+          <button id="songGameViewButton" class="curve-tab active" type="button">游戏谱面</button>
+          <button id="curvePitchButton" class="curve-tab" type="button">分析曲线</button>
+          <button id="curveVolumeButton" class="curve-tab" type="button">音量曲线</button>
+          <button id="curveFormantButton" class="curve-tab" type="button">共振峰曲线</button>
+        </section>
+      </details>
+
       <section class="practice-controls" id="practiceControls">
         <div class="controls-main">
-          <button id="startButton" data-task-control="curve score breath range spectrogram volume formants memory rhythm">开始练习</button>
-          <button id="pauseButton" class="secondary" data-task-control="curve score breath range spectrogram volume formants memory rhythm" disabled>暂停</button>
-          <button id="stopButton" data-task-control="curve score breath range spectrogram volume formants memory rhythm" disabled>停止</button>
+          <button id="startButton" data-task-control="curve score breath range spectrogram volume formants memory rhythm action">开始练习</button>
+          <button id="pauseButton" class="secondary" data-task-control="curve score breath range spectrogram volume formants memory rhythm action" disabled>暂停</button>
+          <button id="stopButton" data-task-control="curve score breath range spectrogram volume formants memory rhythm action" disabled>停止</button>
           <button id="recordButton" class="secondary" hidden aria-hidden="true">开始录音</button>
           <button id="stopRecordButton" class="secondary" hidden aria-hidden="true" disabled>停止录音</button>
           <button id="breathCalibrateButton" class="secondary breath-control" data-task-control="breath" hidden>校准环境</button>
+          <button id="breathDetailToggleButton" class="secondary breath-control" data-task-control="breath" hidden>查看详细数据</button>
           <div class="status" id="status">未开始</div>
         </div>
       </section>
@@ -1063,6 +1207,7 @@
     <script src="breath-analysis.js"></script>
     <script src="memory-config.js"></script>
     <script src="memory-training.js"></script>
+    <script src="s88-action-path.js"></script>
     <script src="rhythm-training.js"></script>
     <script src="song-pitch.js"></script>
     <script src="vocal-score.js"></script>
@@ -1073,5 +1218,6 @@
     <script src="spectrogram.js"></script>
     <script src="audio-engine.js"></script>
     <script src="app.js"></script>
+    <script src="launcher-router.js"></script>
   </body>
 </html>

@@ -157,6 +157,117 @@
   min-height: 42px;
 }
 
+.song-practice-review {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid rgba(12, 124, 114, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 251, 249, 0.86)),
+    var(--surface);
+}
+
+.song-practice-review[hidden] {
+  display: none !important;
+}
+
+.song-practice-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.song-practice-review-header h3 {
+  margin: 3px 0 0;
+  font-size: 19px;
+}
+
+.song-practice-review-badge {
+  flex-shrink: 0;
+  border: 1px solid rgba(12, 124, 114, 0.22);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 780;
+  padding: 6px 10px;
+}
+
+.song-practice-review-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--border);
+}
+
+.song-practice-review-grid > div {
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 11px 12px;
+}
+
+.song-practice-review .label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.song-practice-review .value {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 820;
+  overflow-wrap: anywhere;
+}
+
+.song-practice-review-body {
+  display: grid;
+  gap: 6px;
+}
+
+.song-practice-review-body p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.song-practice-review-body p:last-child {
+  color: var(--text);
+  font-weight: 760;
+}
+
+.song-practice-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.song-practice-review-actions button {
+  min-height: 40px;
+}
+
+.song-practice-review[data-tone='good'] {
+  border-color: rgba(21, 128, 61, 0.24);
+  background:
+    linear-gradient(180deg, rgba(236, 253, 245, 0.9), rgba(255, 255, 255, 0.86)),
+    var(--surface);
+}
+
+.song-practice-review[data-tone='bad'] {
+  border-color: rgba(220, 38, 38, 0.2);
+  background:
+    linear-gradient(180deg, rgba(255, 241, 242, 0.86), rgba(255, 255, 255, 0.84)),
+    var(--surface);
+}
+
 .song-target-controls {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
@@ -511,5 +622,179 @@
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+/* Focused singing flow: keep the pre-recording view calm and single-purpose. */
+.song-target-panel {
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.song-target-header {
+  margin-bottom: 18px;
+}
+
+.song-target-header h2 {
+  margin-bottom: 5px;
+  font-size: 19px;
+}
+
+.song-target-header p {
+  font-size: 14px;
+}
+
+.song-target-collapse-button {
+  display: none;
+}
+
+.song-target-toggle {
+  width: fit-content;
+  margin: 10px 12px 0;
+}
+
+.practice-flow {
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.practice-flow-header h3 {
+  margin: 0 0 6px;
+  font-size: 30px;
+  line-height: 1.12;
+}
+
+.practice-flow-header p {
+  font-size: 15px;
+}
+
+.practice-flow-state {
+  border: 0;
+  background: rgba(228, 243, 239, 0.86);
+  padding: 7px 11px;
+}
+
+.practice-flow-steps {
+  display: none;
+}
+
+.song-practice-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 730;
+}
+
+.song-practice-meta span {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(238, 241, 237, 0.74);
+  padding: 5px 10px;
+}
+
+.practice-flow-actions {
+  gap: 12px;
+  align-items: center;
+}
+
+.practice-flow-actions button {
+  min-height: 44px;
+}
+
+#songPracticeStartButton {
+  min-width: 190px;
+  min-height: 54px;
+  padding-inline: 26px;
+  font-size: 17px;
+}
+
+.song-practice-review {
+  margin-bottom: 24px;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(221, 217, 203, 0.8);
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(244, 251, 249, 0.42), rgba(255, 255, 255, 0));
+}
+
+.song-practice-review-badge {
+  border: 0;
+  background: rgba(228, 243, 239, 0.86);
+}
+
+.song-practice-review-grid {
+  gap: 10px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.song-practice-review-grid > div {
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.62);
+  padding: 12px;
+}
+
+.song-practice-review[data-tone='good'],
+.song-practice-review[data-tone='bad'] {
+  background: linear-gradient(180deg, rgba(244, 251, 249, 0.42), rgba(255, 255, 255, 0));
+}
+
+.song-assets-details {
+  margin-top: 12px;
+  border: 0;
+  border-top: 1px solid rgba(221, 217, 203, 0.8);
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.song-assets-details summary {
+  padding: 12px 0;
+}
+
+.song-assets-details summary::after {
+  border: 0;
+}
+
+.song-chart-placeholder {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 720;
+  text-align: center;
+}
+
+.song-chart-placeholder[hidden] {
+  display: none !important;
+}
+
+.chart.song-practice-empty {
+  display: block;
+  min-height: auto;
+  padding: 8px 0 18px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.chart.song-practice-empty canvas,
+.chart.song-practice-empty .meter-column,
+.chart.song-practice-empty .chart-legend,
+.chart.song-practice-empty .chart-practice-feedback {
+  display: none;
 }
 

@@ -11,6 +11,7 @@ function resetBreathMeter() {
   breathCurrentStability = null;
   breathStartTime = null;
   breathDurationSeconds = 0;
+  breathSessionCompleted = false;
   if (breathFlowValueEl) {
     breathFlowValueEl.textContent = '--%';
   }
@@ -50,6 +51,9 @@ function resetBreathMeter() {
   if (breathDurationHeroValue) {
     breathDurationHeroValue.textContent = '0.0s';
   }
+  if (breathDetailPanel) {
+    breathDetailPanel.open = false;
+  }
 }
 
 function clearBreathReport() {
@@ -76,6 +80,10 @@ function clearBreathReport() {
   });
   if (breathReportFeedback) {
     breathReportFeedback.textContent = '--';
+  }
+  breathSessionCompleted = false;
+  if (breathDetailPanel) {
+    breathDetailPanel.open = false;
   }
 }
 
@@ -356,7 +364,16 @@ async function calibrateBreathEnvironment() {
   breathCalibrationInProgress = false;
   breathCalibrateButton.disabled = false;
   setBreathCalibrationStatus(`已校准 ${Math.round(score * 100)}%`);
+  stop();
+  clearBreathReport();
+  setBreathCalibrationStatus(`已校准 ${Math.round(score * 100)}%`);
   setStatus('环境校准完成', 'active');
+  if (typeof updateBreathTrainingControls === 'function') {
+    updateBreathTrainingControls();
+  }
+  if (typeof setReadoutMode === 'function') {
+    setReadoutMode('breath');
+  }
 }
 
 function computeBreathStability(scores) {
@@ -498,13 +515,13 @@ function getBreathFeedback(summary) {
     return '本次声带闭合相对集中，如果目标是练气声，可以再增加柔和的气流感。';
   }
   if (summary.durationSeconds < 2) {
-    return '有效出气时间偏短，先尝试保持 5 秒以上的连续气流。';
+    return '出气时间有点短。下一次先减小出气力度，尝试稳定持续 3~6 秒。';
   }
   if (summary.breaks >= 3) {
-    return '中途断气较多，先降低强度，练习更连续的平稳出气。';
+    return '中途有几次断气。建议把气流放小一点，像细线一样连续送出。';
   }
   if (summary.stability !== null && summary.stability < 55) {
-    return '气息波动较明显，可以用更小的气流做慢而均匀的练习。';
+    return '气流略不稳定。建议减小出气力度，尝试让气流持续更久。';
   }
   if (summary.highFrequency > 0.65 && summary.effort < 0.35) {
     return '高频气声明显但气流强度偏低，说明气息漏出感强，支撑还可以再增加。';
@@ -515,7 +532,7 @@ function getBreathFeedback(summary) {
   if (summary.leakNoise > 0.65 && summary.highFrequency > 0.5) {
     return '漏气噪声和高频气声都较高，本次更接近吹气/气声练习。';
   }
-  return '本次出气比较平稳，可以继续延长持续时间或尝试渐强渐弱练习。';
+  return '本次出气比较平稳。下一次可以继续延长持续时间，但不要加猛气。';
 }
 
 function renderBreathReport() {
@@ -549,6 +566,7 @@ function renderBreathReport() {
 
   breathReport.dataset.hasReport = 'true';
   breathReport.hidden = displayMode !== 'breath';
+  breathSessionCompleted = true;
   breathReportSummary.textContent = `持续 ${summary.durationSeconds.toFixed(1)}s`;
   breathReportAverage.textContent = `${Math.round(summary.score * 100)}%`;
   breathReportPeak.textContent = `${Math.round(summary.peak * 100)}%`;
