@@ -9,65 +9,47 @@
   <body>
     <section class="mode-launcher" id="modeLauncher">
       <div class="mode-launcher-card">
-        <div class="launcher-heading">
+        <div class="launcher-heading training-entry-heading">
           <div>
-            <span class="launcher-kicker">声乐练习</span>
-            <h1>今天练什么？</h1>
-            <p>先选一个真实练习目标，工具会在进入后自动切到合适的视图。</p>
+            <span class="launcher-kicker">声乐训练</span>
+            <h1>今天先练一小段</h1>
+            <p>选择一个明确目标开始，练完再看回放和建议。高级分析工具都收在下面，不打断训练节奏。</p>
           </div>
-          <div class="launcher-summary">
-            <span>当前可练</span>
-            <strong>跟唱、音准、气息、音域</strong>
+          <div class="launcher-summary training-plan">
+            <span>推荐流程</span>
+            <strong>选歌 1 分钟 · 跟唱 3 分钟 · 回听 1 分钟</strong>
           </div>
         </div>
 
-        <div class="practice-grid">
-          <button id="openCurveModeButton" class="mode-button practice-card practice-card-primary">
-            <span class="practice-tag">跟唱练歌</span>
-            <span class="mode-title">对着歌曲练一遍</span>
-            <span class="mode-desc">上传或搜索歌曲，查看目标曲线，再录下自己的演唱做对比。</span>
+        <section class="training-entry" aria-label="训练入口">
+          <button id="openCurveModeButton" class="mode-button practice-card practice-card-primary training-entry-main">
+            <span class="practice-tag">今日推荐</span>
+            <span class="mode-title">跟唱一首歌</span>
+            <span class="mode-desc">选择歌曲或上传伴奏，边唱边看目标曲线，结束后回听自己的录音。</span>
             <span class="practice-action">开始跟唱</span>
           </button>
-          <button id="openPitchScoreModeButton" class="mode-button practice-card score-mode">
-            <span class="practice-tag">音准训练</span>
-            <span class="mode-title">把一个目标音唱稳</span>
-            <span class="mode-desc">实时看偏高、偏低、稳定度和命中率，适合短时校准。</span>
-            <span class="practice-action">练音准</span>
-          </button>
-          <button id="openBreathModeButton" class="mode-button practice-card breath-mode">
-            <span class="practice-tag">气息和音域</span>
-            <span class="mode-title">测今天的声音状态</span>
-            <span class="mode-desc">先测出气稳定度，再记录最低/最高稳定音和舒适音区。</span>
-            <span class="practice-action">测气息</span>
-          </button>
-          <button id="openRhythmModeButton" class="mode-button practice-card rhythm-mode">
-            <span class="practice-tag">节奏训练</span>
-            <span class="mode-title">把起音踩进拍点</span>
-            <span class="mode-desc">跟着节拍器唱短音或拍手，实时看早晚、命中率和连击。</span>
-            <span class="practice-action">练节奏</span>
-          </button>
-        </div>
 
-        <div class="launcher-secondary">
-          <div>
-            <h2>高级工具</h2>
-            <p>需要观察细节时再打开这些视图。</p>
+          <div class="quick-practice-list" aria-label="快速练习">
+            <button id="openPitchScoreModeButton" class="mode-button practice-card quick-practice-card score-mode">
+              <span class="practice-tag">3 分钟</span>
+              <span class="mode-title">音准稳定</span>
+              <span class="mode-desc">对准一个目标音，练偏高偏低和稳定度。</span>
+              <span class="practice-action">练音准</span>
+            </button>
+            <button id="openBreathModeButton" class="mode-button practice-card quick-practice-card breath-mode">
+              <span class="practice-tag">2 分钟</span>
+              <span class="mode-title">气息状态</span>
+              <span class="mode-desc">测出气流、漏气感和持续稳定度。</span>
+              <span class="practice-action">测气息</span>
+            </button>
+            <button id="openRhythmModeButton" class="mode-button practice-card quick-practice-card rhythm-mode">
+              <span class="practice-tag">2 分钟</span>
+              <span class="mode-title">节奏起音</span>
+              <span class="mode-desc">跟节拍器练短音，减少抢拍和拖拍。</span>
+              <span class="practice-action">练节奏</span>
+            </button>
           </div>
-          <div class="tool-grid">
-            <button id="openRangeModeButton" class="mode-button compact-tool range-mode">
-              <span class="mode-title">音域测量</span>
-              <span class="mode-desc">记录稳定跨度</span>
-            </button>
-            <button id="openSpectrogramModeButton" class="mode-button compact-tool secondary-mode">
-              <span class="mode-title">频谱图</span>
-              <span class="mode-desc">看泛音和能量</span>
-            </button>
-            <button id="openMemoryModeButton" class="mode-button compact-tool memory-mode">
-              <span class="mode-title">记忆感知</span>
-              <span class="mode-desc">分析保持和恢复路径</span>
-            </button>
-          </div>
-        </div>
+        </section>
 
         <div class="song-search-card">
           <h2>找一首歌开始练</h2>
@@ -95,6 +77,74 @@
             <span class="mode-desc" id="accompanimentLibraryEntryStatus">暂无伴奏</span>
           </button>
         </div>
+
+        <details class="launcher-secondary launcher-tools-details">
+          <summary>
+            <span>
+              <strong>高级分析工具</strong>
+              <small>音域、频谱图、记忆感知</small>
+            </span>
+          </summary>
+          <div class="tool-grid">
+            <button id="openRangeModeButton" class="mode-button compact-tool range-mode">
+              <span class="mode-title">音域测量</span>
+              <span class="mode-desc">记录稳定跨度</span>
+            </button>
+            <button id="openSpectrogramModeButton" class="mode-button compact-tool secondary-mode">
+              <span class="mode-title">频谱图</span>
+              <span class="mode-desc">看泛音和能量</span>
+            </button>
+            <button id="openMemoryModeButton" class="mode-button compact-tool memory-mode">
+              <span class="mode-title">记忆感知</span>
+              <span class="mode-desc">分析保持和恢复路径</span>
+            </button>
+          </div>
+        </details>
+
+        <details class="readiness-card" id="readinessCard">
+          <summary class="readiness-summary">
+            <span>
+              <strong>本机服务检查</strong>
+              <small>麦克风、Demucs、Whisper</small>
+            </span>
+          </summary>
+          <div class="readiness-card-body" aria-labelledby="readinessTitle">
+            <div class="readiness-card-header">
+              <div>
+                <h2 id="readinessTitle">本机能力检查</h2>
+                <p>需要人声分离、歌词识别或麦克风异常排查时再打开这里。</p>
+              </div>
+              <button id="runReadinessCheckButton" class="secondary" type="button">重新检查</button>
+            </div>
+            <div class="readiness-grid" id="readinessCheckGrid" aria-live="polite">
+              <div class="readiness-item" data-check="microphone">
+                <span class="readiness-dot" aria-hidden="true"></span>
+                <strong>麦克风</strong>
+                <span>等待检查</span>
+              </div>
+              <div class="readiness-item" data-check="secure">
+                <span class="readiness-dot" aria-hidden="true"></span>
+                <strong>安全页面</strong>
+                <span>等待检查</span>
+              </div>
+              <div class="readiness-item" data-check="demucs">
+                <span class="readiness-dot" aria-hidden="true"></span>
+                <strong>Demucs 分离</strong>
+                <span>等待检查</span>
+              </div>
+              <div class="readiness-item" data-check="whisper">
+                <span class="readiness-dot" aria-hidden="true"></span>
+                <strong>Whisper 歌词</strong>
+                <span>等待检查</span>
+              </div>
+            </div>
+            <p id="readinessStatus" class="readiness-status">展开后会检查一次；本地服务未启动时仍可使用浏览器内置练习功能。</p>
+            <div class="readiness-actions">
+              <button id="copyDemucsCommandButton" class="secondary" type="button">复制 Demucs 启动命令</button>
+              <button id="copyWhisperCommandButton" class="secondary" type="button">复制 Whisper 启动命令</button>
+            </div>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -200,12 +250,18 @@
         <span id="trainingFeedbackBadge" class="training-feedback-badge">等待</span>
       </section>
 
-      <section class="curve-switcher" id="curveSwitcher" hidden>
-        <button id="songGameViewButton" class="curve-tab active" type="button">游戏谱面</button>
-        <button id="curvePitchButton" class="curve-tab" type="button">分析曲线</button>
-        <button id="curveVolumeButton" class="curve-tab" type="button">音量曲线</button>
-        <button id="curveFormantButton" class="curve-tab" type="button">共振峰曲线</button>
-      </section>
+      <details class="curve-switcher-details" id="curveSwitcherDetails" hidden>
+        <summary>
+          <span>分析视图</span>
+          <small>曲线、音量、共振峰</small>
+        </summary>
+        <section class="curve-switcher" id="curveSwitcher" hidden>
+          <button id="songGameViewButton" class="curve-tab active" type="button">游戏谱面</button>
+          <button id="curvePitchButton" class="curve-tab" type="button">分析曲线</button>
+          <button id="curveVolumeButton" class="curve-tab" type="button">音量曲线</button>
+          <button id="curveFormantButton" class="curve-tab" type="button">共振峰曲线</button>
+        </section>
+      </details>
 
       <section class="breath-dashboard" id="breathDashboard" hidden>
         <div class="breath-score-panel">
@@ -503,32 +559,38 @@
             </div>
           </div>
 
-          <div class="song-target-controls">
-            <div class="controls-inline song-target-playback">
-              <button id="playSongPitchButton" class="secondary" disabled>播放</button>
-              <button id="pauseSongPitchButton" class="secondary" disabled>暂停</button>
-              <button id="stopSongPitchButton" class="secondary" disabled>停止</button>
+          <details class="song-assets-details song-target-details">
+            <summary>
+              <span>播放和目标状态</span>
+              <small>参考音频、曲线信息、训练结果</small>
+            </summary>
+            <div class="song-target-controls">
+              <div class="controls-inline song-target-playback">
+                <button id="playSongPitchButton" class="secondary" disabled>播放</button>
+                <button id="pauseSongPitchButton" class="secondary" disabled>暂停</button>
+                <button id="stopSongPitchButton" class="secondary" disabled>停止</button>
+              </div>
+              <button id="clearSongPitchButton" class="secondary" disabled>清除曲线</button>
             </div>
-            <button id="clearSongPitchButton" class="secondary" disabled>清除曲线</button>
-          </div>
-          <div class="song-target-status">
-            <div>
-              <span class="label">提取状态</span>
-              <span class="value" id="songPitchStatus">未加载</span>
+            <div class="song-target-status">
+              <div>
+                <span class="label">提取状态</span>
+                <span class="value" id="songPitchStatus">未加载</span>
+              </div>
+              <div>
+                <span class="label">播放状态</span>
+                <span class="value" id="songPitchPlaybackStatus">未加载</span>
+              </div>
+              <div>
+                <span class="label">曲线信息</span>
+                <span class="value" id="songPitchStats">--</span>
+              </div>
+              <div>
+                <span class="label">训练结果</span>
+                <span class="value" id="songTrainingResult">--</span>
+              </div>
             </div>
-            <div>
-              <span class="label">播放状态</span>
-              <span class="value" id="songPitchPlaybackStatus">未加载</span>
-            </div>
-            <div>
-              <span class="label">曲线信息</span>
-              <span class="value" id="songPitchStats">--</span>
-            </div>
-            <div>
-              <span class="label">训练结果</span>
-              <span class="value" id="songTrainingResult">--</span>
-            </div>
-          </div>
+          </details>
           <details class="song-assets-details">
             <summary>
               <span>乐谱 / 歌词 / 导出</span>
@@ -695,6 +757,7 @@
         </div>
         <div class="memory-recommendation" id="memoryRecommendation">暂无路径推荐。</div>
       </section>
+
 
       <section class="breath-report" id="breathReport" hidden>
         <div class="breath-report-header">
@@ -1006,6 +1069,7 @@
     <script src="song-lyrics.js"></script>
     <script src="recording-timeline.js"></script>
     <script src="vocal-separation.js"></script>
+    <script src="readiness.js"></script>
     <script src="spectrogram.js"></script>
     <script src="audio-engine.js"></script>
     <script src="app.js"></script>

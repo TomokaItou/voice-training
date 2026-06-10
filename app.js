@@ -979,7 +979,7 @@ function setReadoutMode(mode) {
     breathDashboard.hidden = !isBreath;
   }
   if (pitchScoreDashboard) {
-    pitchScoreDashboard.hidden = !shouldShowPitchScorePanel(mode);
+    pitchScoreDashboard.hidden = !shouldShowPitchScorePanel(mode) || isSongPracticeMode;
   }
   if (rangeDashboard) {
     rangeDashboard.hidden = !isRange;
@@ -997,7 +997,7 @@ function setReadoutMode(mode) {
     memoryDashboard.hidden = !isMemory;
   }
   if (rhythmDashboard) {
-    rhythmDashboard.hidden = !(isRhythm || isSongPracticeRhythm);
+    rhythmDashboard.hidden = !isRhythm;
     rhythmDashboard.classList.toggle('song-practice', isSongPracticeRhythm);
   }
   if (readout) {
@@ -1065,6 +1065,9 @@ function setTrainingCopy(mode) {
 }
 
 function setCurveSwitcherMode(mode) {
+  if (curveSwitcherDetails) {
+    curveSwitcherDetails.hidden = trainingMode !== 'curve';
+  }
   if (curveSwitcher) {
     curveSwitcher.hidden = trainingMode !== 'curve';
   }
