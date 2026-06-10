@@ -202,6 +202,64 @@ button.secondary:not(:disabled):hover {
   font-size: 13px;
 }
 
+.curve-switcher-details {
+  width: fit-content;
+  margin: 0 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.curve-switcher-details summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 9px 12px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 760;
+  list-style: none;
+}
+
+.curve-switcher-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.curve-switcher-details summary::after {
+  content: '+';
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  margin-left: auto;
+}
+
+.curve-switcher-details[open] summary::after {
+  content: '-';
+}
+
+.curve-switcher-details summary span {
+  color: var(--text);
+}
+
+.curve-switcher-details summary small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.curve-switcher-details .curve-switcher {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
 .training-feedback {
   display: flex;
   justify-content: space-between;

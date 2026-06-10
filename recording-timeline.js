@@ -504,13 +504,13 @@ function renderRecordingLibrary() {
     main.addEventListener('click', () => selectRecordingFromLibrary(recording.id));
 
     const playButton = document.createElement('button');
-    playButton.className = 'recording-library-action';
+    playButton.className = 'recording-library-action primary';
     playButton.type = 'button';
     playButton.textContent = isPlaying ? '暂停' : '播放';
     playButton.addEventListener('click', () => playRecordingLibraryItem(recording));
 
     const analyzeButton = document.createElement('button');
-    analyzeButton.className = 'recording-library-action';
+    analyzeButton.className = 'recording-library-action secondary-action';
     analyzeButton.type = 'button';
     analyzeButton.textContent = '分析';
     analyzeButton.addEventListener('click', () => selectRecordingFromLibrary(recording.id, { analyze: true }));
@@ -537,7 +537,20 @@ function renderRecordingLibrary() {
     removeButton.textContent = '删除';
     removeButton.addEventListener('click', () => removeRecordingFromLibrary(recording.id));
 
-    item.append(main, playButton, analyzeButton, renameButton, downloadButton, removeButton);
+    const moreActions = document.createElement('details');
+    moreActions.className = 'recording-library-more';
+    const moreSummary = document.createElement('summary');
+    moreSummary.textContent = '更多';
+    const moreMenu = document.createElement('div');
+    moreMenu.className = 'recording-library-more-menu';
+    moreMenu.append(renameButton, downloadButton, removeButton);
+    moreActions.append(moreSummary, moreMenu);
+
+    const actions = document.createElement('div');
+    actions.className = 'recording-library-actions';
+    actions.append(playButton, analyzeButton, moreActions);
+
+    item.append(main, actions);
     recordingLibraryList.append(item);
   });
 }
@@ -682,13 +695,13 @@ function renderAccompanimentLibrary() {
     main.addEventListener('click', () => selectAccompanimentFromLibrary(item.id));
 
     const playButton = document.createElement('button');
-    playButton.className = 'recording-library-action';
+    playButton.className = 'recording-library-action primary';
     playButton.type = 'button';
     playButton.textContent = isPlaying ? '暂停' : '播放';
     playButton.addEventListener('click', () => playAccompanimentLibraryItem(item));
 
     const loadButton = document.createElement('button');
-    loadButton.className = 'recording-library-action';
+    loadButton.className = 'recording-library-action secondary-action';
     loadButton.type = 'button';
     loadButton.textContent = '加载';
     loadButton.addEventListener('click', () => selectAccompanimentFromLibrary(item.id));
@@ -709,7 +722,20 @@ function renderAccompanimentLibrary() {
     removeButton.textContent = '删除';
     removeButton.addEventListener('click', () => removeAccompanimentFromLibrary(item.id));
 
-    row.append(main, playButton, loadButton, downloadButton, removeButton);
+    const moreActions = document.createElement('details');
+    moreActions.className = 'recording-library-more';
+    const moreSummary = document.createElement('summary');
+    moreSummary.textContent = '更多';
+    const moreMenu = document.createElement('div');
+    moreMenu.className = 'recording-library-more-menu';
+    moreMenu.append(downloadButton, removeButton);
+    moreActions.append(moreSummary, moreMenu);
+
+    const actions = document.createElement('div');
+    actions.className = 'recording-library-actions';
+    actions.append(playButton, loadButton, moreActions);
+
+    row.append(main, actions);
     accompanimentLibraryList.append(row);
   });
 }

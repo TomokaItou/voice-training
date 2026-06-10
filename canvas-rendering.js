@@ -474,25 +474,25 @@ function getSongGameJudgement(targetPitch) {
 function getSongGameNoteFill(noteIndex, isCurrent, hasPassed) {
   if (hasPassed) {
     return {
-      fill: 'rgba(78, 92, 105, 0.42)',
-      stroke: 'rgba(148, 163, 184, 0.26)',
-      shadow: 'rgba(15, 23, 42, 0.16)',
+      fill: 'rgba(185, 193, 182, 0.34)',
+      stroke: 'rgba(140, 149, 137, 0.28)',
+      shadow: 'rgba(28, 34, 28, 0.08)',
     };
   }
   if (isCurrent) {
     return {
       fill: '#ff8a3d',
-      stroke: '#ffd3b8',
-      shadow: 'rgba(255, 138, 61, 0.34)',
+      stroke: '#b85f25',
+      shadow: 'rgba(255, 138, 61, 0.20)',
     };
   }
   const palette = [
-    ['#2dd4bf', '#99f6e4', 'rgba(45, 212, 191, 0.24)'],
-    ['#38bdf8', '#bae6fd', 'rgba(56, 189, 248, 0.22)'],
-    ['#a78bfa', '#ddd6fe', 'rgba(167, 139, 250, 0.24)'],
-    ['#f472b6', '#fbcfe8', 'rgba(244, 114, 182, 0.22)'],
-    ['#facc15', '#fef3c7', 'rgba(250, 204, 21, 0.20)'],
-    ['#4ade80', '#bbf7d0', 'rgba(74, 222, 128, 0.22)'],
+    ['#55b8aa', '#25786f', 'rgba(15, 118, 110, 0.14)'],
+    ['#6aa9d7', '#2f6f9f', 'rgba(47, 111, 159, 0.12)'],
+    ['#a88ed6', '#7154a6', 'rgba(113, 84, 166, 0.13)'],
+    ['#dc86ad', '#a84c73', 'rgba(168, 76, 115, 0.12)'],
+    ['#d7b04c', '#956f11', 'rgba(149, 111, 17, 0.12)'],
+    ['#71b783', '#3f7f4f', 'rgba(63, 127, 79, 0.12)'],
   ];
   const [fill, stroke, shadow] = palette[noteIndex % palette.length];
   return { fill, stroke, shadow };
@@ -501,22 +501,22 @@ function getSongGameNoteFill(noteIndex, isCurrent, hasPassed) {
 function drawSongGameBackground(stageLeft, stageTop, stageWidth, stageHeight, hitX) {
   const stageBottom = stageTop + stageHeight;
   const gradient = ctx.createLinearGradient(0, stageTop, 0, stageBottom);
-  gradient.addColorStop(0, '#0f1a1a');
-  gradient.addColorStop(0.55, '#081211');
-  gradient.addColorStop(1, '#07100f');
+  gradient.addColorStop(0, '#f8fbf7');
+  gradient.addColorStop(0.58, '#f1f6f2');
+  gradient.addColorStop(1, '#eef3ef');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
-  ctx.strokeStyle = 'rgba(125, 211, 252, 0.14)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.74)';
+  ctx.strokeStyle = 'rgba(15, 118, 110, 0.16)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.roundRect(stageLeft, stageTop, stageWidth, stageHeight, 12);
   ctx.fill();
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+  ctx.strokeStyle = 'rgba(105, 113, 103, 0.16)';
   for (let i = 1; i < 6; i += 1) {
     const y = stageTop + (stageHeight / 6) * i;
     ctx.beginPath();
@@ -527,14 +527,14 @@ function drawSongGameBackground(stageLeft, stageTop, stageWidth, stageHeight, hi
 
   const guide = ctx.createLinearGradient(hitX - 28, 0, hitX + 28, 0);
   guide.addColorStop(0, 'rgba(255, 138, 61, 0)');
-  guide.addColorStop(0.5, 'rgba(255, 138, 61, 0.20)');
+  guide.addColorStop(0.5, 'rgba(255, 138, 61, 0.18)');
   guide.addColorStop(1, 'rgba(255, 138, 61, 0)');
   ctx.fillStyle = guide;
   ctx.fillRect(hitX - 28, stageTop + 2, 56, stageHeight - 4);
 
-  ctx.shadowColor = 'rgba(255, 138, 61, 0.48)';
-  ctx.shadowBlur = 14;
-  ctx.strokeStyle = '#ff8a3d';
+  ctx.shadowColor = 'rgba(255, 138, 61, 0.26)';
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = '#f97316';
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(hitX, stageTop + 10);
@@ -542,7 +542,7 @@ function drawSongGameBackground(stageLeft, stageTop, stageWidth, stageHeight, hi
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = 'rgba(255, 231, 214, 0.90)';
+  ctx.fillStyle = '#8a4b17';
   ctx.font = '700 11px "Arial", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -556,11 +556,11 @@ function drawSongGameLane() {
 
   const notes = getSongGameNotes().filter((note) => note.pitch && note.endMs > note.startMs);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#081110';
+  ctx.fillStyle = '#f8fbf7';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   if (!notes.length) {
-    ctx.fillStyle = '#d8f5ee';
+    ctx.fillStyle = '#697167';
     ctx.font = '18px "Microsoft YaHei", "PingFang SC", sans-serif';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
@@ -626,8 +626,8 @@ function drawSongGameLane() {
 
     const shine = ctx.createLinearGradient(0, y - height / 2, 0, y + height / 2);
     shine.addColorStop(0, 'rgba(255, 255, 255, 0.26)');
-    shine.addColorStop(0.48, 'rgba(255, 255, 255, 0.04)');
-    shine.addColorStop(1, 'rgba(0, 0, 0, 0.10)');
+    shine.addColorStop(0.48, 'rgba(255, 255, 255, 0.10)');
+    shine.addColorStop(1, 'rgba(28, 34, 28, 0.06)');
     ctx.fillStyle = shine;
     ctx.beginPath();
     ctx.roundRect(startX + 1, y - height / 2 + 1, Math.max(0, width - 2), height - 2, 7);
@@ -636,12 +636,12 @@ function drawSongGameLane() {
     const lyric = lyricAssignments.get(noteIndex) || '';
     const chars = Array.from(lyric.replace(/\s+/g, ''));
     if (chars.length) {
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#17201d';
       ctx.font = '700 14px "Microsoft YaHei", "PingFang SC", sans-serif';
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(15, 23, 42, 0.55)';
-      ctx.shadowBlur = 2;
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.65)';
+      ctx.shadowBlur = 3;
       chars.forEach((char, charIndex) => {
         const charX = startX + (width * (charIndex + 0.5)) / chars.length;
         if (charX >= startX + 8 && charX <= startX + width - 8) {
@@ -660,7 +660,7 @@ function drawSongGameLane() {
     const y = laneBottom - normalized * laneHeight;
     if (y >= laneTop - 16 && y <= laneBottom + 16) {
       ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#ff7a59';
+      ctx.strokeStyle = '#f97316';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(hitX, y, 8, 0, Math.PI * 2);
@@ -677,26 +677,26 @@ function drawSongGameLane() {
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillStyle =
-      judgement.tone === 'perfect' ? '#5eead4' : judgement.tone === 'good' ? '#fde68a' : '#fb7185';
+      judgement.tone === 'perfect' ? '#0f766e' : judgement.tone === 'good' ? '#b7791f' : '#b42318';
     ctx.shadowColor = ctx.fillStyle;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 0;
     ctx.fillText(judgement.label, judgementX, judgementY);
     ctx.shadowBlur = 0;
     if (Number.isFinite(judgement.cents)) {
       ctx.font = '13px "Arial", sans-serif';
-      ctx.fillStyle = 'rgba(226, 232, 240, 0.78)';
+      ctx.fillStyle = '#697167';
       ctx.fillText(formatSignedCents(judgement.cents), judgementX + 2, judgementY + 27);
     }
   }
 
-  ctx.fillStyle = 'rgba(226, 232, 240, 0.78)';
+  ctx.fillStyle = '#697167';
   ctx.font = '700 12px "Arial", sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
   ctx.fillText(`BPM ${Math.round(60000 / beatMs)}  ${formatTimeSeconds(now)}`, stageLeft + stageWidth - 18, stageTop + 12);
   ctx.textBaseline = 'bottom';
   ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(226, 232, 240, 0.62)';
+  ctx.fillStyle = '#697167';
   ctx.font = '700 11px "Microsoft YaHei", "PingFang SC", sans-serif';
   ctx.fillText('低音', stageLeft + 18, stageTop + stageHeight - 12);
   ctx.textAlign = 'right';

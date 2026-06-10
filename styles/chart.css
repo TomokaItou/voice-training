@@ -38,20 +38,22 @@
 }
 
 .chart.song-game-lane {
-  background: #07100f;
-  border-color: #172826;
-  box-shadow: 0 16px 34px rgba(8, 17, 16, 0.20);
-  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(248, 251, 247, 0.96), rgba(239, 245, 240, 0.96)),
+    var(--surface-muted);
+  border-color: rgba(15, 118, 110, 0.18);
+  box-shadow: 0 16px 34px rgba(28, 34, 28, 0.08);
+  padding: 12px;
 }
 
 .chart.song-game-lane canvas {
-  background: #081110;
-  border-color: #1d3431;
+  background: #f8fbf7;
+  border-color: rgba(15, 118, 110, 0.18);
   border-radius: 8px;
 }
 
 .chart.song-game-lane .chart-legend {
-  color: #c4cec8;
+  color: var(--muted);
 }
 
 canvas {
@@ -217,3 +219,25 @@ canvas {
   cursor: pointer;
 }
 
+.chart-practice-feedback {
+  grid-column: 1 / -1;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.chart-practice-feedback .label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chart-practice-feedback strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 16px;
+}

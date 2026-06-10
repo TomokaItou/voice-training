@@ -162,7 +162,8 @@
   grid-template-columns: minmax(220px, 1fr) auto;
   gap: 10px;
   align-items: center;
-  margin-bottom: 12px;
+  margin: 0 12px 12px;
+  padding-top: 12px;
 }
 
 .song-target-file {
@@ -181,6 +182,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--border);
+  margin: 0 12px 12px;
 }
 
 .song-target-status > div {
@@ -244,6 +246,11 @@
 
 .song-assets-details[open] summary::after {
   content: '-';
+}
+
+.song-target-details {
+  margin-top: 0;
+  margin-bottom: 12px;
 }
 
 .song-assets-details summary small {
