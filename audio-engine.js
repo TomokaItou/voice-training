@@ -184,6 +184,15 @@ function update() {
     captureRecordingFrame(now, rms, currentPitch);
     updatePitchScoreDisplay(now);
     updateRangeTraining(now, currentPitch);
+    if (typeof s88UpdateActionPath === 'function') {
+      s88UpdateActionPath({
+        now,
+        rms,
+        pitch: currentPitch,
+        floatFrequencyData: frequencyData,
+        sampleRate: audioContext.sampleRate,
+      });
+    }
   }
 
   if (formantToggle.checked || displayMode === 'formants') {
@@ -253,6 +262,9 @@ async function start() {
     volumeHistory = [];
     resetPitchStabilizer();
     resetBreathMeter();
+    if (typeof s88ResetActionState === 'function') {
+      s88ResetActionState();
+    }
     if (trainingMode === 'range') {
       resetRangeTraining();
     }
@@ -284,12 +296,21 @@ async function start() {
       tiltMeterBar.style.height = '0%';
     }
 
-    startButton.disabled = true;
-    startButton.textContent = '开始练习';
+    startButton.disabled = trainingMode !== 'score';
+    startButton.textContent = trainingMode === 'score' ? '结束检测' : '开始练习';
     if (pauseButton) {
       pauseButton.disabled = false;
     }
     stopButton.disabled = false;
+
+    if (displayMode === 'breath') {
+      if (typeof setReadoutMode === 'function') {
+        setReadoutMode('breath');
+      }
+      if (typeof updateBreathTrainingControls === 'function') {
+        updateBreathTrainingControls();
+      }
+    }
 
     update();
   } catch (error) {
@@ -328,6 +349,7 @@ function stop() {
     tiltMeterBar.style.height = '0%';
   }
   startButton.disabled = false;
+  startButton.textContent = trainingMode === 'score' ? '开始检测' : '开始练习';
   if (pauseButton) {
     pauseButton.disabled = true;
   }
@@ -339,5 +361,13 @@ function stop() {
   if (wasSpectrogram) {
     restoreSpectrogramSnapshot(spectrogramSnapshot);
     requestAnimationFrame(() => restoreSpectrogramSnapshot(spectrogramSnapshot));
+  }
+  if (displayMode === 'breath') {
+    if (typeof setReadoutMode === 'function') {
+      setReadoutMode('breath');
+    }
+    if (typeof updateBreathTrainingControls === 'function') {
+      updateBreathTrainingControls();
+    }
   }
 }
