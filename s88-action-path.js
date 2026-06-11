@@ -878,7 +878,7 @@ function s88UpdateCompareButton() {
 }
 
 function s88GetTargetLibraryItems() {
-  return recordingLibrary.filter((item) => item?.blob && item.type !== 'song');
+  return recordingLibrary.filter((item) => item?.blob);
 }
 
 function s88RenderTargetLibrarySelect() {
