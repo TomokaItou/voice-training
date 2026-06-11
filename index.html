@@ -706,11 +706,17 @@
       <section class="memory-dashboard" id="memoryDashboard" hidden>
         <div class="memory-zone-card" id="memoryZoneCard">
           <div>
-            <span class="label">三分区反馈</span>
-            <span class="memory-zone-title" id="memoryZoneTitle">等待分析</span>
-            <span class="memory-zone-copy" id="memoryZoneCopy">录制一段“接近目标 → 保持目标 → 回到中性/安静”的音频，然后分析最近录音。</span>
+            <span class="label" id="memoryStageLabel">目标音色保持训练</span>
+            <span class="memory-zone-title" id="memoryZoneTitle">录一段完整路径</span>
+            <span class="memory-zone-copy" id="memoryZoneCopy">自然声音 → 接近目标 → 保持目标 → 回到自然。系统会分析你最容易丢失哪些音色特征。</span>
           </div>
           <span class="memory-zone-badge" id="memoryZoneBadge">--</span>
+        </div>
+        <div class="memory-path-panel" id="memoryPathPanel">
+          <span>自然声音</span>
+          <span>接近目标</span>
+          <span>保持目标</span>
+          <span>回到自然</span>
         </div>
         <div class="memory-controls">
           <label class="field">
@@ -735,7 +741,7 @@
             </select>
           </label>
           <label class="field">
-            <span class="label">教学控制指令</span>
+            <span class="label">下一步练习方向</span>
             <select id="memoryInstructionSelect" class="select">
               <option value="auto">自动选择</option>
               <option value="reduceBreathiness">减少气声 / 提高声源稳定</option>
@@ -746,6 +752,25 @@
           </label>
           <button id="memoryAnalyzeButton" class="secondary" disabled>分析最近录音</button>
         </div>
+        <div class="memory-result-panel" id="memoryResultPanel" hidden>
+          <div>
+            <span class="label">最容易丢失的特征</span>
+            <strong id="memoryLostFeatures">等待分析</strong>
+          </div>
+          <div>
+            <span class="label">主要问题</span>
+            <p id="memoryMainProblem">录音结束后会显示你在哪一步最容易回到自然状态。</p>
+          </div>
+          <div>
+            <span class="label">下一步练习建议</span>
+            <p id="memoryNextAdvice">每次只改变一个音色特征，不要同时追求所有目标。</p>
+          </div>
+        </div>
+        <details class="memory-research-panel" id="memoryResearchPanel" hidden>
+          <summary>
+            <span>详细数据 / 研究模式</span>
+            <small>Esound、E[u]、Rε、φSN、φEtex</small>
+          </summary>
         <div class="memory-metrics">
           <div>
             <span class="label">目标误差 Esound</span>
@@ -782,7 +807,7 @@
         </div>
         <div class="memory-control-field" id="memoryControlField">
           <div>
-            <span class="label">控制场判断</span>
+            <span class="label">研究模式：控制场判断</span>
             <span class="memory-field-title" id="memoryControlTitle">等待控制场分析</span>
             <span class="memory-field-copy" id="memoryControlCopy">
               S84 思路：比较目标差距和教学指令的预计移动方向，而不只判断当前声音像不像目标。
@@ -790,10 +815,16 @@
           </div>
           <span class="memory-field-score" id="memoryControlScore">--</span>
         </div>
+        </details>
         <div class="memory-recommendation" id="memoryRecommendation">暂无路径推荐。</div>
       </section>
 
-      <section class="s88-dashboard" id="s88Dashboard" hidden>
+      <section class="s88-dashboard" id="s88Dashboard" data-phase="needs-target" hidden>
+        <div class="s88-status-row">
+          <span>目标音色：<strong id="s88TargetStepStatus">未上传</strong></span>
+          <span>当前录音：<strong id="s88RecordingStepStatus">未录制</strong></span>
+          <span>分析状态：<strong id="s88AnalysisStepStatus">等待</strong></span>
+        </div>
         <section class="s88-recommendation-card">
           <span class="label">推荐动作</span>
           <h2 id="s88TrajectoryValue">先准备目标和录音</h2>
@@ -804,27 +835,49 @@
           <p id="s88Advice">先录制当前声音并上传目标声音，系统会推荐下一步动作。</p>
         </section>
 
-        <section class="s88-action-grid" aria-label="四个可执行发声动作">
+        <div class="s88-path-diagram" id="s88PathDiagram" aria-label="动作路径">
+          <span>当前声音</span>
+          <strong id="s88PathAction">推荐动作</strong>
+          <span>目标音色</span>
+        </div>
+
+        <div class="s88-guidance-grid">
+          <div>
+            <span class="label">练习方法</span>
+            <p id="s88PracticeMethod">准备好目标音色和当前录音后，这里会给出具体练法。</p>
+          </div>
+          <div>
+            <span class="label">为什么练这个</span>
+            <p id="s88Reason">分析完成后，这里会解释为什么优先练这个动作。</p>
+          </div>
+        </div>
+
+        <div class="s88-result-actions" id="s88ResultActions" hidden>
+          <button id="s88RerecordButton" class="secondary" type="button">重新录制</button>
+          <button id="s88AdvancedToggleButton" class="ghost" type="button">查看高级分析</button>
+        </div>
+
+        <section class="s88-action-grid" aria-label="完整动作分析">
           <article class="s88-action-card" id="s88BreathinessCard">
-            <span class="label">Breathiness / 气声感</span>
+            <span class="label">气声</span>
             <strong id="s88BreathinessAdvice">--</strong>
             <span class="s88-action-strength" id="s88BreathinessStrength">--</span>
             <p id="s88BreathinessCopy">上传目标声音并对比录音后显示调整方向。</p>
           </article>
           <article class="s88-action-card" id="s88ClosureCard">
-            <span class="label">Closure / 闭合感</span>
+            <span class="label">闭合</span>
             <strong id="s88ClosureAdvice">--</strong>
             <span class="s88-action-strength" id="s88ClosureStrength">--</span>
             <p id="s88ClosureCopy">系统会判断需要更清晰闭合，还是放松压力。</p>
           </article>
           <article class="s88-action-card" id="s88TwangCard">
-            <span class="label">Twang / 集中度</span>
+            <span class="label">集中度</span>
             <strong id="s88TwangAdvice">--</strong>
             <span class="s88-action-strength" id="s88TwangStrength">--</span>
             <p id="s88TwangCopy">练习声音集中度和明亮感，不只看高频能量。</p>
           </article>
           <article class="s88-action-card" id="s88OnsetCard">
-            <span class="label">Onset / 起音力度</span>
+            <span class="label">起音</span>
             <strong id="s88OnsetAdvice">--</strong>
             <span class="s88-action-strength" id="s88OnsetStrength">--</span>
             <p id="s88OnsetCopy">系统会关注开始发声的前 300 ms 是否过硬或过软。</p>
@@ -841,7 +894,7 @@
           <span id="s88UserStatus">录制你的声音后，对比目标声音并生成动作建议。</span>
         </div>
 
-        <details class="s88-advanced-panel">
+        <details class="s88-advanced-panel" id="s88AdvancedPanel">
           <summary>
             <span>高级分析</span>
             <small>phi、耦合和动作特征</small>
@@ -1200,6 +1253,7 @@
     <script src="app-config.js"></script>
     <script src="app-dom.js"></script>
     <script src="app-state.js"></script>
+    <script src="app-shell.js"></script>
     <script src="pitch-detection.js"></script>
     <script src="formant-analysis.js"></script>
     <script src="canvas-rendering.js"></script>
@@ -1208,15 +1262,20 @@
     <script src="memory-config.js"></script>
     <script src="memory-training.js"></script>
     <script src="s88-action-path.js"></script>
+    <script src="range-training.js"></script>
     <script src="rhythm-training.js"></script>
     <script src="song-pitch.js"></script>
     <script src="vocal-score.js"></script>
     <script src="song-lyrics.js"></script>
     <script src="recording-timeline.js"></script>
+    <script src="pitch-score-training.js"></script>
+    <script src="accompaniment-controls.js"></script>
     <script src="vocal-separation.js"></script>
     <script src="readiness.js"></script>
     <script src="spectrogram.js"></script>
     <script src="audio-engine.js"></script>
+    <script src="song-practice-flow.js"></script>
+    <script src="recording-flow.js"></script>
     <script src="app.js"></script>
     <script src="launcher-router.js"></script>
   </body>

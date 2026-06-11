@@ -571,3 +571,370 @@ function s88CompareLatestRecording() {
     s88UserStatus.textContent = '已生成动作建议。现在按推荐动作练一遍，再重新对比。';
   }
 }
+// Readable S88 decision-page rendering overrides.
+const s88ActionLabels = {
+  breathiness: {
+    label: '气声',
+    increase: '气声 ↑',
+    decrease: '气声 ↓',
+    hold: '气声保持',
+    increaseCopy: '让气流多一点，但不要让音高和元音散掉。',
+    decreaseCopy: '减少漏气感，让元音边缘更清楚。',
+    holdCopy: '气声已经接近目标，把注意力放到其他动作上。',
+    methodUp: '用轻声 /a/ 开始，保留一点气流感，再慢慢稳定音高。',
+    methodDown: '先减小气流声，用更清楚的元音进入，不要靠挤压变大声。',
+    reasonUp: '目标音色比当前声音更松、更带气，先加一点气声会更接近目标。',
+    reasonDown: '当前声音的漏气感比目标更明显，先收住气流边缘会更有效。',
+  },
+  closure: {
+    label: '闭合',
+    increase: '闭合 ↑',
+    decrease: '闭合 ↓',
+    hold: '闭合保持',
+    increaseCopy: '让声带接触更稳定，但不要靠喉咙硬顶。',
+    decreaseCopy: '放松压力，先把响度降一点再唱。',
+    holdCopy: '闭合已经接近目标，继续保持稳定。',
+    methodUp: '用轻短的 ma / na 起音，找到清楚但不挤的声带接触。',
+    methodDown: '先降低音量，用更松的元音进入，让喉咙压力少一点。',
+    reasonUp: '当前声音的闭合比目标弱，先练闭合稳定会比继续调亮更有效。',
+    reasonDown: '当前闭合压力偏强，先放松闭合能让音色更靠近目标。',
+  },
+  twang: {
+    label: '集中度',
+    increase: '集中度 ↑',
+    decrease: '集中度 ↓',
+    hold: '集中度保持',
+    increaseCopy: '让声音更集中、更明亮，但不要挤。',
+    decreaseCopy: '少一点鼻咽集中感，保持元音自然。',
+    holdCopy: '集中度已经接近目标，不需要额外推亮。',
+    methodUp: '用中性 /a/ 开始，轻微加入 da / ta 起音，让声音更集中但不要挤。',
+    methodDown: '把元音放宽一点，减少尖锐的集中感，同时保持音量稳定。',
+    reasonUp: '当前声音和目标的主要差距在集中度，优先练它比继续调整气声更有效。',
+    reasonDown: '当前声音比目标更尖更集中，先放宽集中度会更自然。',
+  },
+  onset: {
+    label: '起音',
+    increase: '起音 ↑',
+    decrease: '起音 ↓',
+    hold: '起音保持',
+    increaseCopy: '让开头更清楚，但避免喉部硬撞。',
+    decreaseCopy: '让元音慢一点进入，稳住前 300 ms。',
+    holdCopy: '起音力度已经接近目标，把注意力放在持续段音色。',
+    methodUp: '练短促 da / ta，再把硬度减半，保留清楚的开头。',
+    methodDown: '用轻柔的 ha-a 或 a-a 进入，让声音慢一点打开。',
+    reasonUp: '目标音色的起音更明确，先练起音会让动作路径更接近目标。',
+    reasonDown: '当前起音偏硬，先柔化开头可以减少压力感。',
+  },
+};
+function s88ReadableStars(count) {
+  const filled = Math.max(0, Math.min(5, count));
+  return `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`;
+}
+
+function s88ReadableDirection(value, up, down, tolerance = 0.045) {
+  if (value > tolerance) return up;
+  if (value < -tolerance) return down;
+  return '保持';
+}
+
+function s88ReadableActionState(value, tolerance = 0.045) {
+  const abs = Math.abs(value);
+  const stars = Math.max(1, Math.min(5, Math.round(normalizeRange(abs, tolerance, 0.24) * 4 + 1)));
+  const strength = abs < tolerance ? '保持' : abs < 0.1 ? '轻微' : abs < 0.18 ? '中等' : '明显';
+  const arrow = abs < tolerance ? '→' : value > 0 ? '↑' : '↓';
+  const direction = abs < tolerance ? 'hold' : value > 0 ? 'up' : 'down';
+  return { abs, stars, strength, arrow, direction };
+}
+
+function s88RecommendationText(best) {
+  const meta = s88ActionLabels[best.key];
+  if (!meta) {
+    return {
+      title: '保持当前动作',
+      copy: '当前声音已经比较接近目标。',
+      method: '按现在的感觉再唱一遍，保持音量和元音稳定。',
+      reason: '系统没有发现特别优先的调整方向。',
+    };
+  }
+  if (best.state.direction === 'hold') {
+    return {
+      title: meta.hold,
+      copy: meta.holdCopy,
+      method: '按现在的动作再唱一遍，重点保持稳定，不急着增加新变化。',
+      reason: `${meta.label}已经接近目标，优先保持，不要为了调整而调整。`,
+    };
+  }
+  const isUp = best.state.direction === 'up';
+  return {
+    title: isUp ? meta.increase : meta.decrease,
+    copy: isUp ? meta.increaseCopy : meta.decreaseCopy,
+    method: isUp ? meta.methodUp : meta.methodDown,
+    reason: isUp ? meta.reasonUp : meta.reasonDown,
+  };
+}
+
+function s88SetActionCard({ key, value, directionText }) {
+  const meta = s88ActionLabels[key];
+  const nodes = {
+    breathiness: { card: s88BreathinessCard, title: s88BreathinessAdvice, strength: s88BreathinessStrength, copy: s88BreathinessCopy },
+    closure: { card: s88ClosureCard, title: s88ClosureAdvice, strength: s88ClosureStrength, copy: s88ClosureCopy },
+    twang: { card: s88TwangCard, title: s88TwangAdvice, strength: s88TwangStrength, copy: s88TwangCopy },
+    onset: { card: s88OnsetCard, title: s88OnsetAdvice, strength: s88OnsetStrength, copy: s88OnsetCopy },
+  }[key];
+  const state = s88ReadableActionState(value);
+  if (!meta || !nodes) return state;
+  const copy = state.direction === 'hold' ? meta.holdCopy : state.direction === 'up' ? meta.increaseCopy : meta.decreaseCopy;
+  if (nodes.card) nodes.card.dataset.direction = state.direction;
+  if (nodes.title) nodes.title.textContent = `${state.arrow} ${directionText}`;
+  if (nodes.strength) nodes.strength.textContent = state.direction === 'hold' ? '强度：保持' : `强度：${state.strength} · ${s88ReadableStars(state.stars)}`;
+  if (nodes.copy) nodes.copy.textContent = copy;
+  return state;
+}
+
+function s88ResetActionCards() {
+  [
+    [s88BreathinessCard, s88BreathinessAdvice, s88BreathinessStrength, s88BreathinessCopy, '分析后显示气声是否需要调整。'],
+    [s88ClosureCard, s88ClosureAdvice, s88ClosureStrength, s88ClosureCopy, '分析后显示闭合是否需要更清晰或更放松。'],
+    [s88TwangCard, s88TwangAdvice, s88TwangStrength, s88TwangCopy, '分析后显示声音集中度是否需要调整。'],
+    [s88OnsetCard, s88OnsetAdvice, s88OnsetStrength, s88OnsetCopy, '分析后显示起音是否需要更明确或更柔和。'],
+  ].forEach(([card, title, strength, copy, text]) => {
+    if (card) card.dataset.direction = '';
+    if (title) title.textContent = '--';
+    if (strength) strength.textContent = '--';
+    if (copy) copy.textContent = text;
+  });
+}
+
+function s88RenderTargetComparison(result) {
+  if (s88PhiSnDelta) s88PhiSnDelta.textContent = result ? s88FormatDelta(result.deltaSn) : '--';
+  if (s88PhiEtexDelta) s88PhiEtexDelta.textContent = result ? s88FormatDelta(result.deltaEtex) : '--';
+  if (!result) {
+    s88ResetActionCards();
+    if (s88PathAction) s88PathAction.textContent = '推荐动作';
+    if (s88PracticeMethod) s88PracticeMethod.textContent = '准备好目标音色和当前录音后，这里会给出具体练法。';
+    if (s88Reason) s88Reason.textContent = '分析完成后，这里会解释为什么优先练这个动作。';
+    return;
+  }
+  const actions = [
+    { key: 'breathiness', value: result.deltaBreath, text: s88ReadableDirection(result.deltaBreath, '建议增加', '建议减少') },
+    { key: 'closure', value: result.deltaClosure, text: s88ReadableDirection(result.deltaClosure, '建议增加', '建议放松') },
+    { key: 'twang', value: result.deltaTwang, text: s88ReadableDirection(result.deltaTwang, '建议增加', '建议减少') },
+    { key: 'onset', value: result.deltaOnset, text: s88ReadableDirection(result.deltaOnset, '建议更明确', '建议更柔和') },
+  ].map((item) => ({ ...item, state: s88SetActionCard({ key: item.key, value: item.value, directionText: item.text }) }));
+  const [best] = actions.sort((a, b) => b.state.abs - a.state.abs);
+  const confidence = Math.round(clamp01(normalizeRange(best.state.abs, 0.04, 0.28)) * 100);
+  const text = s88RecommendationText(best);
+  if (s88TrajectoryValue) s88TrajectoryValue.textContent = text.title;
+  if (s88PathAction) s88PathAction.textContent = text.title;
+  if (s88RecommendationStars) s88RecommendationStars.textContent = s88ReadableStars(best.state.stars);
+  if (s88RecommendationConfidence) s88RecommendationConfidence.textContent = `置信度：${confidence}%`;
+  if (s88Advice) s88Advice.textContent = text.copy;
+  if (s88PracticeMethod) s88PracticeMethod.textContent = text.method;
+  if (s88Reason) s88Reason.textContent = text.reason;
+}
+
+function s88ResetActionState() {
+  s88FrameHistory = [];
+  s88OnsetWindow = [];
+  s88ActiveOnset = null;
+  s88LastRms = 0;
+  s88LastUpdate = 0;
+  s88UserProfile = null;
+  s88PracticeActive = false;
+  if (s88TrajectoryValue) s88TrajectoryValue.textContent = s88TargetProfile ? '录制当前声音' : '先上传目标音色';
+  if (s88RecommendationStars) s88RecommendationStars.textContent = '☆☆☆☆☆';
+  if (s88RecommendationConfidence) s88RecommendationConfidence.textContent = '等待分析';
+  if (s88Advice) s88Advice.textContent = '先上传目标音色，再录一段当前声音。系统会告诉你下一步最值得练的动作。';
+  if (s88TwangValue) s88TwangValue.textContent = '--%';
+  if (s88OnsetValue) s88OnsetValue.textContent = '--%';
+  if (s88CouplingValue) s88CouplingValue.textContent = '--';
+  if (s88ResidualValue) s88ResidualValue.textContent = '--';
+  if (s88LiveFeedback) s88LiveFeedback.textContent = '按推荐动作练习中';
+  s88RenderTargetComparison(null);
+  s88UpdateCompareButton();
+}
+
+function inferS88TrainingPhase() {
+  if (s88PracticeActive) return 'practicing';
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') return 'recording';
+  if (!s88TargetProfile) return 'needs-target';
+  if (s88UserProfile) return 'result';
+  return 'needs-recording';
+}
+
+function setS88TrainingPhase(phase = inferS88TrainingPhase()) {
+  if (trainingMode !== 'action' && phase !== 'needs-target') {
+    return;
+  }
+  s88TrainingPhase = phase;
+  if (s88Dashboard) {
+    s88Dashboard.dataset.phase = phase;
+    s88Dashboard.classList.toggle('advanced-open', Boolean(s88AdvancedPanel?.open));
+  }
+  if (s88TargetStepStatus) {
+    s88TargetStepStatus.textContent =
+      phase === 'loading-target' ? '分析中' : s88TargetProfile ? '已上传' : '未上传';
+  }
+  if (s88RecordingStepStatus) {
+    s88RecordingStepStatus.textContent =
+      phase === 'recording'
+        ? '录音中'
+        : recordingTimelineFrames.length || s88UserProfile
+          ? '已录制'
+          : '未录制';
+  }
+  if (s88AnalysisStepStatus) {
+    s88AnalysisStepStatus.textContent =
+      phase === 'analyzing'
+        ? '分析中'
+        : phase === 'result' || phase === 'practicing'
+          ? '已完成'
+          : '等待';
+  }
+  if (s88TargetStatus) {
+    if (phase === 'loading-target') {
+      s88TargetStatus.textContent = '正在分析目标音色...';
+    } else if (s88TargetProfile) {
+      s88TargetStatus.textContent = '目标音色已上传';
+    } else {
+      s88TargetStatus.textContent = '尚未上传目标音色';
+    }
+  }
+  if (s88UserStatus) {
+    const copy = {
+      'needs-target': '先上传目标音色，再录制当前声音。',
+      'loading-target': '正在读取目标音色，请稍等。',
+      'needs-recording': '现在录制一段当前声音，系统会推荐下一步动作。',
+      recording: '正在录制当前声音，结束后会自动分析。',
+      analyzing: '正在分析目标音色和当前声音的差距。',
+      result: '已生成动作建议。按推荐动作练一遍，再重新对比。',
+      practicing: '正在练习推荐动作，结束后可以重新录制评估。',
+    }[phase];
+    if (copy) s88UserStatus.textContent = copy;
+  }
+  if (s88ResultActions) {
+    s88ResultActions.hidden = phase !== 'result';
+  }
+  if (s88CompareButton) {
+    s88CompareButton.hidden = true;
+  }
+  if (s88TargetInput) {
+    s88TargetInput.hidden = phase !== 'needs-target';
+  }
+  if (s88AdvancedPanel) {
+    s88AdvancedPanel.hidden = phase !== 'result' && !s88AdvancedPanel.open;
+  }
+  if (s88LiveFeedbackPanel) {
+    s88LiveFeedbackPanel.hidden = phase !== 'practicing';
+  }
+  if (startButton && trainingMode === 'action') {
+    const labels = {
+      'needs-target': '上传目标音色',
+      'loading-target': '分析目标中...',
+      'needs-recording': '录制当前声音',
+      recording: '结束录音',
+      analyzing: '分析中...',
+      result: '开始练习',
+      practicing: '结束练习',
+    };
+    startButton.textContent = labels[phase] || '上传目标音色';
+    startButton.disabled = phase === 'loading-target' || phase === 'analyzing';
+  }
+  if (pauseButton && trainingMode === 'action') {
+    pauseButton.hidden = true;
+    pauseButton.disabled = true;
+  }
+  if (stopButton && trainingMode === 'action') {
+    stopButton.hidden = true;
+    stopButton.disabled = true;
+  }
+}
+
+function s88CompareProfiles(user, target) {
+  if (!user || !target) return null;
+  const deltaSn = target.phiSn - user.phiSn;
+  const deltaEtex = target.phiEtex - user.phiEtex;
+  const deltaBreath = target.breathiness - user.breathiness;
+  const deltaClosure = target.closure - user.closure;
+  const deltaTwang = target.twang - user.twang;
+  const deltaOnset = target.onset - user.onset;
+  return { deltaSn, deltaEtex, deltaBreath, deltaClosure, deltaTwang, deltaOnset };
+}
+
+function s88UpdateCompareButton() {
+  if (s88CompareButton) {
+    s88CompareButton.disabled = !s88TargetProfile || !recordingTimelineFrames.length;
+  }
+  if (typeof setS88TrainingPhase === 'function' && trainingMode === 'action') {
+    setS88TrainingPhase();
+  }
+}
+
+async function s88LoadTargetVoice(file) {
+  if (!file) return;
+  if (s88TargetStatus) s88TargetStatus.textContent = '正在分析目标音色...';
+  s88TargetProfile = null;
+  s88UserProfile = null;
+  s88RenderTargetComparison(null);
+  if (typeof setS88TrainingPhase === 'function') setS88TrainingPhase('loading-target');
+  try {
+    const frames = await s88ExtractTimbreFramesFromFile(file);
+    s88TargetProfile = s88ProfileFromFrames(frames);
+    if (!s88TargetProfile) throw new Error('No usable voice frames');
+    if (s88TargetStatus) s88TargetStatus.textContent = '目标音色已上传';
+    if (s88UserStatus) s88UserStatus.textContent = '现在录制一段当前声音，系统会推荐下一步动作。';
+  } catch (error) {
+    console.error(error);
+    s88TargetProfile = null;
+    if (s88TargetStatus) s88TargetStatus.textContent = '目标音色分析失败，请换一段清晰音频。';
+    if (s88UserStatus) s88UserStatus.textContent = '请重新上传目标音色。';
+  }
+  s88UpdateCompareButton();
+  if (typeof setS88TrainingPhase === 'function') setS88TrainingPhase();
+}
+
+function s88CompareLatestRecording() {
+  if (!s88TargetProfile || !recordingTimelineFrames.length) {
+    s88UpdateCompareButton();
+    if (typeof setS88TrainingPhase === 'function') setS88TrainingPhase();
+    return;
+  }
+  if (typeof setS88TrainingPhase === 'function') setS88TrainingPhase('analyzing');
+  s88UserProfile = s88ProfileFromFrames(recordingTimelineFrames);
+  if (!s88UserProfile) {
+    if (s88UserStatus) s88UserStatus.textContent = '最近录音里没有检测到可用人声，请重新录制。';
+    s88RenderTargetComparison(null);
+    if (typeof setS88TrainingPhase === 'function') setS88TrainingPhase('needs-recording');
+    return;
+  }
+  const result = s88CompareProfiles(s88UserProfile, s88TargetProfile);
+  s88RenderTargetComparison(result);
+  if (s88UserStatus) {
+    s88UserStatus.textContent = '已生成动作建议。按推荐动作练一遍，再重新对比。';
+  }
+  if (typeof setS88TrainingPhase === 'function') setS88TrainingPhase('result');
+}
+
+s88RerecordButton?.addEventListener('click', async () => {
+  s88UserProfile = null;
+  s88PracticeActive = false;
+  s88RenderTargetComparison(null);
+  setS88TrainingPhase('recording');
+  const started = await startVoiceRecording();
+  setS88TrainingPhase(started ? 'recording' : 'needs-recording');
+});
+
+s88AdvancedToggleButton?.addEventListener('click', () => {
+  if (!s88AdvancedPanel) return;
+  s88AdvancedPanel.hidden = false;
+  s88AdvancedPanel.open = !s88AdvancedPanel.open;
+  s88Dashboard?.classList.toggle('advanced-open', s88AdvancedPanel.open);
+  s88AdvancedToggleButton.textContent = s88AdvancedPanel.open ? '收起高级分析' : '查看高级分析';
+});
+
+s88AdvancedPanel?.addEventListener('toggle', () => {
+  s88Dashboard?.classList.toggle('advanced-open', s88AdvancedPanel.open);
+  if (s88AdvancedToggleButton) {
+    s88AdvancedToggleButton.textContent = s88AdvancedPanel.open ? '收起高级分析' : '查看高级分析';
+  }
+});
