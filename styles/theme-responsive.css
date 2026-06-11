@@ -221,6 +221,7 @@ button.secondary:not(:disabled):hover {
 .mode-launcher {
   align-items: start;
   padding-top: clamp(12px, 5vh, 52px);
+  padding-bottom: 96px;
 }
 
 .mode-launcher-card,
@@ -397,8 +398,16 @@ header h1 {
   border-top: 1px solid rgba(221, 217, 203, 0.9);
 }
 
+.readiness-card {
+  position: relative;
+  z-index: 1;
+}
+
 .launcher-tools-details {
   display: block;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 18px;
 }
 
 .launcher-tools-details summary {
@@ -450,6 +459,8 @@ header h1 {
 
 .launcher-tools-details .tool-grid {
   margin-top: 10px;
+  position: relative;
+  z-index: 3;
 }
 
 .launcher-secondary h2 {
@@ -471,6 +482,8 @@ header h1 {
 .compact-tool {
   min-height: 92px;
   padding: 14px;
+  position: relative;
+  z-index: 4;
 }
 
 .compact-tool .mode-title {
@@ -1710,6 +1723,216 @@ canvas {
   }
 
   .range-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.memory-dashboard {
+  margin: 0 32px 16px;
+}
+
+.memory-zone-card,
+.memory-controls,
+.memory-result-panel,
+.memory-research-panel,
+.memory-recommendation {
+  border: 0;
+  box-shadow: none;
+}
+
+.memory-zone-card {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.memory-zone-title {
+  font-size: 38px;
+  letter-spacing: 0;
+}
+
+.memory-zone-copy {
+  max-width: 760px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.memory-zone-badge {
+  min-width: 72px;
+  min-height: 42px;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(238, 241, 237, 0.88);
+  font-size: 14px;
+}
+
+.memory-path-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 4px 0 2px;
+}
+
+.memory-path-panel span {
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.72);
+  padding: 13px 14px;
+  color: var(--text);
+  font-weight: 760;
+  text-align: center;
+}
+
+.memory-controls {
+  grid-template-columns: minmax(220px, 320px);
+  padding: 0;
+  background: transparent;
+}
+
+.memory-dashboard[data-phase='ready'] .memory-controls .field:not(:first-child),
+.memory-dashboard[data-phase='ready'] .memoryAnalyzeButton,
+.memory-dashboard[data-phase='recording'] .memory-controls,
+.memory-dashboard[data-phase='analyzing'] .memory-controls,
+.memory-dashboard[data-phase='result'] .memory-controls,
+.memory-dashboard[data-phase='ready'] .memory-result-panel,
+.memory-dashboard[data-phase='ready'] .memory-research-panel,
+.memory-dashboard[data-phase='recording'] .memory-result-panel,
+.memory-dashboard[data-phase='recording'] .memory-research-panel,
+.memory-dashboard[data-phase='analyzing'] .memory-result-panel,
+.memory-dashboard[data-phase='analyzing'] .memory-research-panel {
+  display: none;
+}
+
+.memory-result-panel {
+  display: grid;
+  gap: 10px;
+  max-width: 860px;
+}
+
+.memory-result-panel > div,
+.memory-recommendation {
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.72);
+  padding: 14px 16px;
+}
+
+.memory-result-panel strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+}
+
+.memory-result-panel p {
+  margin: 6px 0 0;
+  line-height: 1.65;
+}
+
+.memory-research-panel {
+  max-width: 960px;
+  background: transparent;
+}
+
+.memory-research-panel[hidden] {
+  display: none !important;
+}
+
+.memory-research-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 760;
+  list-style: none;
+}
+
+.memory-research-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.memory-research-panel summary::after {
+  content: "+";
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(238, 241, 237, 0.88);
+  color: var(--text);
+  font-size: 18px;
+}
+
+.memory-research-panel[open] summary::after {
+  content: "-";
+}
+
+.memory-metrics,
+.memory-control-field {
+  border: 0;
+  border-radius: 8px;
+  background: rgba(238, 241, 237, 0.72);
+  box-shadow: none;
+}
+
+.practice-controls.memory-controls-mode {
+  margin: 0 32px 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.practice-controls.memory-controls-mode .controls-main {
+  justify-content: flex-start;
+}
+
+.practice-controls.memory-controls-mode #startButton {
+  min-width: 190px;
+  min-height: 54px;
+  padding-inline: 26px;
+  font-size: 17px;
+}
+
+.practice-controls.action-controls {
+  width: min(1180px, calc(100% - 64px));
+  margin: 0 auto 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.practice-controls.action-controls .controls-main {
+  justify-content: flex-start;
+}
+
+.practice-controls.action-controls #startButton {
+  min-width: 170px;
+  min-height: 54px;
+  padding-inline: 28px;
+  font-size: 17px;
+}
+
+.practice-controls.action-controls #pauseButton,
+.practice-controls.action-controls #stopButton {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .memory-dashboard,
+  .practice-controls.action-controls,
+  .practice-controls.memory-controls-mode {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  .practice-controls.action-controls {
+    width: calc(100% - 36px);
+  }
+
+  .memory-path-panel {
     grid-template-columns: 1fr;
   }
 }

@@ -123,6 +123,69 @@ function recommendMemoryInstruction(current, target, hiddenLoad, recovery) {
   return { selected: ranked[0], best: ranked[0], need };
 }
 
+function setMemoryTrainingPhase(phase) {
+  memoryTrainingPhase = phase;
+  const isMemoryMode = trainingMode === 'memory';
+  const isRecording = Boolean(mediaRecorder && mediaRecorder.state !== 'inactive');
+  const isRecordingPhase = phase === 'recording' || isRecording;
+  const isAnalyzing = phase === 'analyzing';
+  const isResult = phase === 'result';
+
+  if (memoryDashboard) {
+    memoryDashboard.hidden = !isMemoryMode;
+    memoryDashboard.dataset.phase = phase;
+  }
+  if (memoryStageLabel) {
+    memoryStageLabel.textContent = isResult ? '分析完成' : isRecordingPhase ? '正在录音' : '目标音色保持训练';
+  }
+  if (memoryZoneTitle) {
+    memoryZoneTitle.textContent = isResult
+      ? '本次分析结果'
+      : isAnalyzing
+        ? '分析中...'
+        : isRecordingPhase
+          ? '请完成完整路径'
+          : '录一段完整路径';
+  }
+  if (memoryZoneCopy && !isResult) {
+    memoryZoneCopy.textContent = isRecordingPhase
+      ? '自然声音 → 接近目标 → 保持目标 → 回到自然。结束后点击“结束录音”。'
+      : '自然声音 → 接近目标 → 保持目标 → 回到自然。系统会分析你最容易丢失哪些音色特征。';
+  }
+  if (memoryZoneBadge) {
+    memoryZoneBadge.textContent = isResult ? '完成' : isAnalyzing ? '...' : isRecordingPhase ? '录音' : '准备';
+  }
+  if (memoryPathPanel) {
+    memoryPathPanel.hidden = isResult;
+  }
+  if (memoryResultPanel) {
+    memoryResultPanel.hidden = !isResult;
+  }
+  if (memoryResearchPanel) {
+    memoryResearchPanel.hidden = !isResult;
+  }
+  if (memoryRecommendation) {
+    memoryRecommendation.hidden = !isResult;
+  }
+  if (memoryAnalyzeButton) {
+    memoryAnalyzeButton.hidden = true;
+  }
+  if (startButton && isMemoryMode) {
+    startButton.hidden = false;
+    startButton.disabled = isAnalyzing;
+    startButton.textContent = isAnalyzing ? '分析中...' : isRecordingPhase ? '结束录音' : isResult ? '再录一次' : '开始录音';
+  }
+  if (pauseButton && isMemoryMode) {
+    pauseButton.hidden = true;
+  }
+  if (stopButton && isMemoryMode) {
+    stopButton.hidden = true;
+  }
+  if (statusEl && isMemoryMode) {
+    statusEl.hidden = true;
+  }
+}
+
 function analyzeMemoryPath() {
   if (!recordingTimelineFrames.length) {
     setMemoryEmptyState('请先录制一段音频，再分析最近录音。');
@@ -195,11 +258,48 @@ function classifyMemoryZone(soundError, hiddenLoad, recovery) {
   };
 }
 
+function getMemoryFeatureSummary(result) {
+  const features = [
+    { label: '明亮度', score: Math.abs(result.instruction.need.phiEtex) + Math.abs(result.instruction.need.loudness) * 0.35 },
+    { label: '闭合稳定度', score: Math.abs(result.instruction.need.closure) + Math.max(0, 0.72 - result.controlState.phiSn) * 0.45 },
+    { label: '气声控制', score: Math.abs(result.instruction.need.breathiness) + Math.max(0, 0.5 - result.controlState.phiSn) * 0.3 },
+    { label: '目标保持感', score: result.hiddenLoad + result.recovery * 0.35 },
+  ].sort((a, b) => b.score - a.score);
+  return features.slice(0, 3).map((feature) => feature.label);
+}
+
+function getMemoryProblemText(result, features) {
+  if (result.soundError > 0.34) {
+    return `你还没有稳定接近目标音色，最明显的是${features.slice(0, 2).join('和')}。先不要急着保持，先把目标音色找准。`;
+  }
+  if (result.hiddenLoad > 0.2 || result.recovery > 0.36) {
+    return `你在保持目标音色时会逐渐回到自然状态，尤其容易丢失${features.slice(0, 2).join('和')}。`;
+  }
+  return '这次路径比较稳定，目标音色能保持住。下一步可以延长保持时间，或在更小音量下重复。';
+}
+
+function getMemoryAdviceText(_result, features) {
+  if (features.includes('闭合稳定度')) {
+    return '先练习保持闭合稳定，再逐渐增加明亮度。每次只改变一个特征，不要一开始同时追求所有目标。';
+  }
+  if (features.includes('气声控制')) {
+    return '先让气声保持均匀，再慢慢靠近目标音色。不要用突然加大音量来掩盖气声变化。';
+  }
+  if (features.includes('明亮度')) {
+    return '先用轻声滑到目标明亮度，保持 2 秒后回到自然声音。不要直接用力把声音顶亮。';
+  }
+  return '保留这条路径，下一次把“保持目标”的时间拉长到 3 秒，并观察是否还能自然回收。';
+}
+
 function renderMemoryResult(result) {
+  const lostFeatures = getMemoryFeatureSummary(result);
   memoryZoneCard.className = `memory-zone-card zone-${result.zone.id}`;
-  memoryZoneTitle.textContent = result.zone.title;
-  memoryZoneCopy.textContent = result.zone.copy;
-  memoryZoneBadge.textContent = result.zone.badge;
+  memoryZoneTitle.textContent = '分析完成';
+  memoryZoneCopy.textContent = '系统已经把这次录音翻译成可练习的音色路径建议。';
+  memoryZoneBadge.textContent = '完成';
+  if (memoryLostFeatures) memoryLostFeatures.textContent = lostFeatures.join('、');
+  if (memoryMainProblem) memoryMainProblem.textContent = getMemoryProblemText(result, lostFeatures);
+  if (memoryNextAdvice) memoryNextAdvice.textContent = getMemoryAdviceText(result, lostFeatures);
   memorySoundError.textContent = result.soundError.toFixed(3);
   memoryHiddenLoad.textContent = result.hiddenLoad.toFixed(3);
   memoryRank.textContent = result.rank.toFixed(1);
@@ -226,6 +326,10 @@ function renderMemoryResult(result) {
   )}，气声 ${formatSignedUnit(result.instruction.need.breathiness)}，闭合 ${formatSignedUnit(
     result.instruction.need.closure
   )}。`;
+  memoryHasResult = true;
+  if (typeof setMemoryTrainingPhase === 'function') {
+    setMemoryTrainingPhase('result');
+  }
 }
 
 function setMemoryEmptyState(message) {
@@ -236,6 +340,11 @@ function setMemoryEmptyState(message) {
   memoryZoneTitle.textContent = '等待分析';
   memoryZoneCopy.textContent = message;
   memoryZoneBadge.textContent = '--';
+  memoryZoneTitle.textContent = '录一段完整路径';
+  memoryZoneBadge.textContent = '准备';
+  if (memoryLostFeatures) memoryLostFeatures.textContent = '等待分析';
+  if (memoryMainProblem) memoryMainProblem.textContent = '录音结束后会显示你在哪一步最容易回到自然状态。';
+  if (memoryNextAdvice) memoryNextAdvice.textContent = '每次只改变一个音色特征，不要同时追求所有目标。';
   memorySoundError.textContent = '--';
   memoryHiddenLoad.textContent = '--';
   memoryRank.textContent = '--';

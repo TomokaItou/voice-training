@@ -105,6 +105,12 @@
       });
     }
 
+    document.querySelectorAll('[data-training-mode]').forEach((button) => {
+      ['pointerdown', 'mousedown', 'click'].forEach((eventName) => {
+        button.addEventListener(eventName, handleLauncherEvent, true);
+      });
+    });
+
     const breathButton = document.getElementById('openBreathModeButton');
     if (breathButton) {
       ['pointerdown', 'mousedown', 'click'].forEach((eventName) => {
