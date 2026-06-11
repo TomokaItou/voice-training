@@ -757,7 +757,7 @@
 
 .s88-target-panel {
   display: grid;
-  grid-template-columns: minmax(200px, 1fr) minmax(220px, 1fr);
+  grid-template-columns: minmax(200px, 1fr) minmax(240px, 1fr);
   align-items: center;
   gap: 12px;
   padding: 12px 0 0;
@@ -766,6 +766,16 @@
 .s88-target-panel input,
 .s88-target-panel button[hidden] {
   display: none;
+}
+
+.s88-target-library-field {
+  display: grid;
+  gap: 7px;
+}
+
+.s88-target-library-field .select {
+  width: 100%;
+  min-height: 44px;
 }
 
 .s88-target-panel strong,

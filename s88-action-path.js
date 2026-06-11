@@ -767,6 +767,7 @@ function setS88TrainingPhase(phase = inferS88TrainingPhase()) {
     return;
   }
   s88TrainingPhase = phase;
+  s88RenderTargetLibrarySelect();
   if (s88Dashboard) {
     s88Dashboard.dataset.phase = phase;
     s88Dashboard.classList.toggle('advanced-open', Boolean(s88AdvancedPanel?.open));
@@ -795,7 +796,9 @@ function setS88TrainingPhase(phase = inferS88TrainingPhase()) {
     if (phase === 'loading-target') {
       s88TargetStatus.textContent = '正在分析目标音色...';
     } else if (s88TargetProfile) {
-      s88TargetStatus.textContent = '目标音色已上传';
+      s88TargetStatus.textContent = s88TargetSourceName
+        ? `目标音色已选择：${s88TargetSourceName}`
+        : '目标音色已上传';
     } else {
       s88TargetStatus.textContent = '尚未上传目标音色';
     }
@@ -821,6 +824,9 @@ function setS88TrainingPhase(phase = inferS88TrainingPhase()) {
   if (s88TargetInput) {
     s88TargetInput.hidden = phase !== 'needs-target';
   }
+  if (s88TargetLibrarySelect) {
+    s88TargetLibrarySelect.hidden = false;
+  }
   if (s88AdvancedPanel) {
     s88AdvancedPanel.hidden = phase !== 'result' && !s88AdvancedPanel.open;
   }
@@ -829,7 +835,7 @@ function setS88TrainingPhase(phase = inferS88TrainingPhase()) {
   }
   if (startButton && trainingMode === 'action') {
     const labels = {
-      'needs-target': '上传目标音色',
+      'needs-target': '选择目标音色',
       'loading-target': '分析目标中...',
       'needs-recording': '录制当前声音',
       recording: '结束录音',
@@ -837,7 +843,7 @@ function setS88TrainingPhase(phase = inferS88TrainingPhase()) {
       result: '开始练习',
       practicing: '结束练习',
     };
-    startButton.textContent = labels[phase] || '上传目标音色';
+    startButton.textContent = labels[phase] || '选择目标音色';
     startButton.disabled = phase === 'loading-target' || phase === 'analyzing';
   }
   if (pauseButton && trainingMode === 'action') {
@@ -865,15 +871,59 @@ function s88UpdateCompareButton() {
   if (s88CompareButton) {
     s88CompareButton.disabled = !s88TargetProfile || !recordingTimelineFrames.length;
   }
+  s88RenderTargetLibrarySelect();
   if (typeof setS88TrainingPhase === 'function' && trainingMode === 'action') {
     setS88TrainingPhase();
   }
 }
 
-async function s88LoadTargetVoice(file) {
+function s88GetTargetLibraryItems() {
+  return recordingLibrary.filter((item) => item?.blob && item.type !== 'song');
+}
+
+function s88RenderTargetLibrarySelect() {
+  if (!s88TargetLibrarySelect) {
+    return;
+  }
+  const items = s88GetTargetLibraryItems();
+  const previousValue = s88TargetLibraryId || s88TargetLibrarySelect.value || '';
+  s88TargetLibrarySelect.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = items.length ? '选择一条录音作为目标音色' : '录音库暂无可用录音';
+  s88TargetLibrarySelect.append(placeholder);
+
+  items.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.id;
+    const duration = item.durationMs ? `${formatTimeSeconds(item.durationMs)} · ` : '';
+    option.textContent = `${getRecordingLibraryName(item)} · ${duration}${getRecordingLibraryTypeLabel(item)}`;
+    s88TargetLibrarySelect.append(option);
+  });
+
+  s88TargetLibrarySelect.disabled = !items.length || s88TrainingPhase === 'loading-target' || s88TrainingPhase === 'analyzing';
+  s88TargetLibrarySelect.value = items.some((item) => item.id === previousValue) ? previousValue : '';
+}
+
+async function s88LoadTargetFromLibrary(id) {
+  const item = recordingLibrary.find((recording) => recording.id === id);
+  if (!item?.blob) {
+    return;
+  }
+  const name = getRecordingLibraryName(item);
+  await s88LoadTargetVoice(getRecordingLibraryFile(item), {
+    libraryId: item.id,
+    sourceName: name,
+  });
+}
+
+async function s88LoadTargetVoice(file, options = {}) {
   if (!file) return;
   if (s88TargetStatus) s88TargetStatus.textContent = '正在分析目标音色...';
   s88TargetProfile = null;
+  s88TargetLibraryId = options.libraryId || null;
+  s88TargetSourceName = options.sourceName || file.name || '';
   s88UserProfile = null;
   s88RenderTargetComparison(null);
   if (typeof setS88TrainingPhase === 'function') setS88TrainingPhase('loading-target');
@@ -881,11 +931,17 @@ async function s88LoadTargetVoice(file) {
     const frames = await s88ExtractTimbreFramesFromFile(file);
     s88TargetProfile = s88ProfileFromFrames(frames);
     if (!s88TargetProfile) throw new Error('No usable voice frames');
-    if (s88TargetStatus) s88TargetStatus.textContent = '目标音色已上传';
+    if (s88TargetStatus) {
+      s88TargetStatus.textContent = s88TargetSourceName
+        ? `目标音色已选择：${s88TargetSourceName}`
+        : '目标音色已上传';
+    }
     if (s88UserStatus) s88UserStatus.textContent = '现在录制一段当前声音，系统会推荐下一步动作。';
   } catch (error) {
     console.error(error);
     s88TargetProfile = null;
+    s88TargetLibraryId = null;
+    s88TargetSourceName = '';
     if (s88TargetStatus) s88TargetStatus.textContent = '目标音色分析失败，请换一段清晰音频。';
     if (s88UserStatus) s88UserStatus.textContent = '请重新上传目标音色。';
   }

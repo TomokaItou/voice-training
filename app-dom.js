@@ -308,6 +308,7 @@ const s88CouplingValue = document.getElementById('s88CouplingValue');
 const s88ResidualValue = document.getElementById('s88ResidualValue');
 const s88Advice = document.getElementById('s88Advice');
 const s88TargetInput = document.getElementById('s88TargetInput');
+const s88TargetLibrarySelect = document.getElementById('s88TargetLibrarySelect');
 const s88CompareButton = document.getElementById('s88CompareButton');
 const s88TargetStatus = document.getElementById('s88TargetStatus');
 const s88UserStatus = document.getElementById('s88UserStatus');

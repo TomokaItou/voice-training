@@ -752,7 +752,11 @@ async function startPracticeSession() {
   if (trainingMode === 'action') {
     const phase = s88TrainingPhase || inferS88TrainingPhase();
     if (phase === 'needs-target') {
-      s88TargetInput?.click();
+      if (s88TargetLibrarySelect && s88TargetLibrarySelect.options.length > 1) {
+        s88TargetLibrarySelect.focus();
+      } else {
+        s88TargetInput?.click();
+      }
       return;
     }
     if (phase === 'loading-target' || phase === 'analyzing') {
@@ -1291,7 +1295,16 @@ memoryAnalyzeButton?.addEventListener('click', () => {
 });
 s88TargetInput?.addEventListener('change', (event) => {
   const file = event.target.files?.[0];
+  if (s88TargetLibrarySelect) {
+    s88TargetLibrarySelect.value = '';
+  }
   s88LoadTargetVoice(file);
+});
+s88TargetLibrarySelect?.addEventListener('change', (event) => {
+  const id = event.target.value;
+  if (id) {
+    s88LoadTargetFromLibrary(id);
+  }
 });
 s88CompareButton?.addEventListener('click', () => {
   s88CompareLatestRecording();
