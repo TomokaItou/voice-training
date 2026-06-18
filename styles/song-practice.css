@@ -244,6 +244,74 @@
   font-weight: 760;
 }
 
+.song-practice-drill-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(12, 124, 114, 0.2);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(226, 244, 239, 0.72), rgba(255, 255, 255, 0.86)),
+    var(--surface);
+}
+
+.song-practice-drill-card[hidden] {
+  display: none !important;
+}
+
+.song-practice-drill-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.song-practice-drill-header strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent-strong);
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.05;
+}
+
+.song-practice-drill-badge {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid rgba(12, 124, 114, 0.22);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.song-practice-drill-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.song-practice-drill-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.song-practice-drill-steps li {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(221, 217, 203, 0.86);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.45;
+}
+
 .song-practice-review-actions {
   display: flex;
   flex-wrap: wrap;

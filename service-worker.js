@@ -38,6 +38,7 @@ const APP_SHELL = [
   './audio-engine.js',
   './song-practice-flow.js',
   './recording-flow.js',
+  './fix-one-thing.js',
   './app.js',
   './launcher-router.js',
   './app-install.js',

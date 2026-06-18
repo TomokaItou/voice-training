@@ -170,11 +170,13 @@ function setReadoutMode(mode) {
   const isMemory = mode === 'memory';
   const isRhythm = mode === 'rhythm';
   const isAction = mode === 'action';
+  const isFix = mode === 'fix';
   const isSongPracticeRhythm = mode === 'pitch' && trainingMode === 'curve' && shouldUseSongRhythm();
   const isSongPracticeMode = mode === 'pitch' && trainingMode === 'curve';
   const isScoreTrainingMode = trainingMode === 'score' || mode === 'score';
   const isSongPracticeRecording = Boolean(mediaRecorder && mediaRecorder.state !== 'inactive');
   const isDetecting = Boolean(audioContext && sourceNode);
+  const isBreathActive = isBreath && isDetecting && !breathCalibrationInProgress;
   const shouldShowSongPracticeChart =
     !isSongPracticeMode || isSongPracticeRecording || Boolean(lastRecordingBlob || songPracticeLastReview);
   const shouldShowScoreChart = !isScoreTrainingMode || isDetecting || hasRecentPitchData();
@@ -188,6 +190,7 @@ function setReadoutMode(mode) {
       isRange ||
       isMemory ||
       isAction ||
+      isFix ||
       (isSongPracticeMode && !shouldShowSongPracticeChart) ||
       (isScoreTrainingMode && !shouldShowScoreChart) ||
       (isBreath && !isBreathActive && !breathSessionCompleted);
@@ -198,12 +201,11 @@ function setReadoutMode(mode) {
   if (scoreChartPlaceholder) {
     scoreChartPlaceholder.hidden = !isScoreTrainingMode || shouldShowScoreChart;
   }
-  const isBreathActive = isBreath && Boolean(audioContext && sourceNode) && !breathCalibrationInProgress;
   if (breathChartPlaceholder) {
     breathChartPlaceholder.hidden = !isBreath || isBreathActive || breathSessionCompleted;
   }
   if (practiceControls) {
-    practiceControls.hidden = isSongPracticeMode;
+    practiceControls.hidden = isSongPracticeMode || isFix;
     practiceControls.classList.toggle('score-controls', isScoreTrainingMode);
     practiceControls.classList.toggle('breath-controls', isBreath);
     practiceControls.classList.toggle('range-controls', isRange);
@@ -233,10 +235,13 @@ function setReadoutMode(mode) {
     rangeHistoryPanel.hidden = !isRange || !rangeHistoryExpanded || rangeTrainingPhase !== 'complete';
   }
   if (songTargetPanel) {
-    songTargetPanel.hidden = mode !== 'pitch' || trainingMode === 'score';
+    songTargetPanel.hidden = mode !== 'pitch' || trainingMode === 'score' || isFix;
   }
   if (trainingFeedbackPanel) {
-    trainingFeedbackPanel.hidden = isVolume || isFormants || mode === 'spectrogram' || isSongPracticeMode;
+    trainingFeedbackPanel.hidden = isVolume || isFormants || mode === 'spectrogram' || isSongPracticeMode || isFix;
+  }
+  if (fixOneThingPanel) {
+    fixOneThingPanel.hidden = !isFix;
   }
   if (memoryDashboard) {
     memoryDashboard.hidden = !isMemory;
@@ -258,6 +263,7 @@ function setReadoutMode(mode) {
       isMemory ||
       isRhythm ||
       isAction ||
+      isFix ||
       isRange ||
       isSongPracticeMode ||
       isScoreTrainingMode ||
@@ -266,7 +272,7 @@ function setReadoutMode(mode) {
   }
   pitchReadouts.forEach((el) => {
     if (el) {
-      el.hidden = isBreath || isVolume || isFormants || isRhythm || isAction;
+      el.hidden = isBreath || isVolume || isFormants || isRhythm || isAction || isFix;
     }
   });
   breathReadouts.forEach((el) => {
@@ -316,6 +322,9 @@ function setTrainingCopy(mode) {
   } else if (mode === 'curve') {
     appTitle.textContent = '跟唱训练';
     appDescription.textContent = '先准备歌曲目标，再跟着参考音频录一遍；系统会把音准和节奏合成反馈。';
+  } else if (mode === 'fix') {
+    appTitle.textContent = 'Fix One Thing';
+    appDescription.textContent = '唱一句，Mira 只选一个问题；练 30 秒，再判断有没有进步。';
   } else if (mode === 'rhythm') {
     appTitle.textContent = '节奏训练模式';
     appDescription.textContent = '跟着节拍器唱短音、念辅音或拍手，系统会检测起音是否落在拍点附近。';
@@ -397,6 +406,17 @@ function showTrainingView(mode = 'pitch') {
     setCurveDisplayMode('pitch');
     setSongTargetCollapsed(false);
     updateSongPracticeFlow();
+  } else if (mode === 'fix') {
+    setCurveSwitcherMode(null);
+    trainingMode = mode;
+    setReadoutMode(mode);
+    setTrainingCopy(mode);
+    displayMode = 'pitch';
+    displayModeSelect.value = 'pitch';
+    updateCanvasScale(canvasScale);
+    if (typeof renderFixOneThingFlow === 'function') {
+      renderFixOneThingFlow();
+    }
   } else if (mode === 'spectrogram') {
     setCurveSwitcherMode(null);
     displayMode = 'spectrogram';
@@ -517,6 +537,9 @@ function showTrainingView(mode = 'pitch') {
   }
   if (trainingMode === 'memory') {
     setMemoryTrainingPhase(memoryTrainingPhase);
+  }
+  if (trainingMode === 'fix' && typeof renderFixOneThingFlow === 'function') {
+    renderFixOneThingFlow();
   }
 }
 
@@ -1202,6 +1225,9 @@ songPracticeReplayButton?.addEventListener('click', () => {
     startRecordingPlayback(0);
   }
 });
+songPracticeReplaySegmentButton?.addEventListener('click', () => {
+  playSongPracticeFocusSegment();
+});
 songPracticeReviewLibraryButton?.addEventListener('click', () => {
   showLibraryPage('recordings');
 });
@@ -1374,6 +1400,9 @@ function handleLauncherModeEvent(event) {
 
 openCurveModeButton?.addEventListener('click', () => {
   showTrainingView('curve');
+});
+openFixOneThingButton?.addEventListener('click', () => {
+  showTrainingView('fix');
 });
 startTodayTrainingButton?.addEventListener('click', () => {
   showTrainingView('curve');
