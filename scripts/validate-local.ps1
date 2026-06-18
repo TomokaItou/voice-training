@@ -165,6 +165,7 @@ if ($failures.Count -eq 0) {
     'app-config.js',
     'app-dom.js',
     'app-state.js',
+    'app-shell.js',
     'pitch-detection.js',
     'formant-analysis.js',
     'canvas-rendering.js',
@@ -172,12 +173,22 @@ if ($failures.Count -eq 0) {
     'breath-analysis.js',
     'memory-config.js',
     'memory-training.js',
+    's88-action-path.js',
     'song-pitch.js',
+    'vocal-score.js',
     'song-lyrics.js',
     'recording-timeline.js',
+    'pitch-score-training.js',
+    'accompaniment-controls.js',
+    'vocal-separation.js',
+    'readiness.js',
     'spectrogram.js',
     'audio-engine.js',
-    'app.js'
+    'song-practice-flow.js',
+    'recording-flow.js',
+    'app.js',
+    'launcher-router.js',
+    'app-install.js'
   )
   $loadedExpected = $scriptSources | Where-Object { $expectedScripts -contains $_ }
   if (($loadedExpected -join '|') -ne ($expectedScripts -join '|')) {

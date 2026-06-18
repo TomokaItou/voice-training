@@ -1,0 +1,27 @@
+{
+  "name": "声乐训练",
+  "short_name": "声乐训练",
+  "description": "手机可安装的声乐音高、气息和节奏训练工具。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "orientation": "portrait-primary",
+  "background_color": "#f4f5ff",
+  "theme_color": "#7e8add",
+  "categories": ["music", "education", "health"],
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

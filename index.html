@@ -3,56 +3,167 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#7e8add" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="声乐训练" />
     <title>声乐练习音高检测</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.svg" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <section class="mode-launcher" id="modeLauncher">
       <div class="mode-launcher-card">
-        <div class="launcher-heading training-entry-heading">
-          <div>
-            <span class="launcher-kicker">声乐训练</span>
-            <h1>今天先练一小段</h1>
-            <p>选择一个明确目标开始，练完再看回放和建议。高级分析工具都收在下面，不打断训练节奏。</p>
+        <div class="hall-topbar">
+          <div class="hall-brand">
+            <span class="launcher-kicker">Voice Navigation System</span>
+            <strong>Mira 声音导航员</strong>
           </div>
-          <div class="launcher-summary training-plan">
-            <span>推荐流程</span>
-            <strong>选歌 1 分钟 · 跟唱 3 分钟 · 回听 1 分钟</strong>
+          <div class="hall-player-pill">
+            <span id="gameLevelValue">Lv.1</span>
+            <strong id="gameSingerTitle">见习歌手</strong>
           </div>
         </div>
 
-        <section class="training-entry" aria-label="训练入口">
+        <section class="mira-hero" aria-label="Mira 声音导航">
+          <div class="mira-stage" aria-hidden="true">
+            <div class="mira-star-orbit"></div>
+            <img class="mira-character" src="assets/mira-coach-cutout.png" alt="" />
+          </div>
+
+          <div class="voice-navigation-deck">
+            <div class="mira-dialogue">
+              <span class="game-label">Mira 正在等你</span>
+              <h1>我知道你想去哪里，我们一步一步走。</h1>
+              <p>今天先唱一遍，我来帮你找出最值得修改的一处。</p>
+              <div class="mira-actions">
+                <button id="startTodayTrainingButton" class="hall-primary-action" type="button">和 Mira 开始训练</button>
+                <button id="miraSongButton" class="secondary" type="button">选择目标歌曲</button>
+              </div>
+            </div>
+
+            <section class="target-navigation-card" aria-label="目标声音导航卡">
+              <div class="navigation-card-header">
+                <span class="game-label">目标声音导航</span>
+                <strong>还没有目标声音</strong>
+              </div>
+              <dl class="navigation-data">
+                <div>
+                  <dt>目标声音</dt>
+                  <dd>未选择</dd>
+                </div>
+                <div>
+                  <dt>当前声音位置</dt>
+                  <dd>等待建立坐标</dd>
+                </div>
+                <div>
+                  <dt>下一步修正方向</dt>
+                  <dd>先完成一次跟唱</dd>
+                </div>
+              </dl>
+              <p>选择一首歌后，我会为你规划路线。今天只修最明显的一处。</p>
+            </section>
+
+            <section class="voice-compass-card" aria-label="声音罗盘">
+              <div>
+                <span class="game-label">声音罗盘</span>
+                <strong>完成一次跟唱后生成声音坐标</strong>
+              </div>
+              <div class="voice-compass" aria-hidden="true">
+                <span class="compass-current">●</span>
+                <span class="compass-target">★</span>
+                <span class="compass-line"></span>
+              </div>
+              <p>下一步方向：等待 Mira 判断</p>
+            </section>
+          </div>
+        </section>
+
+        <section class="mainline-card" aria-label="今日导航路线">
+          <span class="game-label">今日导航路线</span>
+          <strong>目标声音 · 当前位置 · 修正方向 · 再唱一次</strong>
+          <ol class="mainline-steps" aria-label="今日导航流程">
+            <li>选择目标声音</li>
+            <li>建立今天的声音坐标</li>
+            <li>回听并定位偏差</li>
+            <li>修正一个方向</li>
+          </ol>
+        </section>
+
+        <section class="training-entry" aria-label="导航入口">
           <button id="openCurveModeButton" class="mode-button practice-card practice-card-primary training-entry-main" type="button" data-training-mode="curve">
-            <span class="practice-tag">今日推荐</span>
-            <span class="mode-title">跟唱一首歌</span>
-            <span class="mode-desc">选择歌曲或上传伴奏，边唱边看目标曲线，结束后回听自己的录音。</span>
+            <span class="practice-tag">导航起点</span>
+            <span class="mode-title">建立今天的声音坐标</span>
+            <span class="mode-desc">唱一遍，我来标出你和目标声音之间最明显的距离。</span>
             <span class="practice-action">开始跟唱</span>
           </button>
 
-          <div class="quick-practice-list" aria-label="快速练习">
-            <button id="openPitchScoreModeButton" class="mode-button practice-card quick-practice-card score-mode" type="button" data-training-mode="score">
-              <span class="practice-tag">3 分钟</span>
-              <span class="mode-title">音准稳定</span>
-              <span class="mode-desc">对准一个目标音，练偏高偏低和稳定度。</span>
-              <span class="practice-action">练音准</span>
-            </button>
-            <button id="openBreathModeButton" class="mode-button practice-card quick-practice-card breath-mode" type="button" data-training-mode="breath">
-              <span class="practice-tag">2 分钟</span>
-              <span class="mode-title">气息状态</span>
-              <span class="mode-desc">测出气流、漏气感和持续稳定度。</span>
-              <span class="practice-action">测气息</span>
-            </button>
-            <button id="openRhythmModeButton" class="mode-button practice-card quick-practice-card rhythm-mode" type="button" data-training-mode="rhythm">
-              <span class="practice-tag">2 分钟</span>
-              <span class="mode-title">节奏起音</span>
-              <span class="mode-desc">跟节拍器练短音，减少抢拍和拖拍。</span>
-              <span class="practice-action">练节奏</span>
-            </button>
+          <details class="quick-practice-details">
+            <summary>
+              <span>修正一个方向</span>
+              <small>音高、气息、节奏</small>
+            </summary>
+            <div class="quick-practice-list" aria-label="修正方向">
+              <button id="openPitchScoreModeButton" class="mode-button practice-card quick-practice-card score-mode" type="button" data-training-mode="score">
+                <span class="practice-tag">方向</span>
+                <span class="mode-title">稳定音高</span>
+                <span class="mode-desc">确认一个可重复动作。</span>
+                <span class="practice-action">修音高</span>
+              </button>
+              <button id="openBreathModeButton" class="mode-button practice-card quick-practice-card breath-mode" type="button" data-training-mode="breath">
+                <span class="practice-tag">方向</span>
+                <span class="mode-title">减少气声</span>
+                <span class="mode-desc">让气流更像一条线。</span>
+                <span class="practice-action">修气息</span>
+              </button>
+              <button id="openRhythmModeButton" class="mode-button practice-card quick-practice-card rhythm-mode" type="button" data-training-mode="rhythm">
+                <span class="practice-tag">方向</span>
+                <span class="mode-title">贴回拍点</span>
+                <span class="mode-desc">让进声方向更清楚。</span>
+                <span class="practice-action">修节奏</span>
+              </button>
+            </div>
+          </details>
+        </section>
+
+        <section class="game-player-panel" id="gamePlayerPanel" aria-label="次级导航状态">
+          <div class="game-player-card game-player-level">
+            <div>
+              <span class="game-label">导航等级</span>
+              <strong id="gameLevelDisplay">Lv.1 见习歌手</strong>
+            </div>
+            <span id="gameStreakValue">今天开练</span>
+          </div>
+          <div class="game-player-card game-player-xp">
+            <div class="game-xp-header">
+              <span class="game-label">当前经验</span>
+              <strong id="gameXpValue">0 / 120 XP</strong>
+            </div>
+            <div class="game-xp-track" aria-hidden="true">
+              <span id="gameXpFill"></span>
+            </div>
+            <p id="gameNextLevelHint" class="game-next-level">距离下一级还差 120 XP</p>
+            <div class="singer-skill-grid" aria-label="能力维度">
+              <span>音准</span>
+              <span>节奏</span>
+              <span>气息</span>
+              <span>共鸣</span>
+              <span>稳定性</span>
+            </div>
+          </div>
+          <div class="game-player-card game-player-quests">
+            <div class="game-xp-header">
+              <span class="game-label">今日导航</span>
+              <strong id="gameQuestProgress">0 / 3</strong>
+            </div>
+            <ul id="gameQuestList" class="game-quest-list"></ul>
           </div>
         </section>
 
         <div class="song-search-card">
-          <h2>找一首歌开始练</h2>
+          <h2>选择目标歌曲</h2>
           <form id="songSearchForm" class="song-search-form">
             <input
               id="songSearchInput"
@@ -63,13 +174,13 @@
             />
             <button id="songSearchButton" type="submit" class="secondary">搜索</button>
           </form>
-          <p id="songSearchStatus" class="song-search-status">搜索后可从结果进入歌曲练习。</p>
+          <p id="songSearchStatus" class="song-search-status">选一首你想靠近的声音，我会把它变成今天的导航目标。</p>
           <ul id="songSearchResults" class="song-search-results" aria-live="polite"></ul>
         </div>
 
         <div class="launcher-library-grid">
           <button id="openRecordingLibraryButton" class="mode-button library-mode" type="button">
-            <span class="mode-title">录音库</span>
+            <span class="mode-title">看看你离目标近了多少</span>
             <span class="mode-desc" id="recordingLibraryEntryStatus">暂无录音</span>
           </button>
           <button id="openAccompanimentLibraryButton" class="mode-button library-mode accompaniment-mode" type="button">
@@ -81,8 +192,8 @@
         <details class="launcher-secondary launcher-tools-details">
           <summary>
             <span>
-              <strong>高级分析工具</strong>
-              <small>音域、频谱图、记忆感知</small>
+              <strong>实验室分析</strong>
+              <small>需要更细的声学线索时再打开</small>
             </span>
           </summary>
           <div class="tool-grid">
@@ -252,6 +363,46 @@
           <p id="trainingFeedbackText">系统会把音高、稳定度和录音结果翻译成下一步练习建议。</p>
         </div>
         <span id="trainingFeedbackBadge" class="training-feedback-badge">等待</span>
+      </section>
+
+      <section class="game-reward-panel" id="gameRewardPanel" hidden aria-live="polite">
+        <div>
+          <span class="game-label">关卡结算</span>
+          <h2 id="gameRewardTitle">练习完成</h2>
+          <p id="gameRewardText">继续完成今日任务，升级会更快。</p>
+        </div>
+        <div class="game-reward-score">
+          <strong id="gameRewardGrade">A</strong>
+          <span id="gameRewardXp">+0 XP</span>
+        </div>
+      </section>
+
+      <section class="mira-feedback-panel" id="miraFeedbackPanel" hidden aria-live="polite">
+        <div class="mira-feedback-header">
+          <div>
+            <span class="game-label">Voice Navigation System</span>
+            <h2>Mira 的导航反馈</h2>
+            <p id="miraFeedbackStatus">等待本次声音坐标</p>
+          </div>
+          <span class="mira-feedback-orb" aria-hidden="true">✦</span>
+        </div>
+        <div class="mira-feedback-grid">
+          <article>
+            <span>鼓励</span>
+            <p id="miraFeedbackEncouragement">唱完这一遍后，Mira 会帮你整理导航方向。</p>
+          </article>
+          <article>
+            <span>主要观察</span>
+            <p id="miraFeedbackObservation">今天只看最值得修改的一处。</p>
+          </article>
+          <article>
+            <span>下一步动作</span>
+            <p id="miraFeedbackNextStep">完成一次跟唱后生成声音坐标。</p>
+          </article>
+        </div>
+        <button id="miraFeedbackRepeatButton" class="hall-primary-action" type="button">
+          按 Mira 的建议再练一次
+        </button>
       </section>
 
       <section class="breath-dashboard" id="breathDashboard" hidden>
@@ -518,7 +669,7 @@
         <div class="song-target-header">
           <div>
             <h2>当前歌曲</h2>
-            <p>选择一首歌，跟着目标曲线唱一遍。</p>
+            <p>按顺序完成一遍：准备歌曲、跟唱录音、自动复盘、只修一个重点。</p>
           </div>
           <button
             id="songTargetCollapseButton"
@@ -543,6 +694,24 @@
               <span id="songPracticeTargetStatus">目标曲线：未生成</span>
               <span id="songPracticeAccompanimentStatus">伴奏：未选择</span>
             </div>
+            <ol class="practice-flow-steps" aria-label="跟唱流程">
+              <li id="songPracticeStepSong">
+                <span>1</span>
+                <strong>准备歌曲</strong>
+              </li>
+              <li id="songPracticeStepTarget">
+                <span>2</span>
+                <strong>生成目标</strong>
+              </li>
+              <li id="songPracticeStepRecord">
+                <span>3</span>
+                <strong>跟唱录音</strong>
+              </li>
+              <li id="songPracticeStepReview">
+                <span>4</span>
+                <strong>复盘下一遍</strong>
+              </li>
+            </ol>
             <div class="practice-flow-actions">
               <button id="songPracticeChooseButton" class="secondary" type="button">选择歌曲</button>
               <button id="songPracticeStartButton" type="button" disabled>开始跟唱</button>
@@ -1284,6 +1453,8 @@
     <script src="app-config.js"></script>
     <script src="app-dom.js"></script>
     <script src="app-state.js"></script>
+    <script src="game-state.js"></script>
+    <script src="mira-feedback.js"></script>
     <script src="app-shell.js"></script>
     <script src="pitch-detection.js"></script>
     <script src="formant-analysis.js"></script>
@@ -1309,5 +1480,6 @@
     <script src="recording-flow.js"></script>
     <script src="app.js"></script>
     <script src="launcher-router.js"></script>
+    <script src="app-install.js"></script>
   </body>
 </html>

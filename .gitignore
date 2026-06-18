@@ -4,3 +4,10 @@ samples/voice-benchmark/*.flac
 samples/voice-benchmark/*.m4a
 samples/voice-benchmark/manifest.json
 samples/voice-benchmark/manifest.*.local.json
+.env
+.env.local
+node_modules/
+dist-mobile/
+android/.gradle/
+android/app/build/
+android/build/

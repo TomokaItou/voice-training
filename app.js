@@ -749,6 +749,9 @@ function hasRecentPitchData() {
 }
 
 async function startPracticeSession() {
+  if (typeof hideGameReward === 'function') {
+    hideGameReward();
+  }
   if (trainingMode === 'action') {
     const phase = s88TrainingPhase || inferS88TrainingPhase();
     if (phase === 'needs-target') {
@@ -941,6 +944,7 @@ async function resumePracticeSession() {
 }
 
 function stopPracticeSession() {
+  const rewardMode = trainingMode;
   stop();
   if (trainingMode === 'action') {
     s88PracticeActive = false;
@@ -950,6 +954,9 @@ function stopPracticeSession() {
   if (trainingMode === 'range') {
     rangeTrainingPhase = computeRangeStats() ? 'complete' : 'ready';
     setRangeTrainingPhase(rangeTrainingPhase);
+    if (typeof recordCurrentPracticeReward === 'function') {
+      recordCurrentPracticeReward('range');
+    }
     return;
   }
   if (startButton) {
@@ -968,6 +975,9 @@ function stopPracticeSession() {
   if (trainingMode === 'breath' || displayMode === 'breath') {
     setReadoutMode('breath');
     updateBreathTrainingControls();
+  }
+  if (typeof recordCurrentPracticeReward === 'function') {
+    recordCurrentPracticeReward(rewardMode);
   }
 }
 
@@ -1363,6 +1373,12 @@ function handleLauncherModeEvent(event) {
 });
 
 openCurveModeButton?.addEventListener('click', () => {
+  showTrainingView('curve');
+});
+startTodayTrainingButton?.addEventListener('click', () => {
+  showTrainingView('curve');
+});
+miraSongButton?.addEventListener('click', () => {
   showTrainingView('curve');
 });
 songGameViewButton?.addEventListener('click', () => {
