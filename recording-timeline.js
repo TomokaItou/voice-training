@@ -469,6 +469,9 @@ function renderRecordingLibrary() {
   if (!recordingLibraryList) {
     return;
   }
+  if (typeof s88RenderTargetLibrarySelect === 'function') {
+    s88RenderTargetLibrarySelect();
+  }
   recordingLibraryList.innerHTML = '';
   updateRecordingLibraryStatus();
   if (!recordingLibrary.length) {

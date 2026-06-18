@@ -681,7 +681,13 @@
 }
 
 .practice-flow-steps {
-  display: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.practice-flow-steps li {
+  min-height: 58px;
+  background: rgba(238, 241, 237, 0.62);
 }
 
 .song-practice-meta {

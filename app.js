@@ -749,10 +749,17 @@ function hasRecentPitchData() {
 }
 
 async function startPracticeSession() {
+  if (typeof hideGameReward === 'function') {
+    hideGameReward();
+  }
   if (trainingMode === 'action') {
     const phase = s88TrainingPhase || inferS88TrainingPhase();
     if (phase === 'needs-target') {
-      s88TargetInput?.click();
+      if (s88TargetLibrarySelect && s88TargetLibrarySelect.options.length > 1) {
+        s88TargetLibrarySelect.focus();
+      } else {
+        s88TargetInput?.click();
+      }
       return;
     }
     if (phase === 'loading-target' || phase === 'analyzing') {
@@ -937,6 +944,7 @@ async function resumePracticeSession() {
 }
 
 function stopPracticeSession() {
+  const rewardMode = trainingMode;
   stop();
   if (trainingMode === 'action') {
     s88PracticeActive = false;
@@ -946,6 +954,9 @@ function stopPracticeSession() {
   if (trainingMode === 'range') {
     rangeTrainingPhase = computeRangeStats() ? 'complete' : 'ready';
     setRangeTrainingPhase(rangeTrainingPhase);
+    if (typeof recordCurrentPracticeReward === 'function') {
+      recordCurrentPracticeReward('range');
+    }
     return;
   }
   if (startButton) {
@@ -964,6 +975,9 @@ function stopPracticeSession() {
   if (trainingMode === 'breath' || displayMode === 'breath') {
     setReadoutMode('breath');
     updateBreathTrainingControls();
+  }
+  if (typeof recordCurrentPracticeReward === 'function') {
+    recordCurrentPracticeReward(rewardMode);
   }
 }
 
@@ -1291,7 +1305,16 @@ memoryAnalyzeButton?.addEventListener('click', () => {
 });
 s88TargetInput?.addEventListener('change', (event) => {
   const file = event.target.files?.[0];
+  if (s88TargetLibrarySelect) {
+    s88TargetLibrarySelect.value = '';
+  }
   s88LoadTargetVoice(file);
+});
+s88TargetLibrarySelect?.addEventListener('change', (event) => {
+  const id = event.target.value;
+  if (id) {
+    s88LoadTargetFromLibrary(id);
+  }
 });
 s88CompareButton?.addEventListener('click', () => {
   s88CompareLatestRecording();
@@ -1350,6 +1373,12 @@ function handleLauncherModeEvent(event) {
 });
 
 openCurveModeButton?.addEventListener('click', () => {
+  showTrainingView('curve');
+});
+startTodayTrainingButton?.addEventListener('click', () => {
+  showTrainingView('curve');
+});
+miraSongButton?.addEventListener('click', () => {
   showTrainingView('curve');
 });
 songGameViewButton?.addEventListener('click', () => {

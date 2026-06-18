@@ -123,28 +123,119 @@ function getSongPracticeTitle() {
   return clean || '还没有选择歌曲';
 }
 
-function getSongPracticeNextStep(review) {
+function getSongPracticeDirection(review) {
+  const signedError = review?.pitch?.meanSignedError || 0;
+  if (Math.abs(signedError) <= pitchScoreGoodToleranceCents) {
+    return '整体居中';
+  }
+  return signedError > 0 ? '整体偏高' : '整体偏低';
+}
+
+function formatSongPracticeSegment(segment, leadSeconds = 0) {
+  if (!segment) {
+    return '这一遍没有明显问题段';
+  }
+  const startMs = Math.max(0, segment.startIndex * offlineHopDurationMs - leadSeconds * 1000);
+  const endMs = (segment.endIndex + 1) * offlineHopDurationMs;
+  return `${formatTimeSeconds(startMs)}-${formatTimeSeconds(endMs)}`;
+}
+
+function getSongPracticeRhythmDirection(rhythm) {
+  if (!rhythm?.total || !Number.isFinite(rhythm.meanSignedOffset)) {
+    return '拍点不够稳定';
+  }
+  if (rhythm.meanSignedOffset < -12) {
+    return `平均抢拍 ${Math.round(Math.abs(rhythm.meanSignedOffset))} ms`;
+  }
+  if (rhythm.meanSignedOffset > 12) {
+    return `平均拖拍 ${Math.round(rhythm.meanSignedOffset)} ms`;
+  }
+  return `平均偏离 ${Math.round(rhythm.meanOffset)} ms`;
+}
+
+function buildSongPracticeCoachAdvice(review) {
   if (!review) {
-    return '先完成一遍跟唱，系统会把结果收束成一个下一步动作。';
+    return {
+      title: '等待完成一遍跟唱',
+      badge: '等待',
+      summary: '跟唱结束后会在这里看到本轮结果。',
+      nextStep: '先完成一遍跟唱，系统会把结果收束成一个下一步动作。',
+      tone: 'neutral',
+    };
   }
+
+  const direction = getSongPracticeDirection(review);
+  const segmentText = formatSongPracticeSegment(review.pitch.worstSegment);
+  const drillSegmentText = formatSongPracticeSegment(review.pitch.worstSegment, 2);
+  const rhythmText = review.rhythm?.total
+    ? `节奏 ${review.rhythm.score}%，${getSongPracticeRhythmDirection(review.rhythm)}`
+    : '节奏未记录';
+  const evidence = `${direction}，平均偏差 ${review.pitch.meanAbsError.toFixed(1)} cents，命中 ${review.pitch.hitRate}%，覆盖 ${review.pitch.coverage}%。`;
+
   if (review.pitch.coverage < 35) {
-    return '下一遍先唱满旋律：只练副歌或 20 秒片段，宁可小声，也要让有效音高连续出现。';
+    return {
+      title: '先让旋律连起来',
+      badge: '覆盖不足',
+      summary: `这遍有效音高只覆盖 ${review.pitch.coverage}%，系统能比较的旋律太少。`,
+      nextStep: '下一遍只唱 20 秒，宁可小声也要连续发声；先别追细节，目标是让曲线不断线。',
+      tone: 'bad',
+    };
   }
-  if (review.rhythm && review.rhythm.score < review.pitch.score - 8) {
-    return '下一遍先贴拍点：开启节奏提取后只看起音是否进拍，不急着追音高细节。';
+
+  if (review.rhythm?.total && (review.rhythm.score < review.pitch.score - 8 || review.rhythm.score < 62)) {
+    return {
+      title: '先把起音贴回拍点',
+      badge: '节奏优先',
+      summary: `${evidence}${rhythmText}，所以这一遍先别急着修音高细节。`,
+      nextStep: '下一遍只盯第一拍和句头：用轻一点的 da 进声，每句开头先进拍，再看音准。',
+      tone: review.combinedScore >= 58 ? 'warn' : 'bad',
+    };
   }
+
   if (Math.abs(review.pitch.meanSignedError) > pitchScoreGoodToleranceCents) {
-    return review.pitch.meanSignedError > 0
-      ? '下一遍整体放低一点：开头先轻声找准目标，再逐句跟进。'
-      : '下一遍整体抬高一点：先哼到目标线上方，再用歌词进入。';
+    const isHigh = review.pitch.meanSignedError > 0;
+    return {
+      title: isHigh ? '整段有点压高了' : '整段落在目标下方',
+      badge: isHigh ? '整体偏高' : '整体偏低',
+      summary: `${evidence}重点不是某一个音，而是整段重心${isHigh ? '偏高' : '偏低'}。`,
+      nextStep: isHigh
+        ? '下一遍开头先轻声找准目标线，再逐句唱；感觉音准够了以后再加音量。'
+        : '下一遍先哼到目标线上方一点，再带歌词进入；别一开始就把声音压暗。',
+      tone: review.combinedScore >= 58 ? 'warn' : 'bad',
+    };
   }
+
   if (review.pitch.p90AbsError > pitchScoreHitToleranceCents * 1.8) {
-    return '下一遍练最飘的那一小段：从重点回听位置前 2 秒开始，连唱 3 次再整段来。';
+    return {
+      title: '问题集中在一小段',
+      badge: '片段练习',
+      summary: `${evidence}最需要回听的是 ${segmentText}，P90 偏差 ${review.pitch.p90AbsError.toFixed(1)} cents。`,
+      nextStep: `下一遍只练 ${drillSegmentText}：连唱 3 次，第三次稳定后再回到整段。`,
+      tone: review.combinedScore >= 58 ? 'warn' : 'bad',
+    };
   }
+
   if (review.combinedScore >= 78) {
-    return '下一遍可以加难度：保留当前唱法，把音量或情绪推进一点，再看稳定度有没有掉。';
+    return {
+      title: '这一遍可以保留',
+      badge: '可加难度',
+      summary: `${evidence}${review.rhythm?.total ? rhythmText + '。' : ''}这一遍的唱法基本可信。`,
+      nextStep: '下一遍保留当前唱法，把情绪或音量推进一点；如果分数明显掉，就退回这遍的力度。',
+      tone: 'good',
+    };
   }
-  return '下一遍先稳住中间段：慢一点唱，优先让命中率超过 70%，再追综合分。';
+
+  return {
+    title: '先稳住中间段',
+    badge: '稳定度',
+    summary: `${evidence}${review.rhythm?.total ? rhythmText + '。' : ''}`,
+    nextStep: '下一遍慢一点唱，优先让命中率超过 70%；先稳住中间段，再追综合分。',
+    tone: 'warn',
+  };
+}
+
+function getSongPracticeNextStep(review) {
+  return buildSongPracticeCoachAdvice(review).nextStep;
 }
 
 function renderSongPracticeReview(review = songPracticeLastReview) {
@@ -166,29 +257,18 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
     return;
   }
 
-  const direction =
-    Math.abs(review.pitch.meanSignedError) <= pitchScoreGoodToleranceCents
-      ? '整体居中'
-      : review.pitch.meanSignedError > 0
-        ? '整体偏高'
-        : '整体偏低';
-  const worstSegmentText = review.pitch.worstSegment
-    ? `重点回听 ${formatFrameTime(review.pitch.worstSegment.startIndex)}-${formatFrameTime(
-        review.pitch.worstSegment.endIndex + 1
-      )}`
-    : '暂时没有明显问题段';
+  const coach = buildSongPracticeCoachAdvice(review);
   const rhythmText = review.rhythm?.total
     ? `${review.rhythm.score}% / 命中 ${review.rhythm.hitRate}%`
     : '未记录';
-  const tone = review.combinedScore >= 78 ? 'good' : review.combinedScore >= 58 ? 'warn' : 'bad';
+  const tone = coach.tone || (review.combinedScore >= 78 ? 'good' : review.combinedScore >= 58 ? 'warn' : 'bad');
 
   songPracticeReviewPanel.dataset.tone = tone;
   if (songPracticeReviewTitle) {
-    songPracticeReviewTitle.textContent =
-      review.combinedScore >= 78 ? '这一遍可以保留' : review.combinedScore >= 58 ? '接近了，修一个重点' : '先把基础贴回来';
+    songPracticeReviewTitle.textContent = coach.title;
   }
   if (songPracticeReviewBadge) {
-    songPracticeReviewBadge.textContent = review.pitch.label;
+    songPracticeReviewBadge.textContent = coach.badge || review.pitch.label;
   }
   if (songPracticeReviewScore) {
     songPracticeReviewScore.textContent = `${review.combinedScore}%`;
@@ -203,12 +283,10 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
     songPracticeReviewCoverage.textContent = `${review.pitch.coverage}%`;
   }
   if (songPracticeReviewSummary) {
-    songPracticeReviewSummary.textContent = `${direction}，平均偏差 ${review.pitch.meanAbsError.toFixed(
-      1
-    )} cents，命中 ${review.pitch.hitRate}%，${worstSegmentText}。`;
+    songPracticeReviewSummary.textContent = coach.summary;
   }
   if (songPracticeReviewNextStep) {
-    songPracticeReviewNextStep.textContent = getSongPracticeNextStep(review);
+    songPracticeReviewNextStep.textContent = coach.nextStep;
   }
   if (songPracticeReplayButton) {
     songPracticeReplayButton.disabled = !lastRecordingBlob;
@@ -249,9 +327,9 @@ function updateSongPracticeFlow(status = null) {
   if (songPracticeStartButton) {
     songPracticeStartButton.disabled = isRecording ? false : !canStart;
     songPracticeStartButton.textContent = isRecording
-      ? '结束录音'
+      ? '结束并评估'
       : songPitchAnalysisInProgress
-        ? '生成目标中...'
+        ? '正在生成目标...'
         : '开始跟唱';
   }
   if (songPracticeStopReviewButton) {
@@ -272,21 +350,25 @@ function updateSongPracticeFlow(status = null) {
     } else if (hasSong || songPitchAnalysisInProgress) {
       songPracticeFlowState.textContent = '生成目标中';
     } else {
-      songPracticeFlowState.textContent = '未选歌';
+      songPracticeFlowState.textContent = '先选歌';
     }
   }
 
   if (songPracticeFlowHint) {
     if (isRecording) {
-      songPracticeFlowHint.textContent = '正在录音。唱完后点击“结束录音”，系统会自动给出反馈。';
+      songPracticeFlowHint.textContent = '正在录音。唱完这一遍后点击“结束并评估”，系统会自动生成复盘。';
     } else if (hasReview) {
-      songPracticeFlowHint.textContent = '这一遍已经完成，可以回放录音或再唱一遍。';
+      songPracticeFlowHint.textContent = '这一遍已经完成，先回放重点片段，再按下一步动作重唱。';
     } else if (hasRecording && hasTarget) {
-      songPracticeFlowHint.textContent = '已经有一段录音，可以查看反馈，也可以重新唱。';
+      songPracticeFlowHint.textContent = '已经有一段录音，可以评估这一遍，也可以重新唱。';
     } else if (hasTarget) {
-      songPracticeFlowHint.textContent = '目标曲线已准备好，现在可以开始唱。';
+      songPracticeFlowHint.textContent = '目标曲线已准备好。戴上耳机，点“开始跟唱”，唱完整一遍。';
+    } else if (songPitchAnalysisInProgress) {
+      songPracticeFlowHint.textContent = '正在从歌曲里提取目标曲线，完成后就能开始跟唱。';
+    } else if (hasSong) {
+      songPracticeFlowHint.textContent = '歌曲已载入，等待目标曲线生成完成。';
     } else {
-      songPracticeFlowHint.textContent = '选好歌曲后就可以开始唱。';
+      songPracticeFlowHint.textContent = '先点“选择歌曲”，上传本地音频或从录音库选择已有歌曲。';
     }
   }
   if (trainingMode === 'curve') {
@@ -522,12 +604,6 @@ async function runPitchAccuracyAnalysis() {
     return;
   }
 
-  const direction =
-    Math.abs(result.meanSignedError) <= pitchScoreGoodToleranceCents
-      ? '整体居中'
-      : result.meanSignedError > 0
-        ? '整体偏高'
-        : '整体偏低';
   const worstSegmentText = result.worstSegment
     ? `，重点回听 ${formatFrameTime(result.worstSegment.startIndex)}-${formatFrameTime(
         result.worstSegment.endIndex + 1
@@ -545,6 +621,7 @@ async function runPitchAccuracyAnalysis() {
     pitch: result,
     rhythm: rhythmStats,
   };
+  const coach = buildSongPracticeCoachAdvice(songPracticeLastReview);
 
   setPitchAccuracyResult(
     `${result.label} 综合 ${combinedScore}% · 音准 ${result.score}% · 命中 ${result.hitRate}%${rhythmResultText} · P90 ${result.p90AbsError.toFixed(
@@ -562,16 +639,25 @@ async function runPitchAccuracyAnalysis() {
   );
   if (songPitchTrack.length) {
     setTrainingFeedback(
-      combinedScore >= 78 ? '这一遍整体不错' : rhythmStats?.total && rhythmStats.score < result.score ? '节奏需要再贴拍点' : direction,
-      `${direction}。音准 ${result.score}%，平均偏差 ${result.meanAbsError.toFixed(1)} cents${
-        rhythmStats?.total ? `；节奏 ${rhythmStats.score}%，命中 ${rhythmStats.hitRate}%` : ''
-      }。下一遍优先修正分数较低的一项。`,
-      '评估',
-      combinedScore >= 78 ? 'good' : 'warn'
+      coach.title,
+      `${coach.summary} ${coach.nextStep}`,
+      coach.badge || '评估',
+      coach.tone === 'bad' ? 'warn' : coach.tone
     );
   }
   updatePitchAccuracyButton();
   renderSongPracticeReview(songPracticeLastReview);
+  if (typeof recordGameReward === 'function') {
+    recordGameReward({
+      mode: 'song',
+      score: combinedScore,
+      totalScore: combinedScore,
+      pitchScore: result.score,
+      rhythmScore: rhythmStats?.total ? rhythmStats.score : undefined,
+      targetSong: getSongPracticeTitle(),
+      summary: `音准 ${result.score}%，命中 ${result.hitRate}%`,
+    });
+  }
   updateSongPracticeFlow('评估完成');
 }
 
@@ -604,6 +690,9 @@ async function startSongPracticeFlow() {
     return;
   }
   setSongTargetCollapsed(false);
+  if (typeof hideGameReward === 'function') {
+    hideGameReward();
+  }
   songPracticeLastReview = null;
   renderSongPracticeReview();
   const recordingStarted = await startVoiceRecording();

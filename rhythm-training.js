@@ -134,13 +134,15 @@ function getRhythmStats() {
   const total = rhythmEvents.length;
   const hits = rhythmEvents.filter((event) => event.hit).length;
   const offsets = rhythmEvents.map((event) => Math.abs(event.offsetMs));
+  const signedOffsets = rhythmEvents.map((event) => event.offsetMs).filter((value) => Number.isFinite(value));
   const meanOffset = offsets.length ? mean(offsets) : 0;
+  const meanSignedOffset = signedOffsets.length ? mean(signedOffsets) : 0;
   const hitRate = total ? Math.round((hits / total) * 100) : 0;
   const timingScore = total
     ? Math.max(0, 100 - Math.round((meanOffset / getRhythmHitWindowMs()) * 55))
     : 0;
   const score = total ? Math.round(hitRate * 0.72 + timingScore * 0.28) : 0;
-  return { total, hits, hitRate, meanOffset, score };
+  return { total, hits, hitRate, meanOffset, meanSignedOffset, score };
 }
 
 function formatRhythmOffset(offsetMs) {
