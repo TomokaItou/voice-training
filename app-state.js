@@ -122,6 +122,7 @@ let rangeTrainingPhase = 'ready';
 let rangeHistoryExpanded = false;
 let songPracticeAutoReviewPending = false;
 let songPracticeLastReview = null;
+let songPracticeFocusPlaybackTimer = null;
 let memoryTrainingPhase = 'ready';
 let memoryHasResult = false;
 let rhythmBpm = Number(rhythmBpmInput?.value || 90);

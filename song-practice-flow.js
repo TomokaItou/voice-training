@@ -140,6 +140,15 @@ function formatSongPracticeSegment(segment, leadSeconds = 0) {
   return `${formatTimeSeconds(startMs)}-${formatTimeSeconds(endMs)}`;
 }
 
+function getSongPracticeSegmentWindow(segment, leadSeconds = 0, tailSeconds = 1.5) {
+  if (!segment) {
+    return null;
+  }
+  const startMs = Math.max(0, segment.startIndex * offlineHopDurationMs - leadSeconds * 1000);
+  const endMs = Math.max(startMs + 1000, (segment.endIndex + 1) * offlineHopDurationMs + tailSeconds * 1000);
+  return { startMs, endMs, durationMs: endMs - startMs };
+}
+
 function getSongPracticeRhythmDirection(rhythm) {
   if (!rhythm?.total || !Number.isFinite(rhythm.meanSignedOffset)) {
     return '拍点不够稳定';
@@ -151,6 +160,79 @@ function getSongPracticeRhythmDirection(rhythm) {
     return `平均拖拍 ${Math.round(rhythm.meanSignedOffset)} ms`;
   }
   return `平均偏离 ${Math.round(rhythm.meanOffset)} ms`;
+}
+
+function buildSongPracticeDrill(review, coach = buildSongPracticeCoachAdvice(review)) {
+  if (!review) {
+    return null;
+  }
+
+  const segment = review.pitch?.worstSegment || null;
+  const window = getSongPracticeSegmentWindow(segment, 2, 1.5);
+  const signedError = review.pitch?.meanSignedError || 0;
+  const direction = getSongPracticeDirection(review);
+  const hasRhythmPriority = review.rhythm?.total && (review.rhythm.score < review.pitch.score - 8 || review.rhythm.score < 62);
+
+  if (review.pitch.coverage < 35) {
+    return {
+      badge: '先连线',
+      segmentText: '前 20 秒',
+      window: { startMs: 0, endMs: 20000, durationMs: 20000 },
+      reason: `有效音高覆盖只有 ${review.pitch.coverage}%，先让系统听到连续旋律。`,
+      listen: '回放这一遍，找出最容易断线的位置。',
+      slow: '下一遍只唱 20 秒，音量可以小，但不要断气或漏掉句尾。',
+      returnStep: '曲线连续后，再回到整段跟唱和音准细节。',
+    };
+  }
+
+  if (hasRhythmPriority) {
+    return {
+      badge: '节奏优先',
+      segmentText: window ? formatSongPracticeSegment(segment, 2) : '句头和第一拍',
+      window,
+      reason: `节奏 ${review.rhythm.score}%，${getSongPracticeRhythmDirection(review.rhythm)}。`,
+      listen: '先回放句头，听你进声和伴奏拍点的距离。',
+      slow: '用轻一点的 da 进声练 3 次，只盯第一拍，不急着修音高。',
+      returnStep: '句头贴住后，再带歌词唱回完整一句。',
+    };
+  }
+
+  if (Math.abs(signedError) > pitchScoreGoodToleranceCents) {
+    const isHigh = signedError > 0;
+    return {
+      badge: isHigh ? '压低重心' : '抬高重心',
+      segmentText: window ? formatSongPracticeSegment(segment, 2) : '整段开头',
+      window,
+      reason: `${direction}，平均偏差 ${review.pitch.meanAbsError.toFixed(1)} cents。`,
+      listen: '回放时只听音高重心，不评价音色和情绪。',
+      slow: isHigh
+        ? '下一遍先轻声找准目标线，确认不压高后再加音量。'
+        : '下一遍先哼到目标线上方一点，再带歌词进入。',
+      returnStep: '重心稳定后，再把同一个动作带回整段。',
+    };
+  }
+
+  if (segment) {
+    return {
+      badge: '片段循环',
+      segmentText: formatSongPracticeSegment(segment, 2),
+      window,
+      reason: `偏差集中在这里，P90 偏差 ${review.pitch.p90AbsError.toFixed(1)} cents。`,
+      listen: '先回放重点片段，确认是哪一个音或转折偏离目标。',
+      slow: '只练这个片段 3 次，前两次慢一点，第三次按原速。',
+      returnStep: '第三次稳定后，再唱回整段，检查分数有没有保住。',
+    };
+  }
+
+  return {
+    badge: coach.badge || '保留唱法',
+    segmentText: '整段复唱',
+    window: null,
+    reason: '这一遍没有明显集中的问题段，重点是保留当前稳定动作。',
+    listen: '回放整段，记住最稳定的一句是什么感觉。',
+    slow: '下一遍保持同一发声方式，只轻微推进情绪或音量。',
+    returnStep: '如果分数下降，就退回这一遍的力度和速度。',
+  };
 }
 
 function buildSongPracticeCoachAdvice(review) {
@@ -253,11 +335,14 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
     if (songPracticeReviewCoverage) songPracticeReviewCoverage.textContent = '--';
     if (songPracticeReviewSummary) songPracticeReviewSummary.textContent = '跟唱结束后会在这里看到本轮结果。';
     if (songPracticeReviewNextStep) songPracticeReviewNextStep.textContent = '下一遍会给你一个明确动作。';
+    if (songPracticeDrillCard) songPracticeDrillCard.hidden = true;
+    if (songPracticeReplaySegmentButton) songPracticeReplaySegmentButton.disabled = true;
     if (songPracticeReplayButton) songPracticeReplayButton.disabled = !lastRecordingBlob;
     return;
   }
 
   const coach = buildSongPracticeCoachAdvice(review);
+  const drill = buildSongPracticeDrill(review, coach);
   const rhythmText = review.rhythm?.total
     ? `${review.rhythm.score}% / 命中 ${review.rhythm.hitRate}%`
     : '未记录';
@@ -288,9 +373,42 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
   if (songPracticeReviewNextStep) {
     songPracticeReviewNextStep.textContent = coach.nextStep;
   }
+  if (songPracticeDrillCard) {
+    songPracticeDrillCard.hidden = !drill;
+  }
+  if (drill) {
+    if (songPracticeDrillSegment) songPracticeDrillSegment.textContent = drill.segmentText;
+    if (songPracticeDrillBadge) songPracticeDrillBadge.textContent = drill.badge;
+    if (songPracticeDrillReason) songPracticeDrillReason.textContent = drill.reason;
+    if (songPracticeDrillStepListen) songPracticeDrillStepListen.textContent = drill.listen;
+    if (songPracticeDrillStepSlow) songPracticeDrillStepSlow.textContent = drill.slow;
+    if (songPracticeDrillStepReturn) songPracticeDrillStepReturn.textContent = drill.returnStep;
+  }
+  if (songPracticeReplaySegmentButton) {
+    songPracticeReplaySegmentButton.disabled = !lastRecordingBlob || !drill?.window;
+  }
   if (songPracticeReplayButton) {
     songPracticeReplayButton.disabled = !lastRecordingBlob;
   }
+}
+
+function playSongPracticeFocusSegment() {
+  const review = songPracticeLastReview;
+  const drill = buildSongPracticeDrill(review);
+  if (!lastRecordingBlob || !drill?.window) {
+    return;
+  }
+  if (songPracticeFocusPlaybackTimer) {
+    clearTimeout(songPracticeFocusPlaybackTimer);
+    songPracticeFocusPlaybackTimer = null;
+  }
+  startRecordingPlayback(drill.window.startMs);
+  setTimelineStatus(`正在回放重点片段 ${formatTimeSeconds(drill.window.startMs)}-${formatTimeSeconds(drill.window.endMs)}`);
+  songPracticeFocusPlaybackTimer = setTimeout(() => {
+    stopRecordingPlayback();
+    selectRecordingTime(drill.window.endMs, false);
+    songPracticeFocusPlaybackTimer = null;
+  }, Math.max(900, drill.window.durationMs));
 }
 
 function updateSongPracticeFlow(status = null) {

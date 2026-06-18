@@ -96,6 +96,9 @@ async function startVoiceRecording() {
           updateSongPracticeFlow();
         }
       }
+      if (trainingMode === 'fix' && typeof onFixOneThingRecordingStopped === 'function') {
+        onFixOneThingRecordingStopped();
+      }
     });
     mediaRecorder = recorder;
     recorder.start();

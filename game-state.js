@@ -210,6 +210,7 @@ function getModeLabel(mode) {
     breath: '气息关',
     range: '音域关',
     curve: '自由练声',
+    fix: '修一处',
   };
   return labels[mode] || '训练关';
 }
@@ -283,6 +284,34 @@ function recordGameReward(input) {
   saveGameState();
   renderGameState();
   showGameReward(reward, questBonus);
+  if (typeof requestMiraFeedbackForReward === 'function') {
+    requestMiraFeedbackForReward(reward);
+  }
+  return reward;
+}
+
+function recordFixOneThingReward(input) {
+  ensureTodayGameState();
+  if (!input || !Number.isFinite(input.xp) || input.xp <= 0) {
+    return null;
+  }
+
+  const reward = {
+    id: `${Date.now()}-fix`,
+    createdAt: new Date().toISOString(),
+    mode: 'fix',
+    score: Math.round(Math.max(0, Math.min(100, input.score || 0))),
+    totalScore: Math.round(Math.max(0, Math.min(100, input.score || 0))),
+    xp: Math.round(Math.max(0, Math.min(50, input.xp))),
+    summary: input.summary || '修一处完成',
+  };
+
+  markPracticeDay();
+  addGameXp(reward.xp);
+  gameState.rewards = [reward, ...gameState.rewards].slice(0, 12);
+  saveGameState();
+  renderGameState();
+  showGameReward(reward, 0);
   if (typeof requestMiraFeedbackForReward === 'function') {
     requestMiraFeedbackForReward(reward);
   }
@@ -402,6 +431,7 @@ function hideGameReward() {
 renderGameState();
 
 window.recordGameReward = recordGameReward;
+window.recordFixOneThingReward = recordFixOneThingReward;
 window.recordCurrentPracticeReward = recordCurrentPracticeReward;
 window.renderGameState = renderGameState;
 window.hideGameReward = hideGameReward;
