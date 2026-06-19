@@ -159,14 +159,15 @@
 
 .song-practice-review {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   margin: 0 0 16px;
-  padding: 16px;
-  border: 1px solid rgba(12, 124, 114, 0.22);
+  padding: 18px;
+  border: 1px solid rgba(142, 162, 255, 0.28);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 251, 249, 0.86)),
+    linear-gradient(135deg, rgba(248, 249, 255, 0.96), rgba(255, 255, 255, 0.86)),
     var(--surface);
+  box-shadow: 0 18px 36px rgba(112, 122, 210, 0.12);
 }
 
 .song-practice-review[hidden] {
@@ -182,15 +183,17 @@
 
 .song-practice-review-header h3 {
   margin: 3px 0 0;
-  font-size: 19px;
+  color: #31377f;
+  font-size: 24px;
+  line-height: 1.15;
 }
 
 .song-practice-review-badge {
   flex-shrink: 0;
-  border: 1px solid rgba(12, 124, 114, 0.22);
+  border: 1px solid rgba(142, 162, 255, 0.28);
   border-radius: 999px;
   background: #ffffff;
-  color: var(--accent-strong);
+  color: #5860b7;
   font-size: 12px;
   font-weight: 780;
   padding: 6px 10px;
@@ -230,17 +233,17 @@
 
 .song-practice-review-body {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .song-practice-review-body p {
   margin: 0;
-  color: var(--muted);
+  color: #6970a6;
   line-height: 1.55;
 }
 
 .song-practice-review-body p:last-child {
-  color: var(--text);
+  color: #31377f;
   font-weight: 760;
 }
 
@@ -253,6 +256,79 @@
   background:
     linear-gradient(135deg, rgba(226, 244, 239, 0.72), rgba(255, 255, 255, 0.86)),
     var(--surface);
+}
+
+.mira-navigation-card {
+  gap: 10px;
+  padding: 16px;
+  border-color: rgba(126, 138, 221, 0.32);
+  background:
+    linear-gradient(135deg, rgba(232, 236, 255, 0.92), rgba(255, 255, 255, 0.88)),
+    var(--surface);
+}
+
+.mira-navigation-card .song-practice-drill-header strong {
+  color: #31377f;
+  font-size: clamp(30px, 4vw, 46px);
+}
+
+.mira-navigation-advice {
+  width: fit-content;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #31377f !important;
+  font-weight: 820;
+}
+
+.mira-navigation-progress {
+  color: #5860b7 !important;
+  font-weight: 820;
+}
+
+.mira-navigation-actions,
+.mira-navigation-loop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mira-navigation-actions button,
+.mira-navigation-loop-actions button {
+  min-height: 42px;
+}
+
+#songPracticeStartFixButton {
+  min-height: 48px;
+  padding-inline: 18px;
+  background: #7e8add;
+  box-shadow: 0 14px 28px rgba(112, 122, 210, 0.18);
+}
+
+.song-practice-detail-report {
+  border: 1px solid rgba(142, 162, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.56);
+  overflow: hidden;
+}
+
+.song-practice-detail-report summary {
+  padding: 10px 12px;
+  color: #6970a6;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 780;
+  list-style: none;
+}
+
+.song-practice-detail-report summary::-webkit-details-marker {
+  display: none;
+}
+
+.song-practice-detail-report .song-practice-review-grid {
+  margin: 0;
+  border-width: 1px 0 0;
+  border-radius: 0;
 }
 
 .song-practice-drill-card[hidden] {
