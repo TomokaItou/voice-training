@@ -92,10 +92,16 @@ if (-not (Test-Path $indexPath)) {
 
 if ($failures.Count -eq 0) {
   $html = Read-Utf8 $indexPath
+  $layoutHtml = $html
+  $markupPath = Join-Path $root 'app-markup.js'
+  if (Test-Path $markupPath) {
+    Write-Step "Checking extracted app markup"
+    $layoutHtml += "`n" + (Read-Utf8 $markupPath)
+  }
 
   $stylesheetMatches = Get-RegexMatches $html '<link\s+[^>]*rel=["'']stylesheet["''][^>]*href=["'']([^"'']+)["'']'
   $scriptMatches = Get-RegexMatches $html '<script\s+[^>]*src=["'']([^"'']+)["''][^>]*></script>'
-  $idMatches = Get-RegexMatches $html '\sid=["'']([^"'']+)["'']'
+  $idMatches = Get-RegexMatches $layoutHtml '\sid=["'']([^"'']+)["'']'
 
   $ids = @()
   foreach ($match in $idMatches) {
@@ -162,9 +168,13 @@ if ($failures.Count -eq 0) {
 
   Write-Step "Checking expected application entry order"
   $expectedScripts = @(
+    'app-markup.js',
     'app-config.js',
     'app-dom.js',
     'app-state.js',
+    'mira-presence.js',
+    'training-feedback.js',
+    'app-navigation.js',
     'game-state.js',
     'mira-feedback.js',
     'beginner-practice.js',
