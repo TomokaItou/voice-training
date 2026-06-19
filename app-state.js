@@ -3,6 +3,21 @@ let analyser;
 let dataArray;
 let frequencyData;
 let sourceNode;
+let bgmAudioContext = null;
+let bgmMasterGain = null;
+let bgmPadGain = null;
+let bgmSparkleGain = null;
+let bgmAudioElement = null;
+let bgmObjectUrl = null;
+let bgmUnavailable = false;
+let bgmSchedulerTimer = null;
+let bgmStarted = false;
+let bgmCurrentStep = 0;
+let bgmDuckingReasons = new Set();
+let bgmUserInteracted = false;
+let bgmSettings = { enabled: true, volume: 0.14 };
+let miraBlinkTimer = null;
+let miraSuccessTimer = null;
 let animationId;
 let practicePaused = false;
 let songPracticePausedTimeMs = null;
@@ -60,6 +75,23 @@ let recordingLibrary = [];
 let selectedRecordingLibraryId = null;
 let accompanimentLibrary = [];
 let selectedAccompanimentLibraryId = null;
+let successLibrary = [];
+let successLibraryStats = {
+  bestOverall: 0,
+  bestStability: 0,
+  bestPitch: 0,
+  bestBreathiness: 0,
+  bestClosure: 0,
+};
+let successComparison = {
+  successSampleId: null,
+  comparisonRecordingId: null,
+  report: null,
+};
+let beginnerPractice = {
+  currentTaskId: null,
+  active: false,
+};
 let recordingPlaybackAudio = null;
 let recordingPlaybackUrl = null;
 let recordingPlaybackRaf = null;
@@ -123,6 +155,18 @@ let rangeHistoryExpanded = false;
 let songPracticeAutoReviewPending = false;
 let songPracticeLastReview = null;
 let songPracticeFocusPlaybackTimer = null;
+let songPracticeTargetSegmentTimer = null;
+let songPracticeSegmentRecordingTimer = null;
+let songPracticeSegmentReviewPending = false;
+let songPracticeNavigation = {
+  drillIndex: 0,
+  drill: null,
+  baselineScore: null,
+  previousScore: null,
+  lastScore: null,
+  lastImprovement: null,
+  mode: 'overview',
+};
 let memoryTrainingPhase = 'ready';
 let memoryHasResult = false;
 let rhythmBpm = Number(rhythmBpmInput?.value || 90);

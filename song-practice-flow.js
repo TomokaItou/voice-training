@@ -85,6 +85,9 @@ function syncOfflineWindowToSongPlayback() {
 function updateSongPitchPlaybackProgress() {
   if (!songPitchAudio || songPitchAudio.paused) {
     stopSongPitchPlaybackProgress();
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', false);
+    }
     return;
   }
   syncOfflineWindowToSongPlayback();
@@ -149,6 +152,11 @@ function getSongPracticeSegmentWindow(segment, leadSeconds = 0, tailSeconds = 1.
   return { startMs, endMs, durationMs: endMs - startMs };
 }
 
+function getSongPracticeFocusSegment(review, index = songPracticeNavigation.drillIndex || 0) {
+  const segments = review?.pitch?.problemSegments || [];
+  return segments[index] || review?.pitch?.worstSegment || null;
+}
+
 function getSongPracticeRhythmDirection(rhythm) {
   if (!rhythm?.total || !Number.isFinite(rhythm.meanSignedOffset)) {
     return '拍点不够稳定';
@@ -162,12 +170,12 @@ function getSongPracticeRhythmDirection(rhythm) {
   return `平均偏离 ${Math.round(rhythm.meanOffset)} ms`;
 }
 
-function buildSongPracticeDrill(review, coach = buildSongPracticeCoachAdvice(review)) {
+function buildSongPracticeDrill(review, coach = buildSongPracticeCoachAdvice(review), drillIndex = songPracticeNavigation.drillIndex || 0) {
   if (!review) {
     return null;
   }
 
-  const segment = review.pitch?.worstSegment || null;
+  const segment = getSongPracticeFocusSegment(review, drillIndex);
   const window = getSongPracticeSegmentWindow(segment, 2, 1.5);
   const signedError = review.pitch?.meanSignedError || 0;
   const direction = getSongPracticeDirection(review);
@@ -177,6 +185,9 @@ function buildSongPracticeDrill(review, coach = buildSongPracticeCoachAdvice(rev
     return {
       badge: '先连线',
       segmentText: '前 20 秒',
+      issue: '这一遍旋律断得有点多。',
+      advice: '先别追分，唱满 20 秒不断线。',
+      segment,
       window: { startMs: 0, endMs: 20000, durationMs: 20000 },
       reason: `有效音高覆盖只有 ${review.pitch.coverage}%，先让系统听到连续旋律。`,
       listen: '回放这一遍，找出最容易断线的位置。',
@@ -189,6 +200,9 @@ function buildSongPracticeDrill(review, coach = buildSongPracticeCoachAdvice(rev
     return {
       badge: '节奏优先',
       segmentText: window ? formatSongPracticeSegment(segment, 2) : '句头和第一拍',
+      issue: getSongPracticeRhythmDirection(review.rhythm),
+      advice: '先贴第一拍，音高先放一边。',
+      segment,
       window,
       reason: `节奏 ${review.rhythm.score}%，${getSongPracticeRhythmDirection(review.rhythm)}。`,
       listen: '先回放句头，听你进声和伴奏拍点的距离。',
@@ -202,6 +216,9 @@ function buildSongPracticeDrill(review, coach = buildSongPracticeCoachAdvice(rev
     return {
       badge: isHigh ? '压低重心' : '抬高重心',
       segmentText: window ? formatSongPracticeSegment(segment, 2) : '整段开头',
+      issue: isHigh ? '这一句整体偏高。' : '这一句整体偏低。',
+      advice: isHigh ? '轻一点唱，别把音顶上去。' : '先哼到目标线，再带歌词。',
+      segment,
       window,
       reason: `${direction}，平均偏差 ${review.pitch.meanAbsError.toFixed(1)} cents。`,
       listen: '回放时只听音高重心，不评价音色和情绪。',
@@ -216,6 +233,9 @@ function buildSongPracticeDrill(review, coach = buildSongPracticeCoachAdvice(rev
     return {
       badge: '片段循环',
       segmentText: formatSongPracticeSegment(segment, 2),
+      issue: '这一句和目标差距最大。',
+      advice: '只练这一句，先慢后原速。',
+      segment,
       window,
       reason: `偏差集中在这里，P90 偏差 ${review.pitch.p90AbsError.toFixed(1)} cents。`,
       listen: '先回放重点片段，确认是哪一个音或转折偏离目标。',
@@ -227,6 +247,9 @@ function buildSongPracticeDrill(review, coach = buildSongPracticeCoachAdvice(rev
   return {
     badge: coach.badge || '保留唱法',
     segmentText: '整段复唱',
+    issue: '没有特别集中的问题句。',
+    advice: '保留这遍感觉，再完整唱一次。',
+    segment,
     window: null,
     reason: '这一遍没有明显集中的问题段，重点是保留当前稳定动作。',
     listen: '回放整段，记住最稳定的一句是什么感觉。',
@@ -335,6 +358,8 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
     if (songPracticeReviewCoverage) songPracticeReviewCoverage.textContent = '--';
     if (songPracticeReviewSummary) songPracticeReviewSummary.textContent = '跟唱结束后会在这里看到本轮结果。';
     if (songPracticeReviewNextStep) songPracticeReviewNextStep.textContent = '下一遍会给你一个明确动作。';
+    resetSongPracticeNavigation();
+    renderSongPracticeNavigation(null);
     if (songPracticeDrillCard) songPracticeDrillCard.hidden = true;
     if (songPracticeReplaySegmentButton) songPracticeReplaySegmentButton.disabled = true;
     if (songPracticeReplayButton) songPracticeReplayButton.disabled = !lastRecordingBlob;
@@ -342,7 +367,7 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
   }
 
   const coach = buildSongPracticeCoachAdvice(review);
-  const drill = buildSongPracticeDrill(review, coach);
+  const drill = buildSongPracticeDrill(review, coach, songPracticeNavigation.drillIndex);
   const rhythmText = review.rhythm?.total
     ? `${review.rhythm.score}% / 命中 ${review.rhythm.hitRate}%`
     : '未记录';
@@ -374,7 +399,7 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
     songPracticeReviewNextStep.textContent = coach.nextStep;
   }
   if (songPracticeDrillCard) {
-    songPracticeDrillCard.hidden = !drill;
+    songPracticeDrillCard.hidden = true;
   }
   if (drill) {
     if (songPracticeDrillSegment) songPracticeDrillSegment.textContent = drill.segmentText;
@@ -390,6 +415,7 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
   if (songPracticeReplayButton) {
     songPracticeReplayButton.disabled = !lastRecordingBlob;
   }
+  renderSongPracticeNavigation(review);
 }
 
 function playSongPracticeFocusSegment() {
@@ -409,6 +435,271 @@ function playSongPracticeFocusSegment() {
     selectRecordingTime(drill.window.endMs, false);
     songPracticeFocusPlaybackTimer = null;
   }, Math.max(900, drill.window.durationMs));
+}
+
+function resetSongPracticeNavigation() {
+  if (songPracticeTargetSegmentTimer) {
+    clearTimeout(songPracticeTargetSegmentTimer);
+    songPracticeTargetSegmentTimer = null;
+  }
+  if (songPracticeSegmentRecordingTimer) {
+    clearTimeout(songPracticeSegmentRecordingTimer);
+    songPracticeSegmentRecordingTimer = null;
+  }
+  songPracticeSegmentReviewPending = false;
+  songPracticeNavigation = {
+    drillIndex: 0,
+    drill: null,
+    baselineScore: null,
+    previousScore: null,
+    lastScore: null,
+    lastImprovement: null,
+    mode: 'overview',
+  };
+}
+
+function getSongPracticeDrillCount(review = songPracticeLastReview) {
+  const count = review?.pitch?.problemSegments?.length || 0;
+  return Math.max(count, review?.pitch?.worstSegment ? 1 : 0);
+}
+
+function getSongPracticeDrillBaselineScore(review, drill) {
+  if (!review) {
+    return null;
+  }
+  if (drill?.window && drill.segment?.meanError) {
+    const segmentScore = Math.round(100 - Math.min(100, (drill.segment.meanError / pitchScoreMaxUsefulCents) * 100));
+    return Math.max(0, Math.min(100, segmentScore));
+  }
+  return review.rhythm?.total ? review.combinedScore : review.pitch?.score;
+}
+
+function setSongPracticeNavigationMode(mode) {
+  songPracticeNavigation.mode = mode;
+  renderSongPracticeNavigation();
+  updateSongPracticeFlow();
+}
+
+function renderSongPracticeNavigation(review = songPracticeLastReview) {
+  if (!songPracticeNavigationCard) {
+    return;
+  }
+  const hasReview = Boolean(review);
+  const coach = hasReview ? buildSongPracticeCoachAdvice(review) : null;
+  const drill = hasReview ? buildSongPracticeDrill(review, coach, songPracticeNavigation.drillIndex) : null;
+  songPracticeNavigation.drill = drill;
+  songPracticeNavigationCard.hidden = !hasReview || !drill;
+
+  if (!hasReview || !drill) {
+    if (songPracticeStartFixButton) songPracticeStartFixButton.disabled = true;
+    if (songPracticePlayTargetSegmentButton) songPracticePlayTargetSegmentButton.disabled = true;
+    if (songPracticeRecordSegmentButton) songPracticeRecordSegmentButton.disabled = true;
+    if (songPracticePracticeAgainButton) songPracticePracticeAgainButton.disabled = true;
+    if (songPracticeNextIssueButton) songPracticeNextIssueButton.disabled = true;
+    return;
+  }
+
+  if (songPracticeNavigation.baselineScore === null || songPracticeNavigation.mode === 'overview') {
+    songPracticeNavigation.baselineScore = getSongPracticeDrillBaselineScore(review, drill);
+    songPracticeNavigation.previousScore = songPracticeNavigation.baselineScore;
+    songPracticeNavigation.lastScore = null;
+    songPracticeNavigation.lastImprovement = null;
+  }
+
+  const hasWindow = Boolean(drill.window);
+  const canPlayTarget = Boolean(songPitchAudio && hasWindow);
+  const isRecording = Boolean(mediaRecorder && mediaRecorder.state !== 'inactive');
+  const isLoopMode = songPracticeNavigation.mode === 'loop' || songPracticeNavigation.mode === 'recording';
+  const hasProgress = Number.isFinite(songPracticeNavigation.lastImprovement);
+  const issueCount = getSongPracticeDrillCount(review);
+
+  if (songPracticeNavigationSegment) {
+    songPracticeNavigationSegment.textContent = drill.segmentText;
+  }
+  if (songPracticeNavigationIssue) {
+    songPracticeNavigationIssue.textContent = drill.issue || drill.reason || 'Mira 找到了这一轮最值得修的一句。';
+  }
+  if (songPracticeNavigationAdvice) {
+    songPracticeNavigationAdvice.textContent = drill.advice || drill.slow || '只练这一句，别同时改太多。';
+  }
+  if (songPracticeNavigationProgress) {
+    if (songPracticeNavigation.mode === 'recording') {
+      songPracticeNavigationProgress.textContent = '正在录这一句，唱完 Mira 会自动对比。';
+    } else if (hasProgress && songPracticeNavigation.lastImprovement > 0) {
+      songPracticeNavigationProgress.textContent = `进步了 ${songPracticeNavigation.lastImprovement} 分，保留这个动作。`;
+    } else if (hasProgress) {
+      songPracticeNavigationProgress.textContent = '这次还没变好，继续练当前片段。';
+    } else {
+      songPracticeNavigationProgress.textContent = '先听目标，再录一次这一句。';
+    }
+  }
+  if (songPracticeStartFixButton) {
+    songPracticeStartFixButton.disabled = !hasWindow;
+    songPracticeStartFixButton.textContent = songPracticeNavigation.mode === 'loop' ? '继续修这一句' : '开始修这一句';
+  }
+  if (songPracticePlayTargetSegmentButton) {
+    songPracticePlayTargetSegmentButton.disabled = !isLoopMode || !canPlayTarget || isRecording;
+  }
+  if (songPracticeRecordSegmentButton) {
+    songPracticeRecordSegmentButton.disabled = !isLoopMode || !hasWindow || isRecording || offlineAnalysisInProgress;
+    songPracticeRecordSegmentButton.textContent = isRecording && songPracticeSegmentReviewPending ? '正在录...' : '录这一句';
+  }
+  if (songPracticePracticeAgainButton) {
+    songPracticePracticeAgainButton.disabled = !isLoopMode || !hasWindow || isRecording;
+  }
+  if (songPracticeNextIssueButton) {
+    songPracticeNextIssueButton.disabled = !isLoopMode || issueCount <= 1 || isRecording;
+  }
+  if (songPracticeBackOverviewButton) {
+    songPracticeBackOverviewButton.disabled = isRecording;
+  }
+}
+
+function getSongPracticeActiveWindow() {
+  const drill = songPracticeNavigation.drill || buildSongPracticeDrill(songPracticeLastReview);
+  return drill?.window || null;
+}
+
+async function playSongPracticeTargetSegment() {
+  const window = getSongPracticeActiveWindow();
+  if (!songPitchAudio || !window) {
+    return false;
+  }
+  if (songPracticeTargetSegmentTimer) {
+    clearTimeout(songPracticeTargetSegmentTimer);
+    songPracticeTargetSegmentTimer = null;
+  }
+  try {
+    if (recordingPlaybackAudio && !recordingPlaybackAudio.paused) {
+      stopRecordingPlayback();
+    }
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', true);
+    }
+    songPitchAudio.currentTime = window.startMs / 1000;
+    await songPitchAudio.play();
+    setSongPitchPlaybackStatus(`目标句 ${formatTimeSeconds(window.startMs)}-${formatTimeSeconds(window.endMs)}`, 'good');
+    songPracticeTargetSegmentTimer = setTimeout(() => {
+      songPitchAudio.pause();
+      songPitchAudio.currentTime = window.startMs / 1000;
+      songPracticeTargetSegmentTimer = null;
+      if (typeof setBgmDucking === 'function') {
+        setBgmDucking('target', false);
+      }
+      updateSongPitchPlaybackButtons();
+    }, Math.max(700, window.durationMs));
+    return true;
+  } catch (error) {
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', false);
+    }
+    console.error(error);
+    setSongPitchPlaybackStatus('目标句无法播放', 'bad');
+    return false;
+  }
+}
+
+function buildSegmentReferenceTrack(window) {
+  if (!window || !songPitchTrack.length) {
+    return null;
+  }
+  const startIndex = Math.max(0, Math.floor(window.startMs / offlineHopDurationMs));
+  const endIndex = Math.max(startIndex + 1, Math.ceil(window.endMs / offlineHopDurationMs));
+  return songPitchTrack.slice(startIndex, endIndex).map((point) => point.pitch);
+}
+
+async function analyzeSongPracticeSegmentRecording() {
+  const window = getSongPracticeActiveWindow();
+  const referenceTrack = buildSegmentReferenceTrack(window);
+  if (!lastRecordingBlob || !referenceTrack?.length) {
+    renderSongPracticeNavigation();
+    return;
+  }
+  try {
+    const vocalBuffer = await decodeAudioBlob(lastRecordingBlob);
+    const vocalTrack = extractPitchTrack(vocalBuffer);
+    const result = evaluatePitchAccuracy(referenceTrack, vocalTrack);
+    if (!result) {
+      songPracticeNavigation.lastImprovement = 0;
+      songPracticeNavigation.lastScore = null;
+      songPracticeNavigation.mode = 'loop';
+      renderSongPracticeNavigation();
+      return;
+    }
+    const previous = Number.isFinite(songPracticeNavigation.previousScore)
+      ? songPracticeNavigation.previousScore
+      : songPracticeNavigation.baselineScore;
+    const improvement = Number.isFinite(previous) ? result.score - previous : 0;
+    songPracticeNavigation.lastScore = result.score;
+    songPracticeNavigation.lastImprovement = improvement;
+    songPracticeNavigation.previousScore = result.score;
+    songPracticeNavigation.mode = 'loop';
+    setSongTrainingResult(
+      improvement > 0
+        ? `这一句进步 ${improvement} 分`
+        : `这一句 ${result.score}%，继续练当前片段`,
+      improvement > 0 ? 'good' : 'warn'
+    );
+    renderSongPracticeNavigation();
+    updateSongPracticeFlow(improvement > 0 ? '这一句进步了' : '继续练这一句');
+  } catch (error) {
+    console.error(error);
+    setSongTrainingResult('这一句对比失败，请再录一次。', 'bad');
+    renderSongPracticeNavigation();
+  }
+}
+
+async function startSongPracticeSegmentRecording() {
+  const window = getSongPracticeActiveWindow();
+  if (!window || offlineAnalysisInProgress) {
+    return;
+  }
+  if (songPracticeSegmentRecordingTimer) {
+    clearTimeout(songPracticeSegmentRecordingTimer);
+    songPracticeSegmentRecordingTimer = null;
+  }
+  songPracticeSegmentReviewPending = true;
+  setSongPracticeNavigationMode('recording');
+  const started = await startVoiceRecording();
+  if (!started) {
+    songPracticeSegmentReviewPending = false;
+    setSongPracticeNavigationMode('loop');
+    return;
+  }
+  await playSongPracticeTargetSegment();
+  songPracticeSegmentRecordingTimer = setTimeout(() => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      stopVoiceRecording({ reviewAfterStop: false });
+    }
+  }, Math.max(1800, window.durationMs + 700));
+}
+
+function startSongPracticeSentenceLoop() {
+  if (!songPracticeLastReview) {
+    return;
+  }
+  setSongPracticeNavigationMode('loop');
+  playSongPracticeTargetSegment();
+}
+
+function goToNextSongPracticeIssue() {
+  const count = getSongPracticeDrillCount();
+  if (count <= 1) {
+    return;
+  }
+  songPracticeNavigation.drillIndex = (songPracticeNavigation.drillIndex + 1) % count;
+  songPracticeNavigation.baselineScore = null;
+  songPracticeNavigation.previousScore = null;
+  songPracticeNavigation.lastScore = null;
+  songPracticeNavigation.lastImprovement = null;
+  songPracticeNavigation.mode = 'overview';
+  renderSongPracticeReview(songPracticeLastReview);
+}
+
+function returnSongPracticeOverview() {
+  songPracticeNavigation.mode = 'overview';
+  renderSongPracticeNavigation();
+  updateSongPracticeFlow('复盘完成');
 }
 
 function updateSongPracticeFlow(status = null) {
@@ -508,6 +799,9 @@ function prepareSongPitchPlayback(file) {
   songPitchAudio = new Audio(songPitchAudioUrl);
   songPitchAudio.addEventListener('ended', () => {
     stopSongPitchPlaybackProgress();
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', false);
+    }
     setSongPitchPlaybackStatus('已播放完');
     updateSongPitchPlaybackButtons();
   });
@@ -524,6 +818,9 @@ function clearSongPitchPlayback() {
   if (songPitchAudio) {
     songPitchAudio.pause();
     songPitchAudio = null;
+  }
+  if (typeof setBgmDucking === 'function') {
+    setBgmDucking('target', false);
   }
   if (songPitchAudioUrl) {
     URL.revokeObjectURL(songPitchAudioUrl);
@@ -554,12 +851,12 @@ function formatFrameTime(frameIndex) {
   return formatTimeSeconds(frameIndex * offlineHopDurationMs);
 }
 
-function findWorstPitchSegment(samples) {
+function findProblemPitchSegments(samples) {
   const problemSamples = samples.filter(
     (sample) => sample.absCents > pitchScoreHitToleranceCents
   );
   if (!problemSamples.length) {
-    return null;
+    return [];
   }
 
   const segments = [];
@@ -585,7 +882,11 @@ function findWorstPitchSegment(samples) {
       peakError: Math.max(...segment.errors),
       durationMs: (segment.endIndex - segment.startIndex + 1) * offlineHopDurationMs,
     }))
-    .sort((a, b) => b.meanError * b.durationMs - a.meanError * a.durationMs)[0];
+    .sort((a, b) => b.meanError * b.durationMs - a.meanError * a.durationMs);
+}
+
+function findWorstPitchSegment(samples) {
+  return findProblemPitchSegments(samples)[0] || null;
 }
 
 function evaluatePitchAccuracy(referenceTrack, vocalTrack) {
@@ -639,7 +940,8 @@ function evaluatePitchAccuracy(referenceTrack, vocalTrack) {
   const coverage = Math.round((samples.length / Math.max(referenceVoicedFrames, 1)) * 100);
   const vocalCoverage = Math.round((vocalVoicedFrames / Math.max(compareLength, 1)) * 100);
   const p90AbsError = percentile(absErrors, 0.9);
-  const worstSegment = findWorstPitchSegment(samples);
+  const problemSegments = findProblemPitchSegments(samples);
+  const worstSegment = problemSegments[0] || null;
   const score = Math.round(
     Math.max(
       0,
@@ -673,6 +975,7 @@ function evaluatePitchAccuracy(referenceTrack, vocalTrack) {
     vocalCoverage,
     sampleCount: samples.length,
     worstSegment,
+    problemSegments,
   };
 }
 
@@ -788,6 +1091,9 @@ async function playSongPitchReference() {
       accompanimentAudio.pause();
       setAccompanimentStatus('已暂停');
     }
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', true);
+    }
     songPitchAudio.currentTime = 0;
     await songPitchAudio.play();
     syncOfflineWindowToSongPlayback();
@@ -795,6 +1101,9 @@ async function playSongPitchReference() {
     updateSongPitchPlaybackProgress();
     return true;
   } catch (error) {
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', false);
+    }
     console.error(error);
     setSongPitchPlaybackStatus('无法播放', 'bad');
     return false;
@@ -828,6 +1137,9 @@ function stopSongPracticeAndReview() {
   if (songPitchAudio && !songPitchAudio.paused) {
     songPitchAudio.pause();
     stopSongPitchPlaybackProgress();
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', false);
+    }
     setSongPitchPlaybackStatus(`已暂停 ${formatTimeSeconds(songPitchAudio.currentTime * 1000)}`);
   }
   stopVoiceRecording({ reviewAfterStop: true });

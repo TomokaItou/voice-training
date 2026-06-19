@@ -211,6 +211,7 @@ function getModeLabel(mode) {
     range: '音域关',
     curve: '自由练声',
     fix: '修一处',
+    beginner: '30 秒小练习',
   };
   return labels[mode] || '训练关';
 }

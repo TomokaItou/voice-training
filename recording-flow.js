@@ -23,6 +23,12 @@ async function startVoiceRecording() {
     return false;
   }
   try {
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('recording', true);
+    }
+    if (typeof setMiraPresenceState === 'function') {
+      setMiraPresenceState('listening');
+    }
     if (!audioContext || !sourceNode?.mediaStream) {
       await start();
     }
@@ -44,6 +50,12 @@ async function startVoiceRecording() {
       }
     });
     recorder.addEventListener('stop', () => {
+      if (typeof setBgmDucking === 'function') {
+        setBgmDucking('recording', false);
+      }
+      if (typeof setMiraPresenceState === 'function') {
+        setMiraPresenceState('thinking');
+      }
       const blob = new Blob(recordedChunks, { type: recorder.mimeType });
       lastRecordingBlob = blob.size > 0 ? blob : null;
       recordedChunks = [];
@@ -56,8 +68,14 @@ async function startVoiceRecording() {
         prepareRecordingPlayback(lastRecordingBlob);
         selectRecordingTime(0, false);
         setTimelineStatus('点击时间轴可以从任意位置播放，并查看当时波形');
+        if (typeof pulseMiraSuccess === 'function') {
+          pulseMiraSuccess('找到今天最值得修的一点了');
+        }
       } else {
         setTimelineStatus('录音为空，请重新录制');
+        if (typeof setMiraPresenceState === 'function') {
+          setMiraPresenceState('idle');
+        }
       }
       updateRecordingButtons();
       updatePitchAccuracyButton();
@@ -96,6 +114,13 @@ async function startVoiceRecording() {
           updateSongPracticeFlow();
         }
       }
+      if (songPracticeSegmentReviewPending) {
+        songPracticeSegmentReviewPending = false;
+        if (typeof analyzeSongPracticeSegmentRecording === 'function') {
+          updateSongPracticeFlow('这一句对比中');
+          analyzeSongPracticeSegmentRecording();
+        }
+      }
       if (trainingMode === 'fix' && typeof onFixOneThingRecordingStopped === 'function') {
         onFixOneThingRecordingStopped();
       }
@@ -111,6 +136,12 @@ async function startVoiceRecording() {
     updateSongPracticeFlow();
     return true;
   } catch (error) {
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('recording', false);
+    }
+    if (typeof setMiraPresenceState === 'function') {
+      setMiraPresenceState('idle');
+    }
     console.error(error);
     setStatus('无法开始录音，请检查权限设置');
     updateSongPracticeFlow();
@@ -121,6 +152,9 @@ async function startVoiceRecording() {
 function stopVoiceRecording({ reviewAfterStop = false } = {}) {
   songPracticeAutoReviewPending = Boolean(reviewAfterStop);
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    if (typeof setMiraPresenceState === 'function') {
+      setMiraPresenceState('thinking');
+    }
     mediaRecorder.stop();
   } else if (reviewAfterStop && lastRecordingBlob && songPitchTrack.length) {
     songPracticeAutoReviewPending = false;

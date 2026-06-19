@@ -72,13 +72,16 @@ function openRecordingLibraryDb() {
     return Promise.resolve(null);
   }
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('voice-training-recordings', 2);
+    const request = indexedDB.open('voice-training-recordings', 3);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains('recordings')) {
         request.result.createObjectStore('recordings', { keyPath: 'id' });
       }
       if (!request.result.objectStoreNames.contains('accompaniments')) {
         request.result.createObjectStore('accompaniments', { keyPath: 'id' });
+      }
+      if (!request.result.objectStoreNames.contains('successSamples')) {
+        request.result.createObjectStore('successSamples', { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -518,6 +521,16 @@ function renderRecordingLibrary() {
     analyzeButton.textContent = '分析';
     analyzeButton.addEventListener('click', () => selectRecordingFromLibrary(recording.id, { analyze: true }));
 
+    const favoriteButton = document.createElement('button');
+    favoriteButton.className = 'recording-library-action secondary-action';
+    favoriteButton.type = 'button';
+    favoriteButton.textContent = '⭐ 收藏这次录音';
+    favoriteButton.addEventListener('click', () => {
+      if (typeof addManualSuccessSample === 'function') {
+        addManualSuccessSample(recording.id);
+      }
+    });
+
     const renameButton = document.createElement('button');
     renameButton.className = 'recording-library-action';
     renameButton.type = 'button';
@@ -546,7 +559,7 @@ function renderRecordingLibrary() {
     moreSummary.textContent = '更多';
     const moreMenu = document.createElement('div');
     moreMenu.className = 'recording-library-more-menu';
-    moreMenu.append(renameButton, downloadButton, removeButton);
+    moreMenu.append(favoriteButton, renameButton, downloadButton, removeButton);
     moreActions.append(moreSummary, moreMenu);
 
     const actions = document.createElement('div');
@@ -583,6 +596,9 @@ function addRecordingToLibrary(blob) {
   selectedRecordingLibraryId = id;
   renderRecordingLibrary();
   saveRecordingLibraryItem(recording).catch((error) => console.error(error));
+  if (typeof maybeAutoSaveSuccessSample === 'function') {
+    maybeAutoSaveSuccessSample(recording);
+  }
   return recording;
 }
 

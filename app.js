@@ -7,6 +7,7 @@ updateMeterVisibility();
 updateRecordingButtons();
 loadRecordingLibrary();
 loadAccompanimentLibrary();
+loadSuccessLibrary();
 updateAccompanimentButtons(false);
 updateSongPitchPlaybackButtons();
 updatePitchAccuracyButton();
@@ -14,6 +15,66 @@ setPitchAccuracyResult('--');
 resetBreathCalibration();
 loadRangeHistory();
 renderRangeHistory();
+initBgmSystem();
+initMiraPresence();
+
+function setMiraPresenceState(state = 'idle', message) {
+  if (!miraHero) {
+    return;
+  }
+  const nextState = ['idle', 'listening', 'thinking', 'success'].includes(state) ? state : 'idle';
+  miraHero.classList.remove('mira-state-idle', 'mira-state-listening', 'mira-state-thinking', 'mira-state-success');
+  miraHero.classList.add(`mira-state-${nextState}`);
+  if (miraStateBubble) {
+    const stateCopy = {
+      idle: '我在等你',
+      listening: '我在听',
+      thinking: '我在找重点',
+      success: '找到今天最值得修的一点了',
+    };
+    miraStateBubble.textContent = message || stateCopy[nextState] || stateCopy.idle;
+  }
+}
+
+function pulseMiraSuccess(message) {
+  setMiraPresenceState('success', message);
+  window.clearTimeout(miraSuccessTimer);
+  miraSuccessTimer = window.setTimeout(() => {
+    setMiraPresenceState('idle');
+  }, 820);
+}
+
+function scheduleMiraBlink() {
+  if (!miraHero || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+  window.clearTimeout(miraBlinkTimer);
+  const delay = 4000 + Math.random() * 3000;
+  miraBlinkTimer = window.setTimeout(() => {
+    miraHero.classList.add('mira-blink');
+    window.setTimeout(() => {
+      miraHero.classList.remove('mira-blink');
+      scheduleMiraBlink();
+    }, 160);
+  }, delay);
+}
+
+function initMiraPresence() {
+  setMiraPresenceState('idle');
+  scheduleMiraBlink();
+  startTodayTrainingButton?.addEventListener('pointerenter', () => {
+    miraHero?.classList.add('mira-is-hovered');
+  });
+  startTodayTrainingButton?.addEventListener('pointerleave', () => {
+    miraHero?.classList.remove('mira-is-hovered');
+  });
+  startTodayTrainingButton?.addEventListener('focus', () => {
+    miraHero?.classList.add('mira-is-hovered');
+  });
+  startTodayTrainingButton?.addEventListener('blur', () => {
+    miraHero?.classList.remove('mira-is-hovered');
+  });
+}
 
 function setTrainingFeedback(title, text, badge = '建议', tone = 'neutral') {
   if (!trainingFeedbackPanel) {
@@ -563,7 +624,8 @@ function showLauncherView() {
 function showLibraryPage(view) {
   const showRecording = view === 'recordings';
   const showAccompaniment = view === 'accompaniments';
-  const shouldShowPage = showRecording || showAccompaniment;
+  const showSuccess = view === 'success';
+  const shouldShowPage = showRecording || showAccompaniment || showSuccess;
   if (libraryPage) {
     libraryPage.hidden = !shouldShowPage;
   }
@@ -576,6 +638,9 @@ function showLibraryPage(view) {
   if (recordingLibraryPanel) {
     recordingLibraryPanel.hidden = !showRecording;
   }
+  if (successLibraryPanel) {
+    successLibraryPanel.hidden = !showSuccess;
+  }
   if (accompanimentLibraryPanel) {
     accompanimentLibraryPanel.hidden = !showAccompaniment;
   }
@@ -583,14 +648,20 @@ function showLibraryPage(view) {
     libraryToolsPanel.hidden = !showRecording;
   }
   recordingLibraryTabButton?.classList.toggle('active', showRecording);
+  successLibraryTabButton?.classList.toggle('active', showSuccess);
   accompanimentLibraryTabButton?.classList.toggle('active', showAccompaniment);
   if (libraryPageTitle) {
-    libraryPageTitle.textContent = showAccompaniment ? '伴奏库' : '录音库';
+    libraryPageTitle.textContent = showSuccess ? '我的最佳时刻' : (showAccompaniment ? '伴奏库' : '录音库');
   }
   if (libraryPageDescription) {
-    libraryPageDescription.textContent = showAccompaniment
-      ? '管理分离后保存的伴奏，随时加载到练习里。'
-      : '管理录音、歌曲目标曲线、歌词和分析结果。';
+    libraryPageDescription.textContent = showSuccess
+      ? 'Mira 记住你唱得最好的时刻，并把它们变成个人参照。'
+      : showAccompaniment
+        ? '管理分离后保存的伴奏，随时加载到练习里。'
+        : '管理录音、歌曲目标曲线、歌词和分析结果。';
+  }
+  if (showSuccess && typeof renderSuccessLibrary === 'function') {
+    renderSuccessLibrary();
   }
 }
 
@@ -1217,6 +1288,30 @@ songPracticeStartButton?.addEventListener('click', () => {
 songPracticeStopReviewButton?.addEventListener('click', () => {
   stopSongPracticeAndReview();
 });
+bgmToggleButton?.addEventListener('click', () => {
+  toggleBgm();
+});
+bgmVolumeRange?.addEventListener('input', (event) => {
+  setBgmVolume(event.target.value);
+});
+songPracticeStartFixButton?.addEventListener('click', () => {
+  startSongPracticeSentenceLoop();
+});
+songPracticePlayTargetSegmentButton?.addEventListener('click', () => {
+  playSongPracticeTargetSegment();
+});
+songPracticeRecordSegmentButton?.addEventListener('click', () => {
+  startSongPracticeSegmentRecording();
+});
+songPracticePracticeAgainButton?.addEventListener('click', () => {
+  startSongPracticeSegmentRecording();
+});
+songPracticeNextIssueButton?.addEventListener('click', () => {
+  goToNextSongPracticeIssue();
+});
+songPracticeBackOverviewButton?.addEventListener('click', () => {
+  returnSongPracticeOverview();
+});
 songPracticeRepeatButton?.addEventListener('click', () => {
   startSongPracticeFlow();
 });
@@ -1298,11 +1393,17 @@ playSongPitchButton?.addEventListener('click', async () => {
       accompanimentAudio.pause();
       setAccompanimentStatus('已暂停');
     }
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', true);
+    }
     await songPitchAudio.play();
     syncOfflineWindowToSongPlayback();
     stopSongPitchPlaybackProgress();
     updateSongPitchPlaybackProgress();
   } catch (error) {
+    if (typeof setBgmDucking === 'function') {
+      setBgmDucking('target', false);
+    }
     console.error(error);
     setSongPitchPlaybackStatus('无法播放', 'bad');
   }
@@ -1313,6 +1414,9 @@ pauseSongPitchButton?.addEventListener('click', () => {
   }
   songPitchAudio.pause();
   stopSongPitchPlaybackProgress();
+  if (typeof setBgmDucking === 'function') {
+    setBgmDucking('target', false);
+  }
   setSongPitchPlaybackStatus(`已暂停 ${formatTimeSeconds(songPitchAudio.currentTime * 1000)}`);
 });
 stopSongPitchButton?.addEventListener('click', () => {
@@ -1322,6 +1426,9 @@ stopSongPitchButton?.addEventListener('click', () => {
   songPitchAudio.pause();
   songPitchAudio.currentTime = 0;
   stopSongPitchPlaybackProgress();
+  if (typeof setBgmDucking === 'function') {
+    setBgmDucking('target', false);
+  }
   resetOfflineWindow();
   drawPitchHistory();
   setSongPitchPlaybackStatus('已停止');
@@ -1405,6 +1512,10 @@ openFixOneThingButton?.addEventListener('click', () => {
   showTrainingView('fix');
 });
 startTodayTrainingButton?.addEventListener('click', () => {
+  if (typeof openBeginnerPracticeMode === 'function') {
+    openBeginnerPracticeMode();
+    return;
+  }
   showTrainingView('curve');
 });
 miraSongButton?.addEventListener('click', () => {
@@ -1459,6 +1570,9 @@ libraryOpenCurveButton?.addEventListener('click', () => {
 });
 recordingLibraryTabButton?.addEventListener('click', () => {
   showLibraryPage('recordings');
+});
+successLibraryTabButton?.addEventListener('click', () => {
+  showLibraryPage('success');
 });
 accompanimentLibraryTabButton?.addEventListener('click', () => {
   showLibraryPage('accompaniments');
