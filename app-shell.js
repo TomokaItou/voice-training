@@ -37,7 +37,7 @@ function setAnalysisStatus(text) {
 }
 
 function getTaskModeKey(mode = trainingMode) {
-  if (mode === 'curve') {
+  if (mode === 'curve' || mode === 'classic') {
     return 'curve';
   }
   if (trainingMode === 'curve' && ['pitch', 'volume', 'formants'].includes(mode)) {

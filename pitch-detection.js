@@ -25,11 +25,13 @@ function updateAdaptiveEnergyThreshold(rms) {
     return adaptiveEnergyThreshold;
   }
 
-  // 关键修复：已经判定“有声稳定”时，不要让噪声底跟着人声往上抬
-  const allowRise = !voicedStable; // voicedStable 是你全局状态变量
+  const isRising = rms > adaptiveNoiseFloorRms;
+  const looksLikeForegroundVoice =
+    isRising && rms > adaptiveNoiseFloorRms * pitchNoiseFloorRiseGuardMultiplier;
+  const allowRise = !voicedStable && !looksLikeForegroundVoice;
   const alphaRise = allowRise ? pitchNoiseFloorRiseAlpha : 0;
 
-  const alpha = rms < adaptiveNoiseFloorRms ? pitchNoiseFloorFallAlpha : alphaRise;
+  const alpha = isRising ? alphaRise : pitchNoiseFloorFallAlpha;
 
   adaptiveNoiseFloorRms = (1 - alpha) * adaptiveNoiseFloorRms + alpha * rms;
   adaptiveEnergyThreshold = Math.max(

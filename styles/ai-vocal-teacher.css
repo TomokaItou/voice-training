@@ -1,0 +1,553 @@
+.ai-teacher-page {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 24px auto 48px;
+  color: #1f2933;
+}
+
+.ai-teacher-header,
+.ai-teacher-current,
+.ai-teacher-progress,
+.ai-teacher-results,
+.ai-teacher-comparison {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(116, 124, 145, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(26, 35, 55, 0.08);
+}
+
+.ai-teacher-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px;
+}
+
+.ai-teacher-header h1,
+.ai-teacher-current h2,
+.ai-teacher-progress h2,
+.ai-teacher-results h2,
+.ai-teacher-comparison h2 {
+  margin: 6px 0 8px;
+  letter-spacing: 0;
+}
+
+.ai-teacher-header p,
+.ai-teacher-current p,
+.ai-teacher-task-item p,
+.ai-teacher-recommendation p,
+.ai-teacher-comparison p {
+  margin: 0;
+  color: #607083;
+  line-height: 1.6;
+}
+
+.ai-teacher-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.ai-teacher-current,
+.ai-teacher-progress,
+.ai-teacher-results,
+.ai-teacher-comparison {
+  padding: 20px;
+}
+
+.ai-teacher-duration {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ecf8f3;
+  color: #17634a;
+  font-weight: 800;
+}
+
+.ai-teacher-phase {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #e8f0ff;
+  color: #2753a7;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ai-teacher-progress-meter {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.ai-teacher-progress-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.ai-teacher-progress-header span {
+  color: #607083;
+  font-weight: 800;
+}
+
+.ai-teacher-progress-header strong {
+  font-size: 30px;
+}
+
+.ai-teacher-progress-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dfe6ee;
+}
+
+.ai-teacher-progress-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #4f7cff;
+  transition: width 180ms ease;
+}
+
+.ai-teacher-recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 14px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
+.ai-teacher-recording-indicator p {
+  margin-top: 2px;
+}
+
+.ai-teacher-breath-circle {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #fb923c;
+  box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.28);
+  animation: ai-teacher-pulse 1.25s ease-in-out infinite;
+}
+
+.ai-teacher-breath-circle span {
+  position: absolute;
+  inset: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 50%;
+}
+
+.ai-teacher-breath-circle span + span {
+  inset: 17px;
+}
+
+@keyframes ai-teacher-pulse {
+  0% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.3);
+  }
+  70% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 16px rgba(251, 146, 60, 0);
+  }
+  100% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 rgba(251, 146, 60, 0);
+  }
+}
+
+.ai-teacher-feedback {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #14532d;
+}
+
+.ai-teacher-feedback.minor {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #7c2d12;
+}
+
+.ai-teacher-feedback.needs-retry {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #7f1d1d;
+}
+
+.ai-teacher-feedback-body {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-teacher-feedback-body span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 0.78;
+}
+
+.ai-teacher-feedback-body strong {
+  display: block;
+  font-size: 18px;
+}
+
+.ai-teacher-feedback-body p,
+.ai-teacher-task-summary p {
+  margin: 0;
+}
+
+.ai-teacher-task-summary {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid currentColor;
+}
+
+.ai-teacher-feedback button {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+.ai-teacher-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ai-teacher-status {
+  margin-top: 14px;
+  min-height: 24px;
+}
+
+.ai-teacher-task-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-teacher-task-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(116, 124, 145, 0.18);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.ai-teacher-task-item.active {
+  border-color: #7e8add;
+  background: #f4f6ff;
+}
+
+.ai-teacher-task-item.done {
+  border-color: #b7e4c7;
+  background: #f0fdf4;
+}
+
+.ai-teacher-task-item.muted {
+  opacity: 0.62;
+}
+
+.ai-teacher-task-item span {
+  font-weight: 800;
+  color: #39485d;
+}
+
+.ai-teacher-results,
+.ai-teacher-comparison {
+  margin-top: 16px;
+}
+
+.ai-teacher-memory-dashboard,
+.ai-teacher-diary,
+.ai-teacher-hypothesis,
+.ai-teacher-explainability,
+.ai-teacher-research,
+.ai-teacher-action-card,
+.ai-teacher-details {
+  margin-bottom: 14px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f6f8fb;
+  border: 1px solid rgba(116, 124, 145, 0.18);
+}
+
+.ai-teacher-action-card {
+  display: grid;
+  gap: 14px;
+  background: #ffffff;
+}
+
+.ai-teacher-action-step {
+  padding: 12px;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.ai-teacher-action-step strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.ai-teacher-action-card p {
+  margin: 0;
+  font-size: 18px;
+  color: #1f2933;
+}
+
+.ai-teacher-action-card small {
+  color: #607083;
+}
+
+.ai-teacher-details summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+#aiTeacherDetailsContent {
+  margin-top: 12px;
+}
+
+.ai-teacher-comparison-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ai-teacher-section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.ai-teacher-memory-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-teacher-memory-row,
+.ai-teacher-hypothesis-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ai-teacher-memory-row strong {
+  color: #2753a7;
+  letter-spacing: 0;
+}
+
+.ai-teacher-memory-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  color: #607083;
+}
+
+.ai-teacher-memory-timeline span {
+  display: inline-grid;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ai-teacher-diary p {
+  white-space: pre-line;
+}
+
+.ai-teacher-trend-text {
+  margin-top: 8px;
+  font-weight: 700;
+  color: #2753a7;
+}
+
+.ai-teacher-hypothesis .label {
+  display: block;
+  margin-bottom: 8px;
+  color: #607083;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ai-teacher-explainability summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.ai-teacher-explainability p,
+.ai-teacher-explainability ul {
+  margin: 8px 0 0;
+}
+
+.ai-teacher-research pre {
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #dbeafe;
+  font-size: 12px;
+}
+
+.ai-teacher-result-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 150px;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.ai-teacher-score-card {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  border-radius: 8px;
+  background: #102033;
+  color: white;
+}
+
+.ai-teacher-score-card span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.ai-teacher-score-card strong {
+  font-size: 26px;
+}
+
+.ai-teacher-score-card small {
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.ai-teacher-direction,
+.ai-teacher-recommendation,
+.ai-teacher-best-attempt {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.ai-teacher-direction .label,
+.ai-teacher-recommendation .label,
+.ai-teacher-best-attempt .label {
+  display: block;
+  margin-bottom: 6px;
+  color: #607083;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ai-teacher-best-attempt {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.ai-teacher-playback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-teacher-estimates {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ai-teacher-estimate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px minmax(180px, 0.8fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(116, 124, 145, 0.18);
+}
+
+.ai-teacher-estimate-row span {
+  font-weight: 800;
+}
+
+.ai-teacher-estimate-row small {
+  color: #607083;
+}
+
+.ai-teacher-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.ai-teacher-comparison-grid div {
+  padding: 14px;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.ai-teacher-comparison-grid span {
+  display: block;
+  color: #607083;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ai-teacher-comparison-grid strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 24px;
+}
+
+@media (max-width: 820px) {
+  .ai-teacher-header,
+  .ai-teacher-result-summary,
+  .ai-teacher-layout,
+  .ai-teacher-estimate-row,
+  .ai-teacher-comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-teacher-header {
+    display: grid;
+  }
+
+  .ai-teacher-best-attempt {
+    display: grid;
+  }
+}

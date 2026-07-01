@@ -5,6 +5,9 @@ function setTrainingCopy(mode) {
   } else if (mode === 'curve') {
     appTitle.textContent = '跟唱训练';
     appDescription.textContent = '先准备歌曲目标，再跟着参考音频录一遍；系统会把音准和节奏合成反馈。';
+  } else if (mode === 'classic') {
+    appTitle.textContent = '实时音高曲线';
+    appDescription.textContent = '允许麦克风权限后，直接查看你的实时音高、音名和曲线变化。';
   } else if (mode === 'fix') {
     appTitle.textContent = 'Fix One Thing';
     appDescription.textContent = '唱一句，Mira 只选一个问题；练 30 秒，再判断有没有进步。';
@@ -80,6 +83,26 @@ function showTrainingView(mode = 'pitch') {
   if (libraryPage) {
     libraryPage.hidden = true;
   }
+  if (typeof hideVocalMoveLibrary === 'function') {
+    hideVocalMoveLibrary();
+  } else {
+    document.getElementById('vocalMoveLibraryPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideActiveVoiceSearch === 'function') {
+    hideActiveVoiceSearch();
+  } else {
+    document.getElementById('activeSearchPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideAiVocalTeacher === 'function') {
+    hideAiVocalTeacher();
+  } else {
+    document.getElementById('aiVocalTeacherPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideSongAnalysisPage === 'function') {
+    hideSongAnalysisPage();
+  } else {
+    document.getElementById('songAnalysisPage')?.setAttribute('hidden', '');
+  }
   appWindow.hidden = false;
   trainingMode = mode;
   setReadoutMode(mode);
@@ -89,6 +112,18 @@ function showTrainingView(mode = 'pitch') {
     setCurveDisplayMode('pitch');
     setSongTargetCollapsed(false);
     updateSongPracticeFlow();
+  } else if (mode === 'classic') {
+    setCurveSwitcherMode(null);
+    trainingMode = mode;
+    displayMode = 'pitch';
+    if (displayModeSelect) {
+      displayModeSelect.value = 'pitch';
+    }
+    updateCanvasScale(canvasScale);
+    setReadoutMode('pitch');
+    setTrainingCopy(mode);
+    resetPitchScoreDisplay();
+    drawPitchHistory();
   } else if (mode === 'fix') {
     setCurveSwitcherMode(null);
     trainingMode = mode;
@@ -242,6 +277,26 @@ function showLauncherView() {
   if (libraryPage) {
     libraryPage.hidden = true;
   }
+  if (typeof hideVocalMoveLibrary === 'function') {
+    hideVocalMoveLibrary();
+  } else {
+    document.getElementById('vocalMoveLibraryPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideActiveVoiceSearch === 'function') {
+    hideActiveVoiceSearch();
+  } else {
+    document.getElementById('activeSearchPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideAiVocalTeacher === 'function') {
+    hideAiVocalTeacher();
+  } else {
+    document.getElementById('aiVocalTeacherPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideSongAnalysisPage === 'function') {
+    hideSongAnalysisPage();
+  } else {
+    document.getElementById('songAnalysisPage')?.setAttribute('hidden', '');
+  }
   appWindow.hidden = true;
 }
 
@@ -258,6 +313,26 @@ function showLibraryPage(view) {
   }
   if (appWindow) {
     appWindow.hidden = true;
+  }
+  if (typeof hideVocalMoveLibrary === 'function') {
+    hideVocalMoveLibrary();
+  } else {
+    document.getElementById('vocalMoveLibraryPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideActiveVoiceSearch === 'function') {
+    hideActiveVoiceSearch();
+  } else {
+    document.getElementById('activeSearchPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideAiVocalTeacher === 'function') {
+    hideAiVocalTeacher();
+  } else {
+    document.getElementById('aiVocalTeacherPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideSongAnalysisPage === 'function') {
+    hideSongAnalysisPage();
+  } else {
+    document.getElementById('songAnalysisPage')?.setAttribute('hidden', '');
   }
   if (recordingLibraryPanel) {
     recordingLibraryPanel.hidden = !showRecording;
