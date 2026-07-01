@@ -204,7 +204,7 @@ function setReadoutMode(mode) {
     rangeHistoryPanel.hidden = !isRange || !rangeHistoryExpanded || rangeTrainingPhase !== 'complete';
   }
   if (songTargetPanel) {
-    songTargetPanel.hidden = mode !== 'pitch' || trainingMode === 'score' || isFix;
+    songTargetPanel.hidden = mode !== 'pitch' || trainingMode !== 'curve' || trainingMode === 'score' || isFix;
   }
   if (trainingFeedbackPanel) {
     trainingFeedbackPanel.hidden = isVolume || isFormants || mode === 'spectrogram' || isSongPracticeMode || isFix;
@@ -704,7 +704,7 @@ function resetPitchStabilizer() {
   voicedStable = false;
   voicedFrames = 0;
   voicedLostFrames = 0;
-  adaptiveNoiseFloorRms = pitchMinEnergyThreshold;
+  adaptiveNoiseFloorRms = pitchInitialNoiseFloorRms;
   adaptiveEnergyThreshold = pitchMinEnergyThreshold;
   currentPitch = null;
   lastDisplayUpdate = 0;

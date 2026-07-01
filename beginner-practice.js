@@ -231,13 +231,31 @@ function pickBeginnerTaskForToday() {
 
 function renderBeginnerPracticePreview(task = pickBeginnerTaskForToday()) {
   if (beginnerQuestPreviewLevel) {
-    beginnerQuestPreviewLevel.textContent = getBeginnerLevelLabel(task.level);
+    beginnerQuestPreviewLevel.textContent = beginnerPracticeState.daily.completed ? '完成' : '目标';
   }
   if (beginnerQuestPreviewTitle) {
-    beginnerQuestPreviewTitle.textContent = task.title;
+    beginnerQuestPreviewTitle.textContent = beginnerPracticeState.daily.completed
+      ? '今天已完成 1 次'
+      : '完成 1 个 Vocal Task';
   }
   if (beginnerQuestPreviewMeta) {
-    beginnerQuestPreviewMeta.textContent = `${task.estimatedTime} · ${task.requiresSinging ? '唱一点点' : '不要求唱歌'}`;
+    beginnerQuestPreviewMeta.textContent = beginnerPracticeState.daily.completed
+      ? '要不要再练 30 秒？'
+      : 'Mira 会一步一步带你做完';
+  }
+  const homeTitle = document.querySelector('#modeLauncher .mira-dialogue h1');
+  const homeSubtitle = document.querySelector('#modeLauncher .mira-dialogue p');
+  const startButton = document.getElementById('startTodayTrainingButton');
+  if (homeTitle) {
+    homeTitle.textContent = beginnerPracticeState.daily.completed ? '今天已完成 1 次' : '今天练 30 秒';
+  }
+  if (homeSubtitle) {
+    homeSubtitle.textContent = beginnerPracticeState.daily.completed
+      ? '要不要再练 30 秒？'
+      : '不用想太多，先完成一个小动作。';
+  }
+  if (startButton) {
+    startButton.textContent = beginnerPracticeState.daily.completed ? '继续下一步' : '开始今天训练';
   }
 }
 

@@ -290,3 +290,471 @@ input[type='checkbox']:checked {
 .curve-switcher-details {
   border-color: rgba(142, 162, 255, 0.18);
 }
+
+/* Home information architecture: one primary action on Today, feature groups in tabs. */
+.home-main-tabs {
+  position: relative;
+  z-index: 4;
+  order: 1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  width: min(560px, 100%);
+  padding: 6px;
+  border: 1px solid rgba(142, 162, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-soft);
+}
+
+.home-tab {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 820;
+  box-shadow: none;
+}
+
+.home-tab:not(:disabled):hover,
+.home-tab.is-active {
+  background: linear-gradient(135deg, #7e8add, #9aa5f4);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(112, 122, 210, 0.16);
+}
+
+#modeLauncher [data-home-section] {
+  display: none;
+}
+
+#modeLauncher [hidden] {
+  display: none !important;
+}
+
+#modeLauncher > .mode-launcher-card > [hidden] {
+  display: none !important;
+}
+
+#modeLauncher[data-home-tab='today'] [data-home-section]:not([data-home-section='today']) {
+  display: none !important;
+}
+
+#modeLauncher[data-home-tab='today'] [data-home-section='today']:not(.mira-hero) {
+  display: none !important;
+}
+
+#modeLauncher[data-home-tab='flow'] [data-home-section]:not([data-home-section='flow']),
+#modeLauncher[data-home-tab='songs'] [data-home-section]:not([data-home-section='songs']),
+#modeLauncher[data-home-tab='teacher'] [data-home-section]:not([data-home-section='teacher']),
+#modeLauncher[data-home-tab='mine'] [data-home-section]:not([data-home-section='mine']) {
+  display: none !important;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-hero[data-home-section='today'] {
+  display: grid !important;
+}
+
+#modeLauncher[data-home-tab='songs'] [data-home-section='songs'],
+#modeLauncher[data-home-tab='teacher'] [data-home-section='teacher'],
+#modeLauncher[data-home-tab='mine'] [data-home-section='mine'] {
+  display: block;
+}
+
+#modeLauncher[data-home-tab='flow'] .flow-training-route[data-home-section='flow'],
+#modeLauncher[data-home-tab='flow'] .flow-training-route[data-home-section='flow'][hidden],
+#modeLauncher[data-home-tab='flow'] .flow-training-route[data-home-section='flow'].is-home-section-visible {
+  display: grid !important;
+}
+
+#modeLauncher:not([data-home-tab='flow']) .flow-training-route,
+#modeLauncher .flow-training-route:not(.is-home-section-visible) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+
+#modeLauncher[data-home-tab='flow'] .mode-launcher-card {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  min-height: calc(100vh - 70px);
+  max-height: calc(100vh - 70px);
+  overflow: hidden;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-hero {
+  order: 2;
+  grid-template-columns: minmax(430px, 1.08fr) minmax(360px, 0.92fr);
+  min-height: min(780px, calc(100vh - 132px));
+  padding-block: clamp(10px, 2vh, 22px);
+}
+
+#modeLauncher[data-home-tab='today'] .voice-navigation-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+}
+
+#modeLauncher[data-home-tab='today'] .target-navigation-card,
+#modeLauncher[data-home-tab='today'] .voice-compass-card,
+#modeLauncher[data-home-tab='today'] .home-secondary-shortcut {
+  display: none;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-dialogue {
+  align-self: center;
+  max-width: 560px;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-dialogue h1 {
+  max-width: 10em;
+  margin-bottom: 10px;
+  font-size: clamp(52px, 7vw, 88px);
+  line-height: 0.96;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-dialogue p {
+  max-width: 24em;
+  font-size: clamp(17px, 2vw, 22px);
+}
+
+#modeLauncher[data-home-tab='today'] .mira-actions {
+  grid-template-columns: minmax(220px, 320px);
+  justify-content: start;
+}
+
+#modeLauncher[data-home-tab='today'] .hall-primary-action {
+  width: 100%;
+  min-height: 58px;
+  font-size: 18px;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-stage {
+  min-height: min(720px, calc(100vh - 150px));
+}
+
+#modeLauncher[data-home-tab='today'] .mira-character {
+  width: min(92%, 620px);
+  max-height: 94%;
+}
+
+#modeLauncher[data-home-tab='today'] .beginner-quest-preview {
+  max-width: 420px;
+}
+
+.home-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.home-link-button {
+  min-height: 32px;
+  padding: 5px 9px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+  box-shadow: none;
+}
+
+.home-link-button:not(:disabled):hover {
+  background: rgba(232, 236, 255, 0.72);
+  color: var(--accent-strong);
+  box-shadow: none;
+}
+
+#modeLauncher:not([data-home-tab='mine']) .hall-topbar-actions {
+  display: none;
+}
+
+#modeLauncher[data-home-tab='songs'] .active-search-entry-card,
+#modeLauncher[data-home-tab='teacher'] .active-search-entry-card,
+#modeLauncher[data-home-tab='teacher'] .today-vocal-move-card,
+#modeLauncher[data-home-tab='mine'] .daily-challenge-card,
+#modeLauncher[data-home-tab='mine'] .game-player-details,
+#modeLauncher[data-home-tab='mine'] .launcher-tools-details,
+#modeLauncher[data-home-tab='mine'] .readiness-card {
+  position: relative;
+  z-index: 2;
+  order: 2;
+}
+
+#modeLauncher[data-home-tab='flow'] .flow-training-route {
+  position: relative;
+  z-index: 2;
+  order: 2;
+  display: grid;
+  gap: 12px;
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(14px, 1.8vw, 20px);
+  border: 1px solid rgba(142, 162, 255, 0.2);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(248, 249, 255, 0.74)),
+    rgba(255, 255, 255, 0.72);
+}
+
+#modeLauncher[data-home-tab='flow'] .flow-training-route .main-route-header {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.18fr) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+#modeLauncher[data-home-tab='flow'] .flow-training-route .main-route-header h2 {
+  margin: 0;
+  color: #31377f;
+  font-size: clamp(24px, 3.2vw, 38px);
+  line-height: 1.08;
+}
+
+#modeLauncher[data-home-tab='flow'] .flow-training-route .main-route-header p {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: #596091;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+#modeLauncher[data-home-tab='flow'] .flow-training-route .route-workspace {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas: 'song start review fix';
+  gap: 12px;
+  align-items: stretch;
+}
+
+#modeLauncher[data-home-tab='flow'] .flow-training-route .route-panel {
+  position: relative;
+  min-height: auto;
+  min-width: 0;
+}
+
+#modeLauncher[data-home-tab='flow'] .flow-training-route .song-search-card,
+#modeLauncher[data-home-tab='flow'] .route-start-card,
+#modeLauncher[data-home-tab='flow'] .route-review-card,
+#modeLauncher[data-home-tab='flow'] .route-fix-card {
+  min-height: 220px;
+}
+
+#modeLauncher[data-home-tab='flow'] .route-steps {
+  margin: 0;
+}
+
+#modeLauncher[data-home-tab='flow'] .route-panel.is-focused {
+  border-color: rgba(126, 138, 221, 0.68);
+  box-shadow:
+    0 0 0 4px rgba(126, 138, 221, 0.13),
+    var(--shadow-soft);
+}
+
+#modeLauncher[data-home-tab='songs'] .active-search-entry-card,
+#modeLauncher[data-home-tab='teacher'] .active-search-entry-card,
+#modeLauncher[data-home-tab='teacher'] .today-vocal-move-card,
+#modeLauncher[data-home-tab='mine'] .daily-challenge-card {
+  max-width: 760px;
+}
+
+#modeLauncher[data-home-tab='songs'] .song-center[data-home-section='songs'] {
+  display: grid;
+}
+
+#modeLauncher[data-home-tab='teacher'] .teacher-tools-card[data-home-section='teacher'] {
+  display: flex;
+}
+
+.song-center,
+.teacher-tools-card {
+  position: relative;
+  z-index: 2;
+  order: 2;
+  display: grid;
+  gap: 18px;
+  max-width: 900px;
+  padding: clamp(18px, 2.4vw, 26px);
+  border: 1px solid rgba(142, 162, 255, 0.2);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 92% 10%, rgba(255, 214, 231, 0.22), rgba(255, 214, 231, 0) 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(250, 251, 255, 0.76));
+  box-shadow: var(--shadow-soft);
+}
+
+.song-center-header,
+.song-center-section-title,
+.song-center-analysis-card,
+.teacher-tools-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.song-center-header h2,
+.teacher-tools-card h2 {
+  margin: 8px 0 6px;
+  color: var(--text);
+  font-size: clamp(28px, 4vw, 44px);
+}
+
+.song-center-header p,
+.song-center-analysis-card p,
+.teacher-tools-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.song-center-search {
+  display: grid;
+  gap: 10px;
+}
+
+.song-center-shortcuts,
+.teacher-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.song-center-shortcut {
+  display: grid;
+  gap: 4px;
+  min-height: 86px;
+  align-content: center;
+  justify-items: start;
+  border-color: rgba(142, 162, 255, 0.2);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.song-center-shortcut span {
+  font-size: 16px;
+  font-weight: 860;
+}
+
+.song-center-shortcut small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.song-center-recents {
+  display: grid;
+  gap: 10px;
+}
+
+.song-center-section-title h3,
+.song-center-analysis-card h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+}
+
+.song-center-recent-list {
+  display: grid;
+  gap: 8px;
+}
+
+.song-center-recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(142, 162, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.song-center-recent-item div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.song-center-recent-item strong,
+.song-center-recent-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-center-recent-item small,
+.song-center-empty {
+  color: var(--muted);
+}
+
+.song-center-empty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed rgba(142, 162, 255, 0.26);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.song-center-analysis-card {
+  padding: 14px;
+  border: 1px solid rgba(142, 162, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(232, 236, 255, 0.5);
+}
+
+.teacher-tools-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: min(340px, 100%);
+}
+
+@media (max-width: 760px) {
+  .home-main-tabs {
+    width: 100%;
+    border-radius: 12px;
+  }
+
+  .home-tab {
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  #modeLauncher[data-home-tab='today'] .mira-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  #modeLauncher[data-home-tab='today'] .mira-dialogue h1 {
+    font-size: clamp(42px, 13vw, 64px);
+  }
+
+  #modeLauncher[data-home-tab='today'] .mira-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .song-center-header,
+  .song-center-section-title,
+  .song-center-analysis-card,
+  .teacher-tools-card,
+  .song-center-recent-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .song-center-shortcuts,
+  .teacher-tools-grid {
+    grid-template-columns: 1fr;
+  }
+}

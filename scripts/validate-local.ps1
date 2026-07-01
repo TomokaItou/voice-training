@@ -93,10 +93,23 @@ if (-not (Test-Path $indexPath)) {
 if ($failures.Count -eq 0) {
   $html = Read-Utf8 $indexPath
   $layoutHtml = $html
-  $markupPath = Join-Path $root 'app-markup.js'
-  if (Test-Path $markupPath) {
+  $markupFiles = @(
+    'app-markup-launcher.js',
+    'app-markup-library.js',
+    'app-markup-vocal-moves.js',
+    'app-markup-active-search.js',
+    'app-markup-ai-vocal-teacher.js',
+    'app-markup-song-analysis.js',
+    'app-markup-training.js',
+    'app-markup-sidebar.js',
+    'app-markup.js'
+  )
+  $existingMarkupFiles = $markupFiles | Where-Object { Test-Path (Join-Path $root $_) }
+  if ($existingMarkupFiles.Count -gt 0) {
     Write-Step "Checking extracted app markup"
-    $layoutHtml += "`n" + (Read-Utf8 $markupPath)
+    foreach ($markupFile in $existingMarkupFiles) {
+      $layoutHtml += "`n" + (Read-Utf8 (Join-Path $root $markupFile))
+    }
   }
 
   $stylesheetMatches = Get-RegexMatches $html '<link\s+[^>]*rel=["'']stylesheet["''][^>]*href=["'']([^"'']+)["'']'
@@ -168,10 +181,19 @@ if ($failures.Count -eq 0) {
 
   Write-Step "Checking expected application entry order"
   $expectedScripts = @(
+    'app-markup-launcher.js',
+    'app-markup-library.js',
+    'app-markup-vocal-moves.js',
+    'app-markup-active-search.js',
+    'app-markup-ai-vocal-teacher.js',
+    'app-markup-song-analysis.js',
+    'app-markup-training.js',
+    'app-markup-sidebar.js',
     'app-markup.js',
     'app-config.js',
     'app-dom.js',
     'app-state.js',
+    'vocal-moves-data.js',
     'mira-presence.js',
     'training-feedback.js',
     'app-navigation.js',
@@ -204,6 +226,21 @@ if ($failures.Count -eq 0) {
     'recording-flow.js',
     'fix-one-thing.js',
     'app.js',
+    'song-analysis.js',
+    'ai-vocal-teacher-probe-tasks.js',
+    'ai-vocal-teacher-feature-extraction.js',
+    'ai-vocal-teacher-immediate-feedback.js',
+    'ai-vocal-teacher-memory-estimator.js',
+    'ai-vocal-teacher-diagnosis.js',
+    'ai-vocal-teacher-progress-tracker.js',
+    'ai-vocal-teacher-exercise-library.js',
+    'ai-vocal-teacher-closed-loop.js',
+    'ai-vocal-teacher-teaching-decision.js',
+    'ai-vocal-teacher-teaching-engine.js',
+    'ai-vocal-teacher-before-after.js',
+    'ai-vocal-teacher.js',
+    'active-voice-search.js',
+    'vocal-moves.js',
     'launcher-router.js',
     'app-install.js'
   )

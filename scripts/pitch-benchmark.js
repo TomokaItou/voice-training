@@ -164,6 +164,21 @@ const fixtures = [
     fullOnly: true,
   },
   {
+    id: 'low-voice-100-strong-700',
+    description: '100 Hz low voice with a dominant 7th harmonic, useful for catching harmonic lock',
+    durationSeconds: 1.2,
+    expectedFrequencyAt: () => 100,
+    signal: (time) => {
+      const fundamental = Math.sin(2 * Math.PI * 100 * time) * 0.035;
+      const second = Math.sin(2 * Math.PI * 200 * time) * 0.025;
+      const third = Math.sin(2 * Math.PI * 300 * time) * 0.02;
+      const seventh = Math.sin(2 * Math.PI * 700 * time) * 0.09;
+      return fundamental + second + third + seventh;
+    },
+    expectations: { minDetectionRate: 0.8, maxAvgAbsCents: 60, maxFalsePositiveRate: 0 },
+    fullOnly: true,
+  },
+  {
     id: 'vibrato-a4-440',
     description: 'A4 with controlled vibrato, useful for checking tracking smoothness',
     durationSeconds: 1.4,
@@ -206,7 +221,7 @@ function createContext() {
     Math,
     Number,
     pitchAlgorithm: 'amdf',
-    adaptiveNoiseFloorRms: 0.0035,
+    adaptiveNoiseFloorRms: 0.0035 / 1.7,
     adaptiveEnergyThreshold: 0.0035,
     voicedStable: false,
   };
@@ -219,7 +234,7 @@ function createContext() {
     `
     function benchmarkReset(algorithm) {
       pitchAlgorithm = algorithm;
-      adaptiveNoiseFloorRms = pitchMinEnergyThreshold;
+      adaptiveNoiseFloorRms = pitchInitialNoiseFloorRms;
       adaptiveEnergyThreshold = pitchMinEnergyThreshold;
       voicedStable = false;
     }
