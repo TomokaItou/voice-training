@@ -147,35 +147,15 @@ function isDuplicateSuccessSample(recordingId, tag) {
 }
 
 async function saveSuccessLibraryItem(sample) {
-  const db = await openRecordingLibraryDb();
-  if (!db || !db.objectStoreNames.contains('successSamples')) {
-    return;
-  }
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction('successSamples', 'readwrite');
-    transaction.objectStore('successSamples').put({
-      ...sample,
-      createdAt: sample.createdAt instanceof Date ? sample.createdAt.toISOString() : sample.createdAt,
-    });
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error);
+  await saveSuccessLibraryItemToStore({
+    ...sample,
+    createdAt: sample.createdAt instanceof Date ? sample.createdAt.toISOString() : sample.createdAt,
   });
-  db.close();
 }
 
 async function loadSuccessLibrary() {
   try {
-    const db = await openRecordingLibraryDb();
-    if (!db || !db.objectStoreNames.contains('successSamples')) {
-      renderSuccessLibrary();
-      return;
-    }
-    successLibrary = await new Promise((resolve, reject) => {
-      const request = db.transaction('successSamples', 'readonly').objectStore('successSamples').getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    });
-    db.close();
+    successLibrary = await loadSuccessLibraryItems();
     successLibrary = successLibrary
       .map((sample) => ({
         ...sample,

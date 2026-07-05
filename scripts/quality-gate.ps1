@@ -22,6 +22,10 @@ function Invoke-Step {
 
 $scriptRoot = $PSScriptRoot
 
+Invoke-Step "Build AI vocal teacher TypeScript" {
+  & (Join-Path $scriptRoot 'build-ai-vocal-teacher-ts.cmd')
+}
+
 Invoke-Step "Local validation" {
   & (Join-Path $scriptRoot 'validate-local.ps1') -ProjectRoot $ProjectRoot -NodePath $NodePath
 }

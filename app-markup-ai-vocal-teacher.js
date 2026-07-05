@@ -61,7 +61,7 @@
 
       <section class="ai-teacher-results" id="aiTeacherResults" hidden>
         <section class="ai-teacher-action-card" id="aiTeacherActionCard">
-          <span class="game-label">今日练习计划</span>
+          <span class="game-label">实验式教练</span>
           <div class="ai-teacher-action-step">
             <strong>① 今天目标</strong>
             <p id="aiTeacherMainFinding">--</p>
@@ -74,6 +74,7 @@
             <strong>③ 怎么做</strong>
             <p id="aiTeacherPracticeInstruction">--</p>
           </div>
+          <div id="aiTeacherExperimentFeedback"></div>
           <button id="aiTeacherStartPracticeButton" type="button">开始今日练习</button>
           <button id="aiTeacherContinuePracticeButton" type="button" hidden>继续这个练习</button>
           <button id="aiTeacherSimplerPracticeButton" class="secondary" type="button" hidden>换一个更简单的练习</button>

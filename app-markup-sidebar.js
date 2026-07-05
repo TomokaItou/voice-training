@@ -39,6 +39,7 @@
             <option value="autocorr">自相关</option>
             <option value="fft">频域（HPS）</option>
             <option value="yin" selected>YIN（默认）</option>
+            <option value="crepe">CREPE（需要本地模型）</option>
           </select>
         </label>
         <p class="hint">可切换不同音高检测算法进行对比。</p>

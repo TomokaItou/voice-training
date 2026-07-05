@@ -1,0 +1,159 @@
+.vocal-state-page {
+  width: min(980px, calc(100vw - 32px));
+  margin: 24px auto 48px;
+  color: #1f2933;
+}
+
+.vocal-state-header,
+.vocal-state-card,
+.vocal-state-result-card,
+.vocal-state-feedback,
+.vocal-state-details {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(92, 105, 130, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(26, 35, 55, 0.08);
+}
+
+.vocal-state-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+}
+
+.vocal-state-header h1,
+.vocal-state-card h2,
+.vocal-state-result-card h2 {
+  margin: 6px 0 8px;
+  letter-spacing: 0;
+}
+
+.vocal-state-header p,
+.vocal-state-card p,
+.vocal-state-result-card p,
+.vocal-state-feedback p {
+  margin: 0;
+  color: #607083;
+  line-height: 1.55;
+}
+
+.vocal-state-layout {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.vocal-state-recorder {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  padding: 18px;
+}
+
+.vocal-state-preview-wrap {
+  overflow: hidden;
+  border-radius: 8px;
+  background: #111827;
+  aspect-ratio: 4 / 3;
+}
+
+.vocal-state-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.vocal-state-recorder-copy {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+}
+
+.vocal-state-cues {
+  margin: 0;
+  padding-left: 20px;
+  color: #425466;
+  line-height: 1.6;
+  font-weight: 800;
+}
+
+.vocal-state-channel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vocal-state-channel-row span {
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: #f1f5ff;
+  color: #425466;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.vocal-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vocal-state-status {
+  font-weight: 900;
+}
+
+.vocal-state-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.vocal-state-result-card,
+.vocal-state-feedback,
+.vocal-state-details {
+  padding: 16px;
+}
+
+.vocal-state-feedback {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.vocal-state-feedback strong {
+  color: #1f2933;
+}
+
+.vocal-state-details {
+  grid-column: 1 / -1;
+}
+
+.vocal-state-details summary {
+  cursor: pointer;
+  color: #2753a7;
+  font-weight: 900;
+}
+
+.vocal-state-details pre {
+  overflow: auto;
+  max-height: 360px;
+  margin: 12px 0 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #111827;
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+@media (max-width: 820px) {
+  .vocal-state-header,
+  .vocal-state-recorder {
+    display: grid;
+  }
+
+  .vocal-state-results {
+    grid-template-columns: 1fr;
+  }
+}

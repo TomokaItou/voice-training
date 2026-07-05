@@ -8,6 +8,7 @@
 .song-analysis-uploader,
 .song-analysis-overview,
 .song-analysis-recommendation,
+.song-analysis-requirement,
 .song-analysis-segments {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(116, 124, 145, 0.22);
@@ -47,6 +48,7 @@
 .song-analysis-uploader,
 .song-analysis-overview,
 .song-analysis-recommendation,
+.song-analysis-requirement,
 .song-analysis-segments {
   padding: 18px;
 }
@@ -64,6 +66,31 @@
 
 .song-analysis-upload-box input {
   width: 100%;
+}
+
+.song-analysis-library-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 16px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid rgba(116, 124, 145, 0.18);
+}
+
+.song-analysis-library-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.song-analysis-library-controls select {
+  min-width: 0;
+  width: 100%;
+  height: 40px;
 }
 
 .song-analysis-song-card {
@@ -151,6 +178,91 @@
   gap: 12px;
 }
 
+.song-analysis-segment-intro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  color: #607083;
+}
+
+.song-analysis-segment-intro strong {
+  color: #1f2933;
+  font-size: 18px;
+}
+
+.song-analysis-expand-button {
+  justify-self: start;
+}
+
+.song-analysis-segment-controls {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.song-analysis-segment-controls label {
+  display: grid;
+  gap: 4px;
+  color: #607083;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.song-analysis-segment-controls select {
+  height: 38px;
+}
+
+.song-analysis-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.song-analysis-filter-tags button {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #edf2f7;
+  color: #425466;
+}
+
+.song-analysis-filter-tags button.active {
+  background: #25324a;
+  color: #fff;
+}
+
+.song-analysis-full-segment-list {
+  display: grid;
+  gap: 12px;
+}
+
+.song-analysis-segment-group {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(116, 124, 145, 0.16);
+  background: #fbfcfe;
+}
+
+.song-analysis-segment-group summary {
+  cursor: pointer;
+  font-weight: 900;
+  color: #25324a;
+}
+
+.song-analysis-segment-group .song-analysis-segment-card {
+  margin-top: 10px;
+}
+
+.song-analysis-empty-segments {
+  margin: 0;
+  color: #607083;
+  font-weight: 800;
+}
+
 .song-analysis-segment-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 96px auto;
@@ -195,6 +307,504 @@
   font-size: 30px;
 }
 
+.song-requirement-teacher-card {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  background: #fffaf0;
+}
+
+.song-requirement-teacher-card h2 {
+  margin: 0;
+  letter-spacing: 0;
+  font-size: 30px;
+}
+
+.song-requirement-teacher-card > strong {
+  color: #25324a;
+  font-size: 22px;
+}
+
+.song-requirement-teacher-card div span,
+.song-requirement-next-step span {
+  display: block;
+  color: #607083;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.song-requirement-teacher-card p {
+  margin: 4px 0 0;
+  color: #243447;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.song-requirement-teacher-card button {
+  justify-self: start;
+  min-width: 132px;
+}
+
+.song-requirement-summary-line {
+  margin: 12px 0 0;
+  color: #425466;
+  font-weight: 800;
+}
+
+.song-requirement-next-step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.song-requirement-next-step button {
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.song-requirement-analysis-details {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(116, 124, 145, 0.16);
+  background: #fbfcfe;
+}
+
+.song-requirement-analysis-details > summary {
+  cursor: pointer;
+  color: #2753a7;
+  font-weight: 900;
+}
+
+.song-requirement-analysis-body {
+  margin-top: 12px;
+}
+
+.song-requirement-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.song-requirement-hero h2 {
+  margin: 6px 0 8px;
+  letter-spacing: 0;
+}
+
+.song-requirement-hero.compact h2 {
+  font-size: 22px;
+}
+
+.song-requirement-hero.compact p {
+  font-size: 15px;
+}
+
+.song-requirement-hero p {
+  margin: 0;
+  color: #243447;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.song-requirement-difficulty {
+  min-width: 104px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #eef7f0;
+}
+
+.song-requirement-difficulty span {
+  display: block;
+  color: #607083;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.song-requirement-difficulty strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 30px;
+}
+
+.song-requirement-difficulty ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #476058;
+  line-height: 1.45;
+}
+
+.song-requirement-focus-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.song-requirement-focus-row > div,
+.song-requirement-map-block {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(116, 124, 145, 0.16);
+  background: #fbfcfe;
+}
+
+.song-requirement-today {
+  background: #fff8e8 !important;
+  border-color: rgba(235, 164, 64, 0.35) !important;
+}
+
+.song-requirement-today ol {
+  margin: 8px 0 0;
+  padding-left: 22px;
+  color: #2a3340;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.65;
+}
+
+.song-requirement-summary,
+.song-requirement-task-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.song-requirement-summary > div,
+.song-requirement-task-block > div,
+.song-requirement-grid > div,
+.song-requirement-task-card {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(116, 124, 145, 0.16);
+  background: #fbfcfe;
+}
+
+.song-requirement-summary p,
+.song-requirement-grid p,
+.song-requirement-task-card p {
+  margin: 6px 0 0;
+  color: #607083;
+  line-height: 1.55;
+}
+
+.song-requirement-skill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.song-requirement-skill-list span {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #e8f0ff;
+  color: #2753a7;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.song-requirement-skill-list b,
+.song-requirement-skill-list small {
+  display: block;
+}
+
+.song-requirement-skill-list small {
+  color: #4b628a;
+}
+
+.song-requirement-map-block {
+  margin-top: 12px;
+}
+
+.song-analysis-section-title.compact {
+  margin-bottom: 6px;
+}
+
+.song-requirement-mini-timeline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 42px;
+  padding: 4px 2px;
+}
+
+.song-requirement-mini-time {
+  color: #607083;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.song-requirement-mini-line {
+  position: relative;
+  height: 32px;
+}
+
+.song-requirement-mini-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 15px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #cbd5e1, #94a3b8);
+}
+
+.song-requirement-mini-marker {
+  position: absolute;
+  top: 5px;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 4px 12px rgba(31, 41, 55, 0.22);
+  cursor: pointer;
+}
+
+.song-requirement-mini-marker.hard {
+  background: #dc2626;
+}
+
+.song-requirement-mini-marker.active,
+.song-requirement-mini-marker:hover {
+  outline: 3px solid rgba(79, 124, 255, 0.24);
+  outline-offset: 2px;
+}
+
+.song-requirement-mini-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: #fffaf0;
+}
+
+.song-requirement-mini-detail h3 {
+  margin: 3px 0;
+  letter-spacing: 0;
+}
+
+.song-requirement-mini-detail p {
+  margin: 4px 0 0;
+  color: #607083;
+  line-height: 1.45;
+}
+
+.song-requirement-full-map {
+  margin-top: 8px;
+}
+
+.song-requirement-full-map summary {
+  cursor: pointer;
+  color: #2753a7;
+  font-weight: 900;
+}
+
+.song-requirement-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #607083;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.song-requirement-legend span::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 999px;
+  vertical-align: -1px;
+  background: #86d39a;
+}
+
+.song-requirement-legend .medium::before { background: #f4c95d; }
+.song-requirement-legend .hard::before { background: #ef6f6c; }
+.song-requirement-legend .marker::before {
+  width: 8px;
+  height: 8px;
+  border: 2px solid #1f2933;
+  background: #fff;
+}
+
+.song-requirement-timeline {
+  display: flex;
+  gap: 3px;
+  min-height: 58px;
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f5f7fb;
+  overflow-x: auto;
+}
+
+.song-requirement-time-slice {
+  position: relative;
+  min-width: 42px;
+  border: 0;
+  border-radius: 6px;
+  color: #243447;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.song-requirement-time-slice.easy { background: #b9e8c3; }
+.song-requirement-time-slice.medium { background: #f7d879; }
+.song-requirement-time-slice.hard { background: #f39a97; }
+
+.song-requirement-time-slice i {
+  position: absolute;
+  top: -5px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d22f2f;
+  box-shadow: 0 0 0 3px rgba(210, 47, 47, 0.14);
+}
+
+.song-requirement-time-slice:hover,
+.song-requirement-time-slice.active {
+  outline: 2px solid #1f2933;
+  outline-offset: 2px;
+}
+
+.song-requirement-route-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.song-requirement-route-step {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
+  text-align: left;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f6f8fb;
+}
+
+.song-requirement-route-step strong {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #25324a;
+  color: #fff;
+}
+
+.song-requirement-route-step span,
+.song-requirement-route-step small {
+  min-width: 0;
+}
+
+.song-requirement-route-step small {
+  color: #607083;
+}
+
+.song-requirement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.song-requirement-task-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.song-requirement-one-thing {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff8e8;
+  color: #5f4216;
+}
+
+.song-requirement-one-thing strong {
+  color: #1f2933;
+  font-size: 17px;
+}
+
+.song-requirement-task-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.song-requirement-task-card.today {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: #fffaf0;
+}
+
+.song-requirement-task-card.active {
+  border-color: rgba(79, 124, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.12);
+  background: #f7faff;
+}
+
+.song-requirement-task-card h3 {
+  margin: 4px 0;
+  font-size: 17px;
+  letter-spacing: 0;
+}
+
+.song-requirement-task-card button {
+  white-space: nowrap;
+}
+
+.song-requirement-all-tasks {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(116, 124, 145, 0.16);
+  background: #fbfcfe;
+}
+
+.song-requirement-all-tasks summary {
+  cursor: pointer;
+  color: #2753a7;
+  font-weight: 900;
+}
+
+.song-requirement-all-task-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .song-analysis-segment-actions {
   display: flex;
   flex-wrap: wrap;
@@ -205,7 +815,16 @@
 @media (max-width: 760px) {
   .song-analysis-header,
   .song-analysis-upload-box,
+  .song-analysis-library-box,
+  .song-analysis-library-controls,
   .song-analysis-song-card,
+  .song-requirement-hero,
+  .song-requirement-focus-row,
+  .song-requirement-mini-detail,
+  .song-requirement-summary,
+  .song-requirement-task-block,
+  .song-requirement-grid,
+  .song-analysis-segment-controls,
   .song-analysis-segment-card {
     grid-template-columns: 1fr;
   }

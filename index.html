@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -19,11 +19,15 @@
     <script src="app-markup-vocal-moves.js"></script>
     <script src="app-markup-active-search.js"></script>
     <script src="app-markup-ai-vocal-teacher.js"></script>
+    <script src="app-markup-ai-experiment.js"></script>
+    <script src="app-markup-ai-course.js"></script>
+    <script src="app-markup-vocal-state-kit.js"></script>
     <script src="app-markup-song-analysis.js"></script>
     <script src="app-markup-training.js"></script>
     <script src="app-markup-sidebar.js"></script>
     <script src="app-markup.js"></script>
     <script src="app-config.js"></script>
+    <script src="core/storage.js"></script>
     <script src="app-dom.js"></script>
     <script src="app-state.js"></script>
     <script src="vocal-moves-data.js"></script>
@@ -34,7 +38,10 @@
     <script src="mira-feedback.js"></script>
     <script src="beginner-practice.js"></script>
     <script src="app-shell.js"></script>
+    <script src="assets/vendor/tf.min.js"></script>
     <script src="pitch-detection.js"></script>
+    <script src="crepe-pitch.js"></script>
+    <script src="crepe-tfjs-provider.js"></script>
     <script src="formant-analysis.js"></script>
     <script src="canvas-rendering.js"></script>
     <script src="offline-analysis.js"></script>
@@ -47,7 +54,17 @@
     <script src="song-pitch.js"></script>
     <script src="vocal-score.js"></script>
     <script src="song-lyrics.js"></script>
-    <script src="recording-timeline.js"></script>
+    <script src="features/recording/recording-library-storage.js"></script>
+    <script src="features/recording/recording-timeline-rendering.js"></script>
+    <script src="features/recording/recording-timeline.js"></script>
+    <script src="features/recording/recording-playback.js"></script>
+    <script src="voice-representation.js"></script>
+    <script src="neural-voice-embedding.js"></script>
+    <script src="voice-similarity.js"></script>
+    <script src="voice-problem-map.js"></script>
+    <script src="voice-teaching-actions.js"></script>
+    <script src="voice-progress-evaluator.js"></script>
+    <script src="voice-learning-memory.js"></script>
     <script src="success-library.js"></script>
     <script src="daily-challenge.js"></script>
     <script src="pitch-score-training.js"></script>
@@ -58,25 +75,33 @@
     <script src="audio-engine.js"></script>
     <script src="bgm-system.js"></script>
     <script src="song-practice-flow.js"></script>
-    <script src="recording-flow.js"></script>
+    <script src="features/recording/recording-flow.js"></script>
     <script src="fix-one-thing.js"></script>
     <script src="app.js"></script>
     <script src="song-analysis.js"></script>
-    <script src="ai-vocal-teacher-probe-tasks.js"></script>
-    <script src="ai-vocal-teacher-feature-extraction.js"></script>
-    <script src="ai-vocal-teacher-immediate-feedback.js"></script>
-    <script src="ai-vocal-teacher-memory-estimator.js"></script>
-    <script src="ai-vocal-teacher-diagnosis.js"></script>
-    <script src="ai-vocal-teacher-progress-tracker.js"></script>
-    <script src="ai-vocal-teacher-exercise-library.js"></script>
-    <script src="ai-vocal-teacher-closed-loop.js"></script>
-    <script src="ai-vocal-teacher-teaching-decision.js"></script>
-    <script src="ai-vocal-teacher-teaching-engine.js"></script>
-    <script src="ai-vocal-teacher-before-after.js"></script>
-    <script src="ai-vocal-teacher.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-probe-tasks.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-feature-extraction.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-immediate-feedback.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-memory-estimator.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-diagnosis.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-progress-tracker.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-exercise-library.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-closed-loop.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-teaching-decision.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-teaching-engine.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-before-after.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-storage.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-session.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher-recording.js"></script>
+    <script src="features/ai-vocal-teacher/ai-vocal-teacher.js"></script>
+    <script src="ai-experiment.js"></script>
+    <script src="ai-course.js"></script>
+    <script src="vocal-state-kit.js"></script>
     <script src="active-voice-search.js"></script>
     <script src="vocal-moves.js"></script>
     <script src="launcher-router.js"></script>
     <script src="app-install.js"></script>
   </body>
 </html>
+
+

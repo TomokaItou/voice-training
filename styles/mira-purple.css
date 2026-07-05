@@ -297,9 +297,9 @@ input[type='checkbox']:checked {
   z-index: 4;
   order: 1;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
-  width: min(560px, 100%);
+  width: min(680px, 100%);
   padding: 6px;
   border: 1px solid rgba(142, 162, 255, 0.2);
   border-radius: 999px;
@@ -347,6 +347,7 @@ input[type='checkbox']:checked {
 }
 
 #modeLauncher[data-home-tab='flow'] [data-home-section]:not([data-home-section='flow']),
+#modeLauncher[data-home-tab='course'] [data-home-section]:not([data-home-section='course']),
 #modeLauncher[data-home-tab='songs'] [data-home-section]:not([data-home-section='songs']),
 #modeLauncher[data-home-tab='teacher'] [data-home-section]:not([data-home-section='teacher']),
 #modeLauncher[data-home-tab='mine'] [data-home-section]:not([data-home-section='mine']) {
@@ -358,6 +359,7 @@ input[type='checkbox']:checked {
 }
 
 #modeLauncher[data-home-tab='songs'] [data-home-section='songs'],
+#modeLauncher[data-home-tab='course'] [data-home-section='course'],
 #modeLauncher[data-home-tab='teacher'] [data-home-section='teacher'],
 #modeLauncher[data-home-tab='mine'] [data-home-section='mine'] {
   display: block;
@@ -479,6 +481,7 @@ input[type='checkbox']:checked {
 }
 
 #modeLauncher[data-home-tab='songs'] .active-search-entry-card,
+#modeLauncher[data-home-tab='course'] .active-search-entry-card,
 #modeLauncher[data-home-tab='teacher'] .active-search-entry-card,
 #modeLauncher[data-home-tab='teacher'] .today-vocal-move-card,
 #modeLauncher[data-home-tab='mine'] .daily-challenge-card,
@@ -565,6 +568,7 @@ input[type='checkbox']:checked {
 }
 
 #modeLauncher[data-home-tab='songs'] .active-search-entry-card,
+#modeLauncher[data-home-tab='course'] .active-search-entry-card,
 #modeLauncher[data-home-tab='teacher'] .active-search-entry-card,
 #modeLauncher[data-home-tab='teacher'] .today-vocal-move-card,
 #modeLauncher[data-home-tab='mine'] .daily-challenge-card {
@@ -722,11 +726,13 @@ input[type='checkbox']:checked {
 
 @media (max-width: 760px) {
   .home-main-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-radius: 28px;
     width: 100%;
-    border-radius: 12px;
   }
 
   .home-tab {
+    min-height: 36px;
     padding: 8px 6px;
     font-size: 13px;
   }

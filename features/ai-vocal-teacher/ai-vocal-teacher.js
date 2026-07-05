@@ -1,36 +1,4 @@
-const AI_TEACHER_DB_NAME = 'voice-training-ai-vocal-teacher';
-const AI_TEACHER_DB_VERSION = 5;
-const AI_TEACHER_RECORD_MS = 3600;
-
-const AI_TEACHER_TASK_COPY = {
-  sustained_a: {
-    title: '第一步：录一个稳定的 /a/',
-    sing: '请舒服地唱 “aaaaaa”',
-    short: '稳定 /a/',
-  },
-  sustained_i: {
-    title: '第二步：换成稳定的 /i/',
-    sing: '请用同样舒服的音高唱 “iiiiii”',
-    short: '稳定 /i/',
-  },
-  soft_to_normal: {
-    title: '第三步：从轻声到正常音量',
-    sing: '从很轻的元音慢慢变到正常音量',
-    short: '轻到正常',
-  },
-  short_glide: {
-    title: '第四步：做一个短滑音',
-    sing: '轻轻滑动音高，不要冲高',
-    short: '短滑音',
-  },
-  creaky_open: {
-    title: '第五步：从 creaky onset 打开',
-    sing: '轻轻起一个 creaky 声，再打开到自然元音',
-    short: '起音打开',
-  },
-};
-
-let aiTeacherState = {
+﻿let aiTeacherState = {
   phase: 'idle',
   activeTaskIndex: 0,
   activeAttempt: 1,
@@ -61,6 +29,8 @@ let aiTeacherState = {
   latestSuccessMemory: null,
   songFirstMode: false,
   songSegmentName: '',
+  songRequirement: null,
+  songPrimitiveTask: null,
   shortProbeTaskId: 'sustained_a',
   bestByTask: {},
   worstByTask: {},
@@ -71,130 +41,6 @@ let aiTeacherState = {
   timer: null,
   playbackAudio: null,
 };
-
-function aiTeacherOpenDb() {
-  if (!window.indexedDB) return Promise.resolve(null);
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(AI_TEACHER_DB_NAME, AI_TEACHER_DB_VERSION);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains('recordings')) {
-        request.result.createObjectStore('recordings', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('vectors')) {
-        request.result.createObjectStore('vectors', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('estimates')) {
-        request.result.createObjectStore('estimates', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('comparisons')) {
-        request.result.createObjectStore('comparisons', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('memoryRecords')) {
-        request.result.createObjectStore('memoryRecords', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('teachingSessions')) {
-        request.result.createObjectStore('teachingSessions', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('successMemories')) {
-        request.result.createObjectStore('successMemories', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('lessonStates')) {
-        request.result.createObjectStore('lessonStates', { keyPath: 'lesson_id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function aiTeacherLoadAll(storeName) {
-  const db = await aiTeacherOpenDb();
-  if (!db || !db.objectStoreNames.contains(storeName)) return [];
-  const values = await new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const request = tx.objectStore(storeName).getAll();
-    request.onsuccess = () => resolve(request.result || []);
-    request.onerror = () => reject(request.error);
-  });
-  db.close();
-  return values;
-}
-
-async function aiTeacherSaveMany(storeName, values) {
-  const db = await aiTeacherOpenDb();
-  if (!db || !db.objectStoreNames.contains(storeName)) return;
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    values.forEach((value) => tx.objectStore(storeName).put(value));
-    tx.oncomplete = resolve;
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
-}
-
-async function aiTeacherSave(storeName, value) {
-  const db = await aiTeacherOpenDb();
-  if (!db) return;
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    tx.objectStore(storeName).put(value);
-    tx.oncomplete = resolve;
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
-}
-
-function aiTeacherSessionId() {
-  return new Date().toISOString().replace(/[:.]/g, '-');
-}
-
-const aiTeacherCurrentSessionId = aiTeacherSessionId();
-
-function aiTeacherGetPhaseVectors() {
-  return aiTeacherState.phase === 'after' ? aiTeacherState.vectorsAfter : aiTeacherState.vectorsBefore;
-}
-
-function aiTeacherVisibleTasks() {
-  if (aiTeacherState.closedLoopMode) {
-    const taskId = aiTeacherState.targetTaskId || aiTeacherState.shortProbeTaskId || 'sustained_a';
-    const songTask = {
-      id: 'song_phrase_probe',
-      name: 'Short song phrase',
-      instruction: '唱一句很短的歌曲片段，不要整首，只要最想练的那一句。',
-      repetitions: 1,
-    };
-    const task = aiTeacherState.songFirstMode || taskId === 'song_phrase_probe'
-      ? songTask
-      : AI_VOCAL_TEACHER_TASKS.find((item) => item.id === taskId) || AI_VOCAL_TEACHER_TASKS[0];
-    return [{ ...task, repetitions: 1 }];
-  }
-  return aiTeacherState.phase === 'after'
-    ? AI_VOCAL_TEACHER_TASKS.filter((task) => task.id === aiTeacherState.targetTaskId)
-    : AI_VOCAL_TEACHER_TASKS;
-}
-
-function aiTeacherExpectedAttempts() {
-  return aiTeacherVisibleTasks().reduce((sum, task) => sum + task.repetitions, 0);
-}
-
-function aiTeacherCompletedAttempts() {
-  return aiTeacherGetPhaseVectors().length;
-}
-
-function aiTeacherActiveTask() {
-  return aiTeacherVisibleTasks()[aiTeacherState.activeTaskIndex] || null;
-}
-
-function aiTeacherTaskCopy(taskId) {
-  if (taskId === 'song_phrase_probe') {
-    return {
-      title: '先唱一句歌曲短句',
-      sing: '只唱一句最想练的地方，2 到 4 秒就好。',
-      short: '歌曲短句',
-    };
-  }
-  return AI_TEACHER_TASK_COPY[taskId] || { title: '录一条短声音', sing: '请舒服地唱 2 到 4 秒', short: taskId };
-}
 
 function aiTeacherFormatScore(value) {
   if (!Number.isFinite(value)) return '--';
@@ -214,23 +60,212 @@ function aiTeacherFeatureLabel(name) {
   return labels[name] || name;
 }
 
-function aiTeacherPhaseName() {
-  if (aiTeacherState.lessonMode) {
-    if (aiTeacherState.phase === 'after') return 'Lesson Mode · 复测';
-    if (aiTeacherState.phase === 'complete') return 'Lesson Mode · 下一步';
-    return 'Lesson Mode · 听你一条声音';
+function aiTeacherFeatureValue(vectorOrFeatures, key, fallback = 0) {
+  const features = vectorOrFeatures?.features || vectorOrFeatures || {};
+  const value = features[key];
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function aiTeacherConfidenceLevel(value, historyCount = 0) {
+  const numeric = Number.isFinite(value) ? value : 0;
+  if (numeric >= 72 || historyCount >= 3) return '高';
+  if (numeric >= 45 || historyCount >= 1) return '中';
+  return '低';
+}
+
+function aiTeacherExperimentMetricForFocus(focusArea) {
+  if (focusArea === 'pitch') return 'pitch_std';
+  if (focusArea === 'breath') return 'loudness_std';
+  if (focusArea === 'closure') return 'harmonicity_mean';
+  if (focusArea === 'resonance') return 'spectral_centroid_mean';
+  return 'pitch_std';
+}
+
+function aiTeacherMetricDirection(metric) {
+  return metric === 'harmonicity_mean' ? 'increase' : 'decrease';
+}
+
+function aiTeacherMetricImproved(metric, beforeValue, afterValue) {
+  if (!Number.isFinite(beforeValue) || !Number.isFinite(afterValue)) return false;
+  if (aiTeacherMetricDirection(metric) === 'increase') {
+    return afterValue > beforeValue + Math.max(0.03, Math.abs(beforeValue) * 0.04);
   }
-  if (aiTeacherState.phase === 'after') return '复测';
-  if (aiTeacherState.phase === 'complete') return '复测完成';
-  return '声音扫描';
+  return afterValue < beforeValue - Math.max(0.8, Math.abs(beforeValue) * 0.05);
 }
 
-function aiTeacherCurrentTaskCompleted(task) {
-  return aiTeacherGetPhaseVectors().filter((vector) => vector.taskId === task.id).length;
+function aiTeacherMetricChangeText(metric, beforeValue, afterValue) {
+  const label = aiTeacherFeatureLabel(metric);
+  if (!Number.isFinite(beforeValue) || !Number.isFinite(afterValue)) {
+    return `${label} 暂时没有足够数据。`;
+  }
+  const delta = afterValue - beforeValue;
+  const direction = delta > 0 ? '上升' : delta < 0 ? '下降' : '几乎不变';
+  return `${label}${direction} ${Math.abs(delta).toFixed(2)}。`;
 }
 
-function aiTeacherRemainingForTask(task) {
-  return Math.max(0, task.repetitions - aiTeacherCurrentTaskCompleted(task));
+function aiTeacherBuildExperimentEvidence(focusArea, vectorOrEstimate, history = []) {
+  const pitchStd = aiTeacherFeatureValue(vectorOrEstimate, 'pitch_std');
+  const loudnessStd = aiTeacherFeatureValue(vectorOrEstimate, 'loudness_std');
+  const harmonicity = aiTeacherFeatureValue(vectorOrEstimate, 'harmonicity_mean', 0.7);
+  const centroid = aiTeacherFeatureValue(vectorOrEstimate, 'spectral_centroid_mean');
+  const dominant = vectorOrEstimate?.dominantFeatures || [];
+  const observations = [];
+  if (focusArea === 'pitch') {
+    observations.push(pitchStd > 18 ? '本次录音里音高抖动偏大。' : '音高抖动是当前最值得验证的变化方向。');
+    if (dominant.some((name) => /pitch/.test(name))) observations.push('主导变化特征集中在音高相关指标。');
+  } else if (focusArea === 'breath') {
+    observations.push(loudnessStd > 5 ? '本次录音里能量起伏偏大，听起来容易忽强忽弱。' : '能量稳定性是当前最值得验证的变化方向。');
+    if (dominant.some((name) => /loudness/.test(name))) observations.push('主导变化特征集中在音量/气流相关指标。');
+  } else if (focusArea === 'closure') {
+    observations.push(harmonicity < 0.62 ? '本次录音里声带振动稳定度偏低，可能有一点漏气或声音核心不稳。' : '声带振动稳定度是当前最值得验证的变化方向。');
+    if (pitchStd > 16) observations.push('音高稳定度也被带着变差，像是发声状态先不稳。');
+  } else if (focusArea === 'resonance') {
+    observations.push(centroid > 0 ? '本次录音里声音明亮度变化明显，亮暗不够一致。' : '声音明亮度/音色稳定性是当前最值得验证的方向。');
+    if (dominant.some((name) => /spectral|formant/.test(name))) observations.push('主导变化特征集中在声谱或元音形状相关指标。');
+  } else {
+    observations.push('本次录音的整体稳定性还不够集中，先用最简单的任务验证。');
+  }
+  const samePattern = history.filter((record) => record?.focusArea === focusArea || record?.focus_area === focusArea).length;
+  if (samePattern > 0) observations.push(`历史里也出现过 ${samePattern} 次相近模式。`);
+  return observations.slice(0, 3);
+}
+
+function aiTeacherBuildExperimentFeedback({ estimate, action, decision, lesson, lastChange, currentExercise }) {
+  const focusArea = decision?.focusArea || estimate?.category || lesson?.last_change?.focusArea || 'global';
+  const metric = aiTeacherExperimentMetricForFocus(focusArea);
+  const confidenceLevel = aiTeacherConfidenceLevel(decision?.hiddenDetails?.confidence || estimate?.confidence || 0, (lesson?.attempts || []).length - 1);
+  const exercise = currentExercise || lesson?.current_exercise || lesson?.currentExercise || (decision?.exerciseId ? getAiTeacherExerciseById(decision.exerciseId) : null);
+  const cue = lesson?.active_cue || lesson?.activeCue;
+  const evidence = aiTeacherBuildExperimentEvidence(focusArea, lesson?.baseline_vector || estimate, aiTeacherState.teachingHistory || []);
+  const hypothesisByFocus = {
+    pitch: '你这次最可能不是“不会唱这个音”，而是音高落点还不够稳定。',
+    breath: '你这次最可能是气流/音量输出不够均匀，而不是单纯音准问题。',
+    closure: '你这次最可能是声音核心还没有稳定合上，所以高音或长音会被气声带走。',
+    resonance: '你这次最可能是元音形状或音色亮度变化太大，导致声音听起来不够集中。',
+    global: '我还不能完全确定主因，先验证最基础的稳定性。',
+  };
+  const predictionByMetric = {
+    pitch_std: '如果这个方向对，下一次同样任务的音高抖动应该下降。',
+    loudness_std: '如果这个方向对，下一次同样任务的能量起伏应该下降。',
+    harmonicity_mean: '如果这个方向对，下一次同样任务的声带振动稳定度应该上升。',
+    spectral_centroid_mean: '如果这个方向对，下一次同样任务的亮暗变化应该更小。',
+  };
+  const taskByFocus = {
+    pitch: '只重唱同一个短音，音量不变，先让落点更接近同一个音高。',
+    breath: '只重唱同一个短音，音量不要变大，把声音唱成更平的一条线。',
+    closure: '只做一次轻 gee 或当前练习，声音小一点，听它能不能更集中。',
+    resonance: '只做一次 ng 到 ma 或当前练习，不变大声，看亮暗能不能更一致。',
+    global: '只重复当前最简单任务一次，不加其它技巧。',
+  };
+  const previousVerification = lastChange
+    ? (lastChange.improved || lastChange.best_so_far
+      ? `上一轮预测基本成立：${aiTeacherMetricChangeText(metric, lastChange.previousScore, lastChange.currentScore)}`
+      : `上一轮还没验证成功：${aiTeacherMetricChangeText(metric, lastChange.previousScore, lastChange.currentScore)} 我会换更小的任务验证。`)
+    : '';
+  return {
+    id: `vocal-experiment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+    recordingId: lesson?.attempts?.slice(-1)[0]?.recordingId || lesson?.lesson_id || null,
+    focusArea,
+    metric,
+    hypothesis: hypothesisByFocus[focusArea] || hypothesisByFocus.global,
+    evidence,
+    prediction: predictionByMetric[metric] || predictionByMetric.pitch_std,
+    verificationTask: cue?.text
+      ? `这一次只验证一个问题：${cue.text} 做 ${exercise?.repetitions || action?.practiceRepetitions || 3} 次，然后复测同一个短任务。`
+      : taskByFocus[focusArea] || taskByFocus.global,
+    confidenceLevel,
+    previousVerification,
+    measuredBefore: lesson?.baseline_vector?.features || estimate?.mean || {},
+    measuredAfter: null,
+    verificationResult: lastChange
+      ? (lastChange.improved || lastChange.best_so_far ? '验证成功' : lastChange.worse ? '验证失败' : '暂未验证')
+      : '等待验证',
+    nextHypothesis: null,
+  };
+}
+
+function aiTeacherRenderExperimentCard(experiment) {
+  if (!experiment) return '';
+  const evidenceItems = (experiment.evidence || []).map((item) => `<li>${item}</li>`).join('');
+  return `
+    <div class="ai-teacher-experiment-card">
+      <div class="ai-teacher-experiment-row">
+        <span>假设</span>
+        <p>${experiment.hypothesis}</p>
+      </div>
+      <div class="ai-teacher-experiment-row">
+        <span>证据</span>
+        <p>${(experiment.evidence || [])[0] || '这次证据还不够集中，所以只做一次小验证。'}</p>
+      </div>
+      <div class="ai-teacher-experiment-row">
+        <span>预测</span>
+        <p>${experiment.prediction}</p>
+      </div>
+      <div class="ai-teacher-experiment-row">
+        <span>验证任务</span>
+        <p>${experiment.verificationTask}</p>
+      </div>
+      <details class="ai-teacher-credibility">
+        <summary>这条建议为什么可信？</summary>
+        <ul>
+          ${evidenceItems}
+          <li>AI 当前可信度：${experiment.confidenceLevel}</li>
+          <li>下一次录音要验证：${aiTeacherFeatureLabel(experiment.metric)} 是否按预测改善。</li>
+          ${experiment.previousVerification ? `<li>${experiment.previousVerification}</li>` : ''}
+        </ul>
+      </details>
+    </div>
+  `;
+}
+
+function aiTeacherBuildVerificationSummary(experiment, result, lesson) {
+  if (!experiment) return null;
+  const change = result?.lessonChange || lesson?.last_change;
+  const beforeValue = Number.isFinite(change?.previousScore)
+    ? change.previousScore
+    : Number.isFinite(result?.beforeInstability)
+      ? result.beforeInstability
+      : null;
+  const afterValue = Number.isFinite(change?.currentScore)
+    ? change.currentScore
+    : Number.isFinite(result?.afterInstability)
+      ? result.afterInstability
+      : null;
+  const metricPassed = aiTeacherMetricImproved(experiment.metric, beforeValue, afterValue);
+  const passed = Boolean(result?.retainedImprovement || result?.improved || change?.improved || change?.best_so_far || metricPassed);
+  const failed = Boolean(result?.worsened || change?.worse);
+  const status = passed ? '验证成功' : failed ? '验证失败' : '暂未验证';
+  const nextHypothesis = passed
+    ? '这个方向暂时有效。下一轮继续沿着同一方向，把任务再缩小一点。'
+    : failed
+      ? '上一条假设可能不对。下一轮我会换一个更容易验证的假设。'
+      : '变化还不够明显。下一轮先降低难度，再确认这个假设。';
+  return {
+    ...experiment,
+    measuredAfter: {
+      metric: experiment.metric,
+      beforeValue,
+      afterValue,
+    },
+    verificationResult: status,
+    nextHypothesis,
+    confidenceLevel: passed
+      ? (experiment.confidenceLevel === '低' ? '中' : '高')
+      : failed
+        ? '低'
+        : experiment.confidenceLevel,
+    verificationText: `${status}：${aiTeacherMetricChangeText(experiment.metric, beforeValue, afterValue)} ${nextHypothesis}`,
+  };
+}
+
+async function aiTeacherSaveVocalExperiment(experiment) {
+  if (!experiment || typeof aiTeacherSave !== 'function') return;
+  try {
+    await aiTeacherSave('vocalExperiments', experiment);
+  } catch (error) {
+    console.warn('Vocal experiment save failed', error);
+  }
 }
 
 function renderAiTeacherTaskList() {
@@ -343,18 +378,6 @@ function renderAiTeacher() {
   renderAiTeacherTaskList();
 }
 
-async function aiTeacherEnsureStream() {
-  if (aiTeacherState.stream?.active) return aiTeacherState.stream;
-  aiTeacherState.stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-    },
-  });
-  return aiTeacherState.stream;
-}
-
 function aiTeacherSetStatus(text) {
   const status = document.getElementById('aiTeacherStatus');
   if (status) status.textContent = text;
@@ -374,119 +397,6 @@ function startAiTeacherPhase(phase = 'before') {
       ? '现在录同一个声音一次。不要加新技巧，只带着刚才练习的感觉。'
       : '第一步：唱一条 2 到 4 秒的短声音，我先听。'
   );
-  renderAiTeacher();
-}
-
-function advanceAiTeacherProbe() {
-  const task = aiTeacherActiveTask();
-  if (!task) return;
-  if (aiTeacherState.activeAttempt < task.repetitions) {
-    aiTeacherState.activeAttempt += 1;
-    return;
-  }
-  aiTeacherState.activeTaskIndex += 1;
-  aiTeacherState.activeAttempt = 1;
-}
-
-async function recordAiTeacherAttempt() {
-  if (aiTeacherState.recorder) {
-    stopAiTeacherRecording();
-    return;
-  }
-  if (aiTeacherState.phase === 'idle' || aiTeacherState.phase === 'complete') {
-    startAiTeacherPhase('before');
-  }
-  const task = aiTeacherActiveTask();
-  if (!task) return;
-  try {
-    const stream = await aiTeacherEnsureStream();
-    aiTeacherState.chunks = [];
-    const recorder = new MediaRecorder(stream);
-    aiTeacherState.recorder = recorder;
-    aiTeacherState.lastFeedback = null;
-    recorder.addEventListener('dataavailable', (event) => {
-      if (event.data?.size) aiTeacherState.chunks.push(event.data);
-    });
-    recorder.addEventListener('stop', () => finalizeAiTeacherAttempt(task, aiTeacherState.activeAttempt, recorder.mimeType), { once: true });
-    recorder.start();
-    aiTeacherSetStatus('正在听你唱……保持 2 到 4 秒。');
-    aiTeacherState.timer = window.setTimeout(stopAiTeacherRecording, AI_TEACHER_RECORD_MS);
-    renderAiTeacher();
-  } catch (error) {
-    console.error(error);
-    aiTeacherSetStatus('无法打开麦克风。请确认浏览器录音权限后再试。');
-  }
-}
-
-function stopAiTeacherRecording() {
-  if (aiTeacherState.timer) {
-    window.clearTimeout(aiTeacherState.timer);
-    aiTeacherState.timer = null;
-  }
-  if (aiTeacherState.recorder && aiTeacherState.recorder.state !== 'inactive') {
-    aiTeacherState.recorder.stop();
-  }
-}
-
-function getAiTeacherInstantFeedback(vector) {
-  const features = vector.features || {};
-  const durationMs = vector.durationMs || 0;
-  const loudness = features.loudness_mean;
-  const pitchStd = features.pitch_std;
-  let loudnessText = '音量看起来合适';
-  if (Number.isFinite(loudness) && loudness < -42) {
-    loudnessText = '音量偏小，下次可以靠近一点或稍微唱清楚';
-  } else if (Number.isFinite(loudness) && loudness > -12) {
-    loudnessText = '音量偏大，下次可以轻一点';
-  }
-
-  let pitchText = '音高稳定性暂时无法判断';
-  if (Number.isFinite(pitchStd) && pitchStd > 0) {
-    pitchText = pitchStd <= 8
-      ? '音高比较稳定'
-      : pitchStd <= 22
-        ? '音高有一点晃动'
-        : '音高波动比较明显';
-  }
-
-  return { durationMs, loudnessText, pitchText };
-}
-
-async function finalizeAiTeacherAttempt(task, attemptId, mimeType) {
-  const sourceBlob = new Blob(aiTeacherState.chunks, { type: mimeType || 'audio/webm' });
-  aiTeacherState.chunks = [];
-  aiTeacherState.recorder = null;
-  if (!sourceBlob.size) {
-    aiTeacherSetStatus('这条录音为空，请重录。');
-    renderAiTeacher();
-    return;
-  }
-
-  try {
-    const timestamp = new Date().toISOString();
-    const decoded = await decodeAudioBlob(sourceBlob);
-    const wavBlob = aiTeacherEncodeWav(decoded);
-    const phase = aiTeacherState.phase === 'after' ? 'after' : 'before';
-    const id = `ai-teacher-${phase}-${task.id}-${attemptId}-${Date.now()}`;
-    const audioPath = `indexeddb://ai-vocal-teacher/${aiTeacherCurrentSessionId}/${phase}/${task.id}/${attemptId}.wav`;
-    const recording = { id, phase, taskId: task.id, attemptId, timestamp, audioPath, blob: wavBlob, mimeType: 'audio/wav' };
-    await aiTeacherSave('recordings', recording);
-    aiTeacherState.recordings[id] = recording;
-
-    const vector = await aiTeacherExtractFeatureVector({ blob: wavBlob, taskId: task.id, attemptId, timestamp, audioPath });
-    const storedVector = { id, phase, ...vector };
-    await aiTeacherSave('vectors', storedVector);
-    if (phase === 'after') aiTeacherState.vectorsAfter.push(storedVector);
-    else aiTeacherState.vectorsBefore.push(storedVector);
-    const taskAttempts = (phase === 'after' ? aiTeacherState.vectorsAfter : aiTeacherState.vectorsBefore)
-      .filter((item) => item.taskId === task.id);
-    const previousAttempts = taskAttempts.filter((item) => item.id !== storedVector.id);
-    aiTeacherState.lastFeedback = getAiTeacherInstantFeedback(storedVector, previousAttempts, task, taskAttempts);
-    advanceAiTeacherProbe();
-  } catch (error) {
-    console.error(error);
-    aiTeacherSetStatus('录音已收到，但分析失败。请重录这一条。');
-  }
   renderAiTeacher();
 }
 
@@ -774,25 +684,6 @@ function renderAiTeacherComparison() {
     : '这次还没有明显改善，可能需要换一个更简单的练习。';
 }
 
-function aiTeacherPlayVector(vector) {
-  if (!vector) return;
-  const recording = aiTeacherState.recordings[vector.id];
-  if (!recording?.blob) return;
-  if (aiTeacherState.playbackAudio) {
-    aiTeacherState.playbackAudio.pause();
-    URL.revokeObjectURL(aiTeacherState.playbackAudio.src);
-  }
-  const audio = new Audio(URL.createObjectURL(recording.blob));
-  aiTeacherState.playbackAudio = audio;
-  audio.addEventListener('ended', () => {
-    URL.revokeObjectURL(audio.src);
-    if (aiTeacherState.playbackAudio === audio) {
-      aiTeacherState.playbackAudio = null;
-    }
-  });
-  audio.play().catch((error) => console.error(error));
-}
-
 function renderAiTeacherResults() {
   const panel = document.getElementById('aiTeacherResults');
   const estimate = aiTeacherState.selectedEstimate;
@@ -942,6 +833,9 @@ async function showAiVocalTeacher() {
   document.getElementById('appWindow')?.setAttribute('hidden', '');
   if (typeof hideVocalMoveLibrary === 'function') hideVocalMoveLibrary();
   if (typeof hideActiveVoiceSearch === 'function') hideActiveVoiceSearch();
+  if (typeof hideAiExperimentPage === 'function') hideAiExperimentPage();
+  if (typeof hideAiCoursePage === 'function') hideAiCoursePage();
+  if (typeof hideVocalStateKitPage === 'function') hideVocalStateKitPage();
   await loadAiTeacherMemory();
   const page = document.getElementById('aiVocalTeacherPage');
   if (page) page.hidden = false;
@@ -1036,14 +930,34 @@ function startAiTeacherSongFirstFromSegment(segment) {
   const formatSegmentTime = typeof songAnalysisFormatTime === 'function'
     ? songAnalysisFormatTime
     : (value) => String(value);
+  const primitiveTask = segment?.primitiveTask || null;
+  const songRequirement = segment?.songRequirement || window.currentSongRequirement || null;
   aiTeacherState.songFirstMode = true;
   aiTeacherState.songSegmentName = segment
     ? `${segment.songName || '歌曲片段'} ${formatSegmentTime(segment.start_time)}-${formatSegmentTime(segment.end_time)}`
     : '歌曲短句';
+  aiTeacherState.songRequirement = songRequirement;
+  aiTeacherState.songPrimitiveTask = primitiveTask;
   aiTeacherState.transferLevel = 'song_phrase';
   aiTeacherState.shortProbeTaskId = 'song_phrase_probe';
   aiTeacherState.targetTaskId = 'song_phrase_probe';
-  aiTeacherState.lessonState = null;
+  aiTeacherState.lessonState = primitiveTask ? {
+    id: `song-requirement-${primitiveTask.task_id}`,
+    song_requirement_id: songRequirement?.song_id || null,
+    primitive_task_id: primitiveTask.task_id,
+    current_goal: primitiveTask.diagnostic_focus,
+    current_exercise: {
+      id: primitiveTask.task_id,
+      title: primitiveTask.diagnostic_focus,
+      goal: primitiveTask.required_skill?.join(', ') || 'song_phrase',
+      instruction: primitiveTask.practice_instruction,
+      repetitions: 3,
+      durationMinutes: 4,
+    },
+    next_action: 'practice_song_requirement_task',
+    transfer_level: 'song_phrase',
+    exercise_history: [],
+  } : null;
   aiTeacherState.latestLessonDecision = null;
   aiTeacherState.lastFeedback = null;
   document.getElementById('aiTeacherResults')?.setAttribute('hidden', '');
@@ -1051,7 +965,11 @@ function startAiTeacherSongFirstFromSegment(segment) {
   const page = document.getElementById('aiVocalTeacherPage');
   if (page) page.hidden = false;
   startAiTeacherPhase('before');
-  aiTeacherSetStatus(`先唱这个片段：${aiTeacherState.songSegmentName}。我会听最明显的失败点。`);
+  if (primitiveTask) {
+    aiTeacherSetStatus(`我们只练 ${formatSegmentTime(primitiveTask.start_time)}-${formatSegmentTime(primitiveTask.end_time)}：${primitiveTask.title || primitiveTask.diagnostic_focus}。${primitiveTask.practice_goal || primitiveTask.practice_instruction}`);
+  } else {
+    aiTeacherSetStatus(`先唱这个片段：${aiTeacherState.songSegmentName}。我会听最明显的失败点。`);
+  }
 }
 
 async function analyzeAiTeacherClosedLoopPhase() {
@@ -1594,13 +1512,31 @@ function renderTeacherAction(estimate) {
       ? '我先拆单音，因为这更像某个音点没有站稳。'
       : '我先拆两个音之间的过渡，因为这更像连接处不稳。')
     : '';
+  const experiment = aiTeacherBuildExperimentFeedback({
+    estimate,
+    action,
+    decision,
+    lesson,
+    lastChange,
+    currentExercise,
+  });
+  aiTeacherState.currentVocalExperiment = experiment;
+  if (lesson) {
+    lesson.current_experiment = experiment;
+    lesson.currentExperiment = experiment;
+  }
 
   document.getElementById('aiTeacherMainFinding').textContent =
-    `现在第 ${attemptNumber} 次。当前目标：${lesson?.currentGoal || lesson?.current_goal || action.mainFinding || aiTeacherClosedLoopFinding(focus)}`;
+    `假设：${experiment.hypothesis} 可信度：${experiment.confidenceLevel}。`;
   document.getElementById('aiTeacherOneThing').textContent =
-    `本次一句话：${changeText} 与上次相比：${compared}。当前最好尝试：第 ${bestIndex} 次。`;
+    experiment.previousVerification || `当前状态：${changeText} 与上次相比：${compared}。当前最好尝试：第 ${bestIndex} 次。`;
   document.getElementById('aiTeacherPracticeInstruction').textContent =
-    `下一步动作：${nextInstruction || `${activeCue?.text || nextReason} 做 ${repetitions} 次。`} ${songReason} ${successCue} 回到第 ${bestIndex} 次那个感觉。当前练习：${currentExercise?.title || plan?.title || action.oneThingToPractice || '一个很小的练习'}。迁移层级：${transfer.label}，${transfer.instruction} 然后立刻复测。`;
+    `验证任务：${experiment.verificationTask} ${songReason} ${successCue} 当前练习：${currentExercise?.title || plan?.title || action.oneThingToPractice || '一个很小的练习'}。${transfer.label}：${transfer.instruction}`;
+  const experimentPanel = document.getElementById('aiTeacherExperimentFeedback');
+  if (experimentPanel) {
+    experimentPanel.innerHTML = aiTeacherRenderExperimentCard(experiment);
+  }
+  aiTeacherSaveVocalExperiment(experiment);
 
   const button = document.getElementById('aiTeacherStartPracticeButton');
   if (button) {
@@ -1632,16 +1568,31 @@ function renderAiTeacherComparison() {
   const changeLine = change
     ? aiTeacherDescribeLessonChange(change, lesson)
     : lessonNext.message;
-  document.getElementById('aiTeacherComparisonTitle').textContent = result.saturated
-    ? '复测后：收益开始变小'
-    : result.worsened
-      ? '复测后：难度有点高'
-      : result.best_so_far
-        ? '复测后：今天最好的一次'
-    : improved
-      ? '复测后：有变好'
-      : '复测后：暂时没有变好';
-  document.getElementById('aiTeacherComparisonText').textContent = result.saturated
+  const verifiedExperiment = aiTeacherBuildVerificationSummary(
+    aiTeacherState.currentVocalExperiment || lesson?.current_experiment || lesson?.currentExperiment,
+    result,
+    lesson
+  );
+  if (verifiedExperiment) {
+    aiTeacherState.currentVocalExperiment = verifiedExperiment;
+    if (lesson) {
+      lesson.current_experiment = verifiedExperiment;
+      lesson.currentExperiment = verifiedExperiment;
+    }
+    aiTeacherSaveVocalExperiment(verifiedExperiment);
+  }
+  document.getElementById('aiTeacherComparisonTitle').textContent = verifiedExperiment
+    ? `复测后：${verifiedExperiment.verificationResult}`
+    : result.saturated
+      ? '复测后：收益开始变小'
+      : result.worsened
+        ? '复测后：难度有点高'
+        : result.best_so_far
+          ? '复测后：今天最好的一次'
+      : improved
+        ? '复测后：有变好'
+        : '复测后：暂时没有变好';
+  document.getElementById('aiTeacherComparisonText').textContent = verifiedExperiment?.verificationText || (result.saturated
     ? '这个练习的收益开始变小了，我们换到下一个阶段。'
     : result.worsened
       ? '这个难度有点高，我们退回上一层。'
@@ -1651,7 +1602,11 @@ function renderAiTeacherComparison() {
       ? `${changeLine} ${activeCue?.text ? `这个 cue 有用：${activeCue.text}` : ''} ${successText}`
       : noImprove >= 2
         ? `已经连续两次没有明显改善。这个练习暂时帮不上忙，我们换一个方向。${songFailure}`
-        : `${changeLine} 变化不大，我们换一句提示再试一次。${songFailure}`;
+        : `${changeLine} 变化不大，我们换一句提示再试一次。${songFailure}`);
+  const experimentPanel = document.getElementById('aiTeacherExperimentFeedback');
+  if (experimentPanel && verifiedExperiment) {
+    experimentPanel.innerHTML = aiTeacherRenderExperimentCard(verifiedExperiment);
+  }
   document.getElementById('aiTeacherBeforeScore').textContent = aiTeacherFormatScore(result.beforeInstability);
   document.getElementById('aiTeacherAfterScore').textContent = aiTeacherFormatScore(result.afterInstability);
   document.getElementById('aiTeacherChangeScore').textContent = aiTeacherFormatScore(result.delta);
@@ -1678,3 +1633,5 @@ bindAiTeacherEvents();
 window.showAiVocalTeacher = showAiVocalTeacher;
 window.hideAiVocalTeacher = hideAiVocalTeacher;
 window.startAiTeacherSongFirstFromSegment = startAiTeacherSongFirstFromSegment;
+
+
