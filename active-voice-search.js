@@ -219,6 +219,9 @@ function showActiveVoiceSearch() {
   if (typeof hideVocalMoveLibrary === 'function') {
     hideVocalMoveLibrary();
   }
+  if (typeof hideAiExperimentPage === 'function') hideAiExperimentPage();
+  if (typeof hideAiCoursePage === 'function') hideAiCoursePage();
+  if (typeof hideVocalStateKitPage === 'function') hideVocalStateKitPage();
   if (modeLauncher) modeLauncher.hidden = true;
   if (libraryPage) libraryPage.hidden = true;
   if (appWindow) appWindow.hidden = true;

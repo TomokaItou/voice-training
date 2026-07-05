@@ -3,6 +3,7 @@ export type ImmediateFeedback = {
   nextCue: string;
   isUsable: boolean;
   severity: 'good' | 'minor' | 'needs_retry';
+  taskSummary?: TaskSummary;
 };
 
 export type TaskSummary = {
@@ -20,22 +21,39 @@ type AttemptLike = {
 };
 
 type ProbeTaskLike = {
-  id: string;
+  id?: string;
   name?: string;
 };
 
-const durationSeconds = (attempt: AttemptLike) => Math.max(0, (attempt.durationMs || 0) / 1000);
+function aiTeacherFiniteNumber(value, fallback = null) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function aiTeacherAttemptDurationSeconds(attempt) {
+  return Math.max(0, (attempt?.durationMs || 0) / 1000);
+}
+
+export function aiTeacherImmediateScore(attempt) {
+  const features = attempt?.features || {};
+  const pitchStd = aiTeacherFiniteNumber(features.pitch_std, 30);
+  const loudnessStd = aiTeacherFiniteNumber(features.loudness_std, 8);
+  const duration = aiTeacherAttemptDurationSeconds(attempt);
+  const durationPenalty = duration >= 2 && duration <= 4 ? 0 : Math.abs(duration - 3) * 12;
+  const loudnessPenalty = loudnessStd >= 0.5 && loudnessStd <= 8 ? loudnessStd * 0.6 : loudnessStd * 1.4;
+  return pitchStd * 2 + loudnessPenalty + durationPenalty;
+}
 
 export function generateImmediateFeedback(
-  currentAttempt: AttemptLike,
-  previousAttempts: AttemptLike[] = [],
-  currentTask?: ProbeTaskLike,
-): ImmediateFeedback {
-  const features = currentAttempt.features || {};
-  const duration = durationSeconds(currentAttempt);
+  currentAttempt,
+  previousAttempts = [],
+  currentTask = {},
+) {
+  const features = currentAttempt?.features || {};
+  const duration = aiTeacherAttemptDurationSeconds(currentAttempt);
   const loudness = features.loudness_mean;
   const pitchStd = features.pitch_std;
-  const previousPitchStd = previousAttempts[previousAttempts.length - 1]?.features?.pitch_std;
+  const previous = previousAttempts[previousAttempts.length - 1];
+  const previousPitchStd = previous?.features?.pitch_std;
 
   if (duration > 0 && duration < 1.8) {
     return {
@@ -58,7 +76,7 @@ export function generateImmediateFeedback(
   if (Number.isFinite(loudness) && loudness > -10) {
     return {
       quickComment: '这次有点冲。',
-      nextCue: '下一次轻一点开始，不要一下子把声音推出来。',
+      nextCue: '下一次轻一点开始，不要一下子把声音推出去。',
       isUsable: loudness < -6,
       severity: loudness < -6 ? 'minor' : 'needs_retry',
     };
@@ -85,30 +103,33 @@ export function generateImmediateFeedback(
   }
 
   return {
-    quickComment: currentTask?.id === 'soft_to_normal' ? '这次可以用，我听到了音量变化。' : '这次可以用。',
+    quickComment: currentTask?.id === 'soft_to_normal'
+      ? '这次可以用，我听到了音量变化。'
+      : '这次可以用。',
     nextCue: '我们再录下一次，尽量让它和刚才一样。',
     isUsable: true,
     severity: 'good',
   };
 }
 
-export function generateTaskSummary(taskId: string, attempts: AttemptLike[], nextTask?: ProbeTaskLike | null): TaskSummary {
-  const scored = attempts
-    .map((attempt, index) => {
-      const pitchStd = Number.isFinite(attempt.features?.pitch_std) ? attempt.features!.pitch_std : 30;
-      const loudnessStd = Number.isFinite(attempt.features?.loudness_std) ? attempt.features!.loudness_std : 8;
-      const duration = durationSeconds(attempt);
-      const durationPenalty = duration >= 2 && duration <= 4 ? 0 : Math.abs(duration - 3) * 12;
-      return { attempt, index, score: pitchStd * 2 + loudnessStd * 0.6 + durationPenalty };
-    })
+export function generateTaskSummary(taskId, attempts = [], nextTask = null) {
+  const ranked = attempts
+    .map((attempt, index) => ({
+      attempt,
+      index,
+      score: aiTeacherImmediateScore(attempt),
+    }))
     .sort((left, right) => left.score - right.score);
-  const best = scored[0]?.attempt;
-  const bestAttemptIndex = best?.attemptId || (scored[0]?.index ?? 0) + 1;
+  const best = ranked[0]?.attempt || attempts[0] || null;
+  const bestAttemptIndex = best?.attemptId || (ranked[0]?.index ?? 0) + 1;
+  const nextName = nextTask?.name || nextTask?.id || '完整诊断';
 
   return {
     taskId,
     mainObservation: `这个任务里，第 ${bestAttemptIndex} 次最稳定。`,
     bestAttemptIndex,
-    nextTaskCue: nextTask ? `接下来进入下一个任务：${nextTask.name || nextTask.id}。` : '这个阶段已经录完了，接下来可以查看完整诊断。',
+    nextTaskCue: nextTask
+      ? `接下来进入下一个任务：${nextName}。`
+      : '这个阶段已经录完了，接下来可以查看完整诊断。',
   };
 }

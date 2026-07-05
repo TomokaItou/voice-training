@@ -718,6 +718,14 @@ pauseButton?.addEventListener('click', pausePracticeSession);
 stopButton.addEventListener('click', stopPracticeSession);
 pitchAlgorithmSelect.addEventListener('change', (event) => {
   pitchAlgorithm = event.target.value;
+  if (pitchAlgorithm === 'crepe') {
+    const status = window.CrepePitch?.getStatus?.();
+    setAnalysisStatus(
+      status?.available
+        ? `CREPE 已启用：${status.providerId}`
+        : `CREPE 模型未加载，暂用 YIN fallback。${status?.reason || ''}`.trim()
+    );
+  }
   resetPitchStabilizer();
   if (!offlineAnalysisInProgress) {
     pitchHistory = [];

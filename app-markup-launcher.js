@@ -31,6 +31,7 @@
         <nav class="home-main-tabs" aria-label="主导航">
           <button class="home-tab is-active" type="button" data-home-tab-button="today" aria-selected="true">今天</button>
           <button class="home-tab" type="button" data-home-tab-button="flow" aria-selected="false">流程</button>
+          <button class="home-tab" type="button" data-home-tab-button="course" aria-selected="false">课程</button>
           <button class="home-tab" type="button" data-home-tab-button="songs" aria-selected="false">歌曲</button>
           <button class="home-tab" type="button" data-home-tab-button="teacher" aria-selected="false">AI老师</button>
           <button class="home-tab" type="button" data-home-tab-button="mine" aria-selected="false">我的</button>
@@ -76,6 +77,18 @@
               </div>
             </div>
 
+          </div>
+        </section>
+
+        <section class="active-search-entry-card" id="aiCourseEntryCard" data-home-section="course" hidden>
+          <div class="today-vocal-move-copy">
+            <span class="game-label">AI Course</span>
+            <h2>今天只练一件事</h2>
+            <p>根据能力档案推荐下一节课，完成 Probe → Exercise → Probe 的闭环。</p>
+            <small>轻声起音、稳定气息、闭合控制、连音和歌曲片段，会按你的表现自动安排。</small>
+          </div>
+          <div class="today-vocal-move-actions">
+            <button id="openAiCourseButton" type="button">进入课程</button>
           </div>
         </section>
 
@@ -162,6 +175,18 @@
           </div>
         </section>
 
+        <section class="active-search-entry-card" id="aiExperimentEntryCard" data-home-section="teacher" hidden>
+          <div class="today-vocal-move-copy">
+            <span class="game-label">AI Experiment</span>
+            <h2>AI实验模式</h2>
+            <p>Probe → Exercise → Probe，用一次小实验判断现在最该练什么。</p>
+            <small>先听 5–10 秒，给一个假设，一个短练习，再复测。</small>
+          </div>
+          <div class="today-vocal-move-actions">
+            <button id="openAiExperimentButton" type="button">开始 AI 实验</button>
+          </div>
+        </section>
+
         <section class="teacher-tools-card" data-home-section="teacher" aria-label="AI 老师工具" hidden>
           <div>
             <span class="game-label">AI 老师</span>
@@ -171,6 +196,7 @@
           <div class="teacher-tools-grid">
             <button id="aiTeacherFixOneThingButton" class="secondary" type="button">Fix One Thing</button>
             <button id="aiTeacherHistoryButton" class="secondary" type="button">分析历史</button>
+            <button id="openVocalStateKitButton" class="secondary" type="button">多模态录制实验</button>
           </div>
         </section>
 

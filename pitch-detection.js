@@ -138,6 +138,22 @@ function detectPitchForAlgorithm(buffer, sampleRate, analyserNode = null, spectr
     return estimatePitchYinWithConfidence(buffer, sampleRate, rms);
   }
 
+  if (pitchAlgorithm === 'crepe') {
+    const crepeResult = typeof estimatePitchCrepeWithConfidence === 'function'
+      ? estimatePitchCrepeWithConfidence(buffer, sampleRate)
+      : null;
+    if (crepeResult?.pitch) {
+      return crepeResult;
+    }
+    const fallback = estimatePitchYinWithConfidence(buffer, sampleRate, rms);
+    return {
+      ...fallback,
+      fallbackAlgorithm: 'yin',
+      requestedAlgorithm: 'crepe',
+      neuralUnavailableReason: crepeResult?.reason || 'CREPE 不可用',
+    };
+  }
+
   return autoCorrelateWithConfidence(buffer, sampleRate, rms);
 }
 

@@ -103,6 +103,21 @@ function showTrainingView(mode = 'pitch') {
   } else {
     document.getElementById('songAnalysisPage')?.setAttribute('hidden', '');
   }
+  if (typeof hideAiExperimentPage === 'function') {
+    hideAiExperimentPage();
+  } else {
+    document.getElementById('aiExperimentPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideAiCoursePage === 'function') {
+    hideAiCoursePage();
+  } else {
+    document.getElementById('aiCoursePage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideVocalStateKitPage === 'function') {
+    hideVocalStateKitPage();
+  } else {
+    document.getElementById('vocalStateKitPage')?.setAttribute('hidden', '');
+  }
   appWindow.hidden = false;
   trainingMode = mode;
   setReadoutMode(mode);
@@ -297,6 +312,21 @@ function showLauncherView() {
   } else {
     document.getElementById('songAnalysisPage')?.setAttribute('hidden', '');
   }
+  if (typeof hideAiExperimentPage === 'function') {
+    hideAiExperimentPage();
+  } else {
+    document.getElementById('aiExperimentPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideAiCoursePage === 'function') {
+    hideAiCoursePage();
+  } else {
+    document.getElementById('aiCoursePage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideVocalStateKitPage === 'function') {
+    hideVocalStateKitPage();
+  } else {
+    document.getElementById('vocalStateKitPage')?.setAttribute('hidden', '');
+  }
   appWindow.hidden = true;
 }
 
@@ -333,6 +363,21 @@ function showLibraryPage(view) {
     hideSongAnalysisPage();
   } else {
     document.getElementById('songAnalysisPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideAiExperimentPage === 'function') {
+    hideAiExperimentPage();
+  } else {
+    document.getElementById('aiExperimentPage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideAiCoursePage === 'function') {
+    hideAiCoursePage();
+  } else {
+    document.getElementById('aiCoursePage')?.setAttribute('hidden', '');
+  }
+  if (typeof hideVocalStateKitPage === 'function') {
+    hideVocalStateKitPage();
+  } else {
+    document.getElementById('vocalStateKitPage')?.setAttribute('hidden', '');
   }
   if (recordingLibraryPanel) {
     recordingLibraryPanel.hidden = !showRecording;

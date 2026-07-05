@@ -68,6 +68,117 @@ const FIX_ISSUE_COPY = {
   },
 };
 
+Object.assign(FIX_TASKS, {
+  discontinuity: [
+    {
+      title: '不断线唱这一句',
+      durationSec: 30,
+      instruction: '先不追求音准细节，只唱这一句并保持不断线。声音可以小一点，但不要中途掉出发声。',
+      focus: '让旋律先连起来',
+    },
+  ],
+  pitch_high: [
+    {
+      title: '轻一点找回音高中心',
+      durationSec: 30,
+      instruction: '把音量放轻一点，先找到目标线附近的感觉，再逐步带回歌词和正常音量。',
+      focus: '降低整体偏高',
+    },
+  ],
+  pitch_low: [
+    {
+      title: '先 hum 托住目标音',
+      durationSec: 30,
+      instruction: '先 hum 到目标音上方一点，再带歌词进入，避免一开口就落在目标下方。',
+      focus: '抬稳音高中心',
+    },
+  ],
+  tail_drop: [
+    {
+      title: '句尾多撑半秒',
+      durationSec: 30,
+      instruction: '只练句尾，多撑 0.5 秒，音量不要突然收掉，也不要把尾音压低。',
+      focus: '稳住尾音',
+    },
+  ],
+  pitch_instability: [
+    {
+      title: 'hum 旋律再带歌词',
+      durationSec: 30,
+      instruction: '前两次只用 hum 唱旋律，第三次再带歌词，先让音高摆动变小。',
+      focus: '减少局部音高晃动',
+    },
+  ],
+  pressedness: [
+    {
+      title: 'mum 轻声减压',
+      durationSec: 30,
+      instruction: '把音量降一点，用 mum 轻声唱同一句，再回到歌词，不要用力顶起音。',
+      focus: '减少挤和硬起音',
+    },
+  ],
+  general_difference: [
+    {
+      title: '只修差异最大的片段',
+      durationSec: 30,
+      instruction: '只练这一小段 3 次，先慢一点，再回到原速，目标是让这一段更像目标。',
+      focus: '缩小声音差异',
+    },
+  ],
+});
+
+Object.assign(FIX_ISSUE_COPY, {
+  discontinuity: {
+    label: '不断线',
+    metricLabel: '连续性',
+    reason: '这一句里有效发声不够连续，先让系统稳定听到你的旋律。',
+    advice: '今天先不追求细节，只把这一句连起来。',
+    doneLabel: '连续性',
+  },
+  pitch_high: {
+    label: '整体偏高',
+    metricLabel: '偏高程度',
+    reason: '这一句的音高重心偏目标上方。',
+    advice: '先轻一点唱，找到目标线后再加回音量。',
+    doneLabel: '音高重心',
+  },
+  pitch_low: {
+    label: '整体偏低',
+    metricLabel: '偏低程度',
+    reason: '这一句的音高重心偏目标下方。',
+    advice: '先 hum 托住目标音，再带歌词。',
+    doneLabel: '音高重心',
+  },
+  tail_drop: {
+    label: '尾音保持',
+    metricLabel: '尾音下坠',
+    reason: '这一句的句尾容易往下掉或收得太快。',
+    advice: '今天只练句尾多撑半秒。',
+    doneLabel: '尾音',
+  },
+  pitch_instability: {
+    label: '片段音准',
+    metricLabel: '音高摆动',
+    reason: '这一句主要不是整体跑偏，而是局部音高摆动偏大。',
+    advice: '先 hum 旋律，再带歌词。',
+    doneLabel: '局部音准',
+  },
+  pressedness: {
+    label: '放轻一点',
+    metricLabel: '用力感',
+    reason: '这一句可能有一点挤或起音偏硬。',
+    advice: '先用 mum 轻声减压，再回到歌词。',
+    doneLabel: '放松度',
+  },
+  general_difference: {
+    label: '声音差异',
+    metricLabel: '差异程度',
+    reason: '这一句有一个明显差异，但暂时不强行归因。',
+    advice: '先只练差异最大的片段。',
+    doneLabel: '差异',
+  },
+});
+
 let fixOneThingTimer = null;
 let fixOneThingPracticeStartedAt = 0;
 let fixOneThingSession = createFixSession();
@@ -89,6 +200,8 @@ function createFixSession() {
     confidence: 0,
     beforeScores: null,
     afterScores: null,
+    baselineVoiceRepresentation: null,
+    afterVoiceRepresentation: null,
     selectedTask: null,
     attempts: [],
     bestAttempt: null,
@@ -239,6 +352,30 @@ function chooseFixTask(issueType, scores, diagnosisLevel = 'confirmed') {
 }
 
 function extractFixFeatures(frames = recordingTimelineFrames) {
+  const voiceRepresentation = typeof createVoiceRepresentation === 'function'
+    ? createVoiceRepresentation(frames, {
+        sourceType: 'user',
+        label: 'fix-one-thing',
+        metadata: { flow: 'fix-one-thing' },
+      })
+    : null;
+  if (voiceRepresentation) {
+    const frameStats = voiceRepresentation.frameStats || {};
+    const perceptual = voiceRepresentation.perceptual || {};
+    return {
+      frames: getFixActiveFrames(frames),
+      voiceRepresentation,
+      highFrequencyRatio: frameStats.spectral?.highFrequencyRatio || 0,
+      zcr: frameStats.spectral?.zcr || 0,
+      spectralFlatness: frameStats.spectral?.flatness || 0,
+      waveformRoughness: perceptual.roughness || 0,
+      rmsMean: frameStats.loudness?.mean || 0,
+      rmsStability: frameStats.stability?.loudness || 0,
+      perceptual,
+      problemCandidates: voiceRepresentation.problemCandidates || [],
+    };
+  }
+
   const activeFrames = getFixActiveFrames(frames);
   const rmsValues = activeFrames.map((frame) => frame.rms).filter(Number.isFinite);
   const highFrequencyRatio = averageFixMetric(activeFrames, 'highFrequencyRatio');
@@ -256,20 +393,31 @@ function extractFixFeatures(frames = recordingTimelineFrames) {
     waveformRoughness,
     rmsMean,
     rmsStability,
+    voiceRepresentation: null,
+    perceptual: null,
+    problemCandidates: [],
   };
 }
 
 function scoreFixIssue(features) {
+  const pitchStd = features.voiceRepresentation?.frameStats?.pitch?.std || 0;
+  const pitchRange = features.voiceRepresentation?.frameStats?.pitch?.range || 0;
+  const continuity = features.perceptual?.continuity ?? features.voiceRepresentation?.frameStats?.stability?.continuity ?? 0;
+  const tailDrop = features.perceptual?.tailDrop || 0;
   const breathiness = clampFixScore(
-    features.highFrequencyRatio * 2.8 +
-      features.zcr * 1.7 +
-      features.spectralFlatness * 0.62 +
-      (1 - features.rmsStability) * 0.22
+    Number.isFinite(features.perceptual?.breathiness)
+      ? features.perceptual.breathiness
+      : features.highFrequencyRatio * 2.8 +
+        features.zcr * 1.7 +
+        features.spectralFlatness * 0.62 +
+        (1 - features.rmsStability) * 0.22
   );
   const pressedClosure = clampFixScore(
-    features.waveformRoughness * 0.92 +
-      Math.max(0, features.rmsMean - 0.055) * 5.2 +
-      Math.max(0, 0.18 - features.zcr) * 1.45
+    Number.isFinite(features.perceptual?.pressedness)
+      ? features.perceptual.pressedness
+      : features.waveformRoughness * 0.92 +
+        Math.max(0, features.rmsMean - 0.055) * 5.2 +
+        Math.max(0, 0.18 - features.zcr) * 1.45
   );
   const looseClosure = clampFixScore(
     Math.max(0, 0.04 - features.rmsMean) * 7.5 +
@@ -277,9 +425,28 @@ function scoreFixIssue(features) {
       (1 - features.rmsStability) * 0.18
   );
   const closure = clampFixScore(Math.max(pressedClosure, looseClosure));
+  const pressedness = pressedClosure;
+  const pitch_instability = clampFixScore(
+    Math.max(0, (pitchStd - 15) / 75) * 0.7 +
+      Math.max(0, (pitchRange - 120) / 360) * 0.3
+  );
+  const discontinuity = clampFixScore(1 - continuity);
+  const tail_drop = clampFixScore(tailDrop);
+  const general_difference = clampFixScore(Math.max(
+    breathiness,
+    pressedness,
+    tail_drop,
+    pitch_instability,
+    discontinuity
+  ));
 
   return {
     breathiness,
+    pressedness,
+    tail_drop,
+    pitch_instability,
+    discontinuity,
+    general_difference,
     closure,
   };
 }
@@ -289,10 +456,21 @@ function chooseFixIssue(scores, frameCount) {
     return { issueType: 'unknown', confidence: 0.08, diagnosisLevel: 'unknown' };
   }
 
-  const { breathiness, closure } = scores;
-  const topScore = Math.max(breathiness, closure);
-  const gap = Math.abs(breathiness - closure);
-  const issueType = breathiness >= closure ? 'breathiness' : 'closure';
+  const candidates = [
+    'discontinuity',
+    'tail_drop',
+    'pitch_instability',
+    'pressedness',
+    'breathiness',
+    'general_difference',
+  ]
+    .map((issueType) => ({ issueType, score: clampFixScore(scores?.[issueType] || 0) }))
+    .sort((a, b) => b.score - a.score);
+  const top = candidates[0] || { issueType: 'unknown', score: 0 };
+  const second = candidates[1] || { score: 0 };
+  const topScore = top.score;
+  const gap = Math.abs(top.score - second.score);
+  const issueType = top.issueType;
 
   if (topScore < 0.1) {
     return {
@@ -311,15 +489,31 @@ function chooseFixIssue(scores, frameCount) {
   };
 }
 
+function buildFixTeachingTask(issueType, scores, diagnosisLevel = 'confirmed') {
+  const teaching = window.VoiceTeachingActions?.build?.(issueType, {
+    segmentText: '这一句',
+  });
+  if (teaching) {
+    return {
+      title: teaching.badge,
+      durationSec: 30,
+      instruction: teaching.practiceStep,
+      focus: teaching.shortLabel || teaching.badge,
+      teachingAction: teaching,
+    };
+  }
+  return chooseFixTask(issueType, scores, diagnosisLevel);
+}
+
 function analyzeFixOneThingRecording(frames = recordingTimelineFrames) {
   const features = extractFixFeatures(frames);
   const scores = scoreFixIssue(features);
   const choice = chooseFixIssue(scores, features.frames.length);
   const targetScore = choice.issueType === 'unknown'
-    ? Math.max(scores.breathiness, scores.closure)
+    ? Math.max(...Object.values(scores).filter(Number.isFinite), 0)
     : scores[choice.issueType];
   const severity = choice.issueType === 'unknown' ? 'mild' : getFixSeverity(targetScore);
-  const selectedTask = chooseFixTask(choice.issueType, scores, choice.diagnosisLevel);
+  const selectedTask = buildFixTeachingTask(choice.issueType, scores, choice.diagnosisLevel);
 
   return {
     issueType: choice.issueType,
@@ -335,7 +529,13 @@ function analyzeFixOneThingRecording(frames = recordingTimelineFrames) {
       waveformRoughness: features.waveformRoughness,
       rmsMean: features.rmsMean,
       rmsStability: features.rmsStability,
+      tailDrop: features.perceptual?.tailDrop,
+      continuity: features.perceptual?.continuity,
+      pressedness: features.perceptual?.pressedness,
     },
+    voiceRepresentation: features.voiceRepresentation,
+    perceptual: features.perceptual,
+    problemCandidates: features.problemCandidates,
     frameCount: features.frames.length,
     durationMs: features.frames.length
       ? features.frames[features.frames.length - 1].timeMs - features.frames[0].timeMs
@@ -404,6 +604,9 @@ function renderFixResult() {
     setFixText(fixOneThingImprovement, `${resultPrefix}这次可能用力方式不太对。先放轻一点，不要硬挤。`);
   } else {
     setFixText(fixOneThingImprovement, `${resultPrefix}这次变化不明显，Mira 建议换一个更简单的验证练习。`);
+  }
+  if (result.progress?.explanation) {
+    setFixText(fixOneThingImprovement, result.progress.explanation);
   }
   setFixText(fixOneThingXp, `XP +${result.xp}`);
 }
@@ -476,6 +679,17 @@ function renderFixOneThingFlow() {
         : issueCopy.advice,
       successReferenceCopy || `置信度：${Math.round((fixOneThingSession.confidence || 0) * 100)}%。`,
       '这一轮只追踪这一个问题。',
+    ];
+  }
+
+  if (hasTask && task.teachingAction) {
+    problemText = `Mira 找到：${task.teachingAction.badge}`;
+    reasonText = task.teachingAction.summary || issueCopy.reason;
+    const memoryHint = window.VoiceLearningMemory?.getMemoryHint?.(issueType) || '';
+    whyLines = [
+      task.teachingAction.experiment || issueCopy.advice,
+      memoryHint || task.teachingAction.passMetric || `置信度：${Math.round((fixOneThingSession.confidence || 0) * 100)}%`,
+      '这一轮只验证这一个方向，复测后再决定是否继续。',
     ];
   }
 
@@ -645,15 +859,25 @@ function getFixConsecutivePassCount(attempts = fixOneThingSession.attempts) {
 function addFixTrainingAttempt(analysis) {
   const issueType = fixOneThingSession.issueType || 'unknown';
   const baselinePerformance = getFixPerformanceScore(fixOneThingSession.beforeScores, issueType);
-  const performanceScore = getFixPerformanceScore(analysis.scores, issueType);
+  const fallbackPerformanceScore = getFixPerformanceScore(analysis.scores, issueType);
+  const progress = window.VoiceProgressEvaluator?.evaluate?.({
+    beforeRepresentation: fixOneThingSession.baselineVoiceRepresentation,
+    afterRepresentation: analysis.voiceRepresentation,
+    problemId: issueType,
+    fallbackBefore: baselinePerformance,
+    fallbackAfter: fallbackPerformanceScore,
+  });
+  const performanceScore = Number.isFinite(progress?.afterScore) ? progress.afterScore : fallbackPerformanceScore;
+  const baselineScore = Number.isFinite(progress?.beforeScore) ? progress.beforeScore : baselinePerformance;
   const attempt = {
     index: fixOneThingSession.attempts.length + 1,
     recording: getFixRecordingSnapshot(recordingTimelineFrames),
     scores: analysis.scores,
+    progress,
     performanceScore,
-    baselinePerformance,
-    delta: performanceScore - baselinePerformance,
-    passed: performanceScore - baselinePerformance >= FIX_ONE_THING_PASS_DELTA,
+    baselinePerformance: baselineScore,
+    delta: performanceScore - baselineScore,
+    passed: progress ? progress.improved : performanceScore - baselineScore >= FIX_ONE_THING_PASS_DELTA,
     createdAt: new Date().toISOString(),
   };
   fixOneThingSession.attempts.push(attempt);
@@ -668,16 +892,25 @@ function addFixTrainingAttempt(analysis) {
 function finishFixOneThingRound(afterAnalysis) {
   const issueType = fixOneThingSession.issueType || 'unknown';
   const bestAttempt = fixOneThingSession.bestAttempt || addFixTrainingAttempt(afterAnalysis);
-  const beforeScore = getFixPerformanceScore(fixOneThingSession.beforeScores, issueType);
+  const progress = bestAttempt.progress || window.VoiceProgressEvaluator?.evaluate?.({
+    beforeRepresentation: fixOneThingSession.baselineVoiceRepresentation,
+    afterRepresentation: fixOneThingSession.afterVoiceRepresentation || afterAnalysis.voiceRepresentation,
+    problemId: issueType,
+    fallbackBefore: getFixPerformanceScore(fixOneThingSession.beforeScores, issueType),
+    fallbackAfter: bestAttempt.performanceScore,
+  });
+  const beforeScore = Number.isFinite(progress?.beforeScore)
+    ? progress.beforeScore
+    : getFixPerformanceScore(fixOneThingSession.beforeScores, issueType);
   const afterScore = bestAttempt.performanceScore;
   const rawDelta = afterScore - beforeScore;
   const delta = Number.isFinite(rawDelta) ? rawDelta : 0;
   const passedCount = getFixConsecutivePassCount();
   const completed = fixOneThingSession.attempts.length >= FIX_ONE_THING_REPEAT_TARGET || passedCount >= 3;
   let status = 'no_clear_change';
-  if (completed && delta >= FIX_ONE_THING_PASS_DELTA) {
+  if (completed && (progress?.improved || delta >= FIX_ONE_THING_PASS_DELTA)) {
     status = 'improved';
-  } else if (delta <= -0.05) {
+  } else if (progress?.status === 'worse' || delta <= -0.05) {
     status = 'worse';
   }
 
@@ -694,6 +927,7 @@ function finishFixOneThingRound(afterAnalysis) {
     beforeScore,
     afterScore,
     delta: Math.abs(delta),
+    progress,
     combo: nextCombo,
     xp,
     completed,
@@ -702,7 +936,27 @@ function finishFixOneThingRound(afterAnalysis) {
     miraSummary: fixOneThingSession.miraSummary,
   };
 
+  if (progress?.metricLabel && fixOneThingSession.result) {
+    fixOneThingSession.result.metricLabel = progress.metricLabel;
+  }
+
   if (completed) {
+    window.VoiceLearningMemory?.recordTrainingResult?.({
+      context: 'fix-one-thing',
+      problemId: issueType,
+      actionId: fixOneThingSession.selectedTask?.teachingAction?.problemId || issueType,
+      actionLabel: fixOneThingSession.selectedTask?.title || FIX_ISSUE_COPY[issueType]?.label || issueType,
+      beforeMetric: progress?.beforeMetric,
+      afterMetric: progress?.afterMetric,
+      beforeScore,
+      afterScore,
+      delta,
+      improved: status === 'improved',
+      status,
+      recordingId: bestAttempt.recording?.id || null,
+      sessionId: fixOneThingSession.id,
+      summary: progress?.explanation || fixOneThingSession.miraSummary,
+    });
     saveFixTodayCompleted([...loadFixTodayCompleted(), issueType]);
     saveFixOneThingSample({
       id: `${Date.now()}-${issueType}`,
@@ -746,6 +1000,7 @@ function onFixOneThingRecordingStopped() {
     const analysis = analyzeFixOneThingRecording(recordingTimelineFrames);
     fixOneThingSession.baselineRecording = getFixRecordingSnapshot(recordingTimelineFrames);
     fixOneThingSession.beforeAnalysis = analysis;
+    fixOneThingSession.baselineVoiceRepresentation = analysis.voiceRepresentation;
     fixOneThingSession.issueType = analysis.issueType;
     fixOneThingSession.diagnosisLevel = analysis.diagnosisLevel;
     fixOneThingSession.severity = analysis.severity;
@@ -756,6 +1011,7 @@ function onFixOneThingRecordingStopped() {
   } else if (fixOneThingState.phase === 'recording-after') {
     const analysis = analyzeFixOneThingRecording(recordingTimelineFrames);
     fixOneThingSession.afterAnalysis = analysis;
+    fixOneThingSession.afterVoiceRepresentation = analysis.voiceRepresentation;
     const attempt = addFixTrainingAttempt(analysis);
     const passedCount = getFixConsecutivePassCount();
     if (fixOneThingSession.attempts.length >= FIX_ONE_THING_REPEAT_TARGET || passedCount >= 3) {
@@ -769,6 +1025,7 @@ function onFixOneThingRecordingStopped() {
         beforeScore: attempt.baselinePerformance,
         afterScore: attempt.performanceScore,
         delta: Math.abs(attempt.delta),
+        progress: attempt.progress,
         combo: fixOneThingState.combo,
         xp: 0,
         completed: false,
@@ -776,6 +1033,9 @@ function onFixOneThingRecordingStopped() {
         bestAttempt: fixOneThingSession.bestAttempt,
         miraSummary: getFixCompletionSummary(),
       };
+      if (attempt.progress?.metricLabel) {
+        fixOneThingSession.result.metricLabel = attempt.progress.metricLabel;
+      }
     }
   }
   renderFixOneThingFlow();

@@ -1,3 +1,4 @@
+// Generated from src/ai-vocal-teacher/*.ts. Do not edit directly.
 function aiTeacherFiniteNumber(value, fallback = null) {
   return Number.isFinite(value) ? value : fallback;
 }
@@ -16,7 +17,11 @@ function aiTeacherImmediateScore(attempt) {
   return pitchStd * 2 + loudnessPenalty + durationPenalty;
 }
 
-function generateImmediateFeedback(currentAttempt, previousAttempts = [], currentTask = {}) {
+function generateImmediateFeedback(
+  currentAttempt,
+  previousAttempts = [],
+  currentTask = {},
+) {
   const features = currentAttempt?.features || {};
   const duration = aiTeacherAttemptDurationSeconds(currentAttempt);
   const loudness = features.loudness_mean;
@@ -45,7 +50,7 @@ function generateImmediateFeedback(currentAttempt, previousAttempts = [], curren
   if (Number.isFinite(loudness) && loudness > -10) {
     return {
       quickComment: '这次有点冲。',
-      nextCue: '下一次轻一点开始，不要一下子把声音推出来。',
+      nextCue: '下一次轻一点开始，不要一下子把声音推出去。',
       isUsable: loudness < -6,
       severity: loudness < -6 ? 'minor' : 'needs_retry',
     };

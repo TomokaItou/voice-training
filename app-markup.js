@@ -1,7 +1,7 @@
 // Assembles static application shell markup before the rest of the app scripts run.
 (function () {
   const parts = window.voiceTrainingMarkupParts || {};
-  const requiredParts = ['launcher', 'library', 'vocalMoves', 'activeSearch', 'aiVocalTeacher', 'songAnalysis', 'training', 'sidebar'];
+  const requiredParts = ['launcher', 'library', 'vocalMoves', 'activeSearch', 'aiVocalTeacher', 'aiExperiment', 'aiCourse', 'vocalStateKit', 'songAnalysis', 'training', 'sidebar'];
   const missingParts = requiredParts.filter((key) => !parts[key]);
 
   if (missingParts.length) {

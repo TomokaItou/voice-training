@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
   [string]$NodePath = $env:NODE_EXE,
   [switch]$SkipNode
@@ -99,6 +99,9 @@ if ($failures.Count -eq 0) {
     'app-markup-vocal-moves.js',
     'app-markup-active-search.js',
     'app-markup-ai-vocal-teacher.js',
+    'app-markup-ai-experiment.js',
+    'app-markup-ai-course.js',
+    'app-markup-vocal-state-kit.js',
     'app-markup-song-analysis.js',
     'app-markup-training.js',
     'app-markup-sidebar.js',
@@ -148,7 +151,15 @@ if ($failures.Count -eq 0) {
     }
   }
 
-  $localJsFiles = Get-ChildItem -Path $root -Filter '*.js' -File | ForEach-Object { $_.Name }
+  $localJsFiles = @(
+    Get-ChildItem -Path $root -Filter '*.js' -File | ForEach-Object { $_.Name }
+  )
+  $featuresPath = Join-Path $root 'features'
+  if (Test-Path $featuresPath) {
+    $localJsFiles += Get-ChildItem -Path $featuresPath -Filter '*.js' -File -Recurse | ForEach-Object {
+      $_.FullName.Substring($root.Path.Length + 1).Replace('\', '/')
+    }
+  }
   foreach ($jsFile in $localJsFiles) {
     if ($scriptSources -notcontains $jsFile) {
       Add-Warning "JavaScript file is not loaded by index.html: $jsFile"
@@ -186,11 +197,15 @@ if ($failures.Count -eq 0) {
     'app-markup-vocal-moves.js',
     'app-markup-active-search.js',
     'app-markup-ai-vocal-teacher.js',
+    'app-markup-ai-experiment.js',
+    'app-markup-ai-course.js',
+    'app-markup-vocal-state-kit.js',
     'app-markup-song-analysis.js',
     'app-markup-training.js',
     'app-markup-sidebar.js',
     'app-markup.js',
     'app-config.js',
+    'core/storage.js',
     'app-dom.js',
     'app-state.js',
     'vocal-moves-data.js',
@@ -201,7 +216,10 @@ if ($failures.Count -eq 0) {
     'mira-feedback.js',
     'beginner-practice.js',
     'app-shell.js',
+    'assets/vendor/tf.min.js',
     'pitch-detection.js',
+    'crepe-pitch.js',
+    'crepe-tfjs-provider.js',
     'formant-analysis.js',
     'canvas-rendering.js',
     'offline-analysis.js',
@@ -212,7 +230,17 @@ if ($failures.Count -eq 0) {
     'song-pitch.js',
     'vocal-score.js',
     'song-lyrics.js',
-    'recording-timeline.js',
+    'features/recording/recording-library-storage.js',
+    'features/recording/recording-timeline-rendering.js',
+    'features/recording/recording-timeline.js',
+    'features/recording/recording-playback.js',
+    'voice-representation.js',
+    'neural-voice-embedding.js',
+    'voice-similarity.js',
+    'voice-problem-map.js',
+    'voice-teaching-actions.js',
+    'voice-progress-evaluator.js',
+    'voice-learning-memory.js',
     'success-library.js',
     'daily-challenge.js',
     'pitch-score-training.js',
@@ -223,22 +251,28 @@ if ($failures.Count -eq 0) {
     'audio-engine.js',
     'bgm-system.js',
     'song-practice-flow.js',
-    'recording-flow.js',
+    'features/recording/recording-flow.js',
     'fix-one-thing.js',
     'app.js',
     'song-analysis.js',
-    'ai-vocal-teacher-probe-tasks.js',
-    'ai-vocal-teacher-feature-extraction.js',
-    'ai-vocal-teacher-immediate-feedback.js',
-    'ai-vocal-teacher-memory-estimator.js',
-    'ai-vocal-teacher-diagnosis.js',
-    'ai-vocal-teacher-progress-tracker.js',
-    'ai-vocal-teacher-exercise-library.js',
-    'ai-vocal-teacher-closed-loop.js',
-    'ai-vocal-teacher-teaching-decision.js',
-    'ai-vocal-teacher-teaching-engine.js',
-    'ai-vocal-teacher-before-after.js',
-    'ai-vocal-teacher.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-probe-tasks.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-feature-extraction.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-immediate-feedback.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-memory-estimator.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-diagnosis.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-progress-tracker.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-exercise-library.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-closed-loop.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-teaching-decision.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-teaching-engine.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-before-after.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-storage.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-session.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher-recording.js',
+    'features/ai-vocal-teacher/ai-vocal-teacher.js',
+    'ai-experiment.js',
+    'ai-course.js',
+    'vocal-state-kit.js',
     'active-voice-search.js',
     'vocal-moves.js',
     'launcher-router.js',
@@ -294,3 +328,5 @@ if ($failures.Count -gt 0) {
 Write-Host ''
 Write-Host 'Local validation passed.'
 exit 0
+
+

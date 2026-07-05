@@ -343,6 +343,279 @@ function getSongPracticeNextStep(review) {
   return buildSongPracticeCoachAdvice(review).nextStep;
 }
 
+function buildVoiceFramesFromPitchTrack(track = [], sourceFrames = []) {
+  return track.map((pitch, index) => {
+    const timeMs = index * offlineHopDurationMs;
+    const nearestFrame = sourceFrames.length
+      ? sourceFrames.reduce((nearest, frame) => {
+          if (!nearest) return frame;
+          return Math.abs((frame.timeMs || 0) - timeMs) < Math.abs((nearest.timeMs || 0) - timeMs)
+            ? frame
+            : nearest;
+        }, null)
+      : null;
+    return {
+      timeMs,
+      pitch: pitch || null,
+      rms: nearestFrame?.rms || (pitch ? 0.03 : 0),
+      zcr: nearestFrame?.zcr ?? null,
+      waveformRoughness: nearestFrame?.waveformRoughness ?? null,
+      spectralFlatness: nearestFrame?.spectralFlatness ?? null,
+      highFrequencyRatio: nearestFrame?.highFrequencyRatio ?? null,
+      spectralCentroid: nearestFrame?.spectralCentroid ?? null,
+    };
+  });
+}
+
+function getSongVoiceSegmentText(segment, fallbackSegment = null) {
+  if (segment?.startMs !== undefined && segment?.endMs !== undefined) {
+    return `${formatTimeSeconds(segment.startMs)}-${formatTimeSeconds(segment.endMs)}`;
+  }
+  return formatSongPracticeSegment(fallbackSegment, 2);
+}
+
+async function encodeSongVoiceEmbedding(audioBuffer, options = {}) {
+  if (!audioBuffer || typeof window.NeuralVoiceEmbedding?.encodeVoice !== 'function') {
+    return null;
+  }
+  try {
+    return await window.NeuralVoiceEmbedding.encodeVoice(audioBuffer, {
+      segmentMs: 1500,
+      ...options,
+    });
+  } catch (error) {
+    console.warn('Neural voice embedding failed', error);
+    return null;
+  }
+}
+
+function getSongPracticeReferenceFile() {
+  return songSeparationSourceFile || songLyricsAudioFile || accompanimentFile || null;
+}
+
+async function getSongPracticeReferenceBuffer(existingBuffer = null) {
+  if (existingBuffer) return existingBuffer;
+  const file = getSongPracticeReferenceFile();
+  if (!file || typeof decodeAudioFile !== 'function') return null;
+  try {
+    return await decodeAudioFile(file);
+  } catch (error) {
+    console.warn('Reference audio decode failed for neural embedding', error);
+    return null;
+  }
+}
+
+function sliceAudioBuffer(sourceBuffer, startMs, endMs) {
+  if (!sourceBuffer || !Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    return null;
+  }
+  const sampleRate = sourceBuffer.sampleRate;
+  const startSample = Math.max(0, Math.floor((startMs / 1000) * sampleRate));
+  const endSample = Math.min(sourceBuffer.length, Math.ceil((endMs / 1000) * sampleRate));
+  const length = Math.max(1, endSample - startSample);
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const context = new AudioContextClass();
+  const target = context.createBuffer(sourceBuffer.numberOfChannels, length, sampleRate);
+  for (let channel = 0; channel < sourceBuffer.numberOfChannels; channel += 1) {
+    target.copyToChannel(sourceBuffer.getChannelData(channel).slice(startSample, endSample), channel);
+  }
+  context.close();
+  return target;
+}
+
+function getSongNeuralEvidenceText(comparison) {
+  const neural = comparison?.neural;
+  if (!neural) return '';
+  return `神经声像相似度 ${Math.round(neural.similarity * 100)}%。`;
+}
+
+function buildSongVoiceDifferenceReport(referenceTrack, vocalTrack, pitchReview, options = {}) {
+  if (
+    typeof createVoiceRepresentation !== 'function' ||
+    typeof window.VoiceSimilarity?.compare !== 'function' ||
+    !referenceTrack?.length ||
+    !vocalTrack?.length
+  ) {
+    return null;
+  }
+
+  const reference = createVoiceRepresentation(buildVoiceFramesFromPitchTrack(referenceTrack), {
+    sourceType: 'target',
+    label: 'song-target',
+    metadata: { flow: 'song-practice', track: 'reference' },
+  });
+  if (options.referenceEmbedding) {
+    reference.neuralEmbedding = options.referenceEmbedding;
+  }
+  const candidate = createVoiceRepresentation(buildVoiceFramesFromPitchTrack(vocalTrack, recordingTimelineFrames), {
+    sourceType: 'user',
+    label: 'song-user',
+    metadata: { flow: 'song-practice', track: 'vocal' },
+  });
+  if (options.candidateEmbedding) {
+    candidate.neuralEmbedding = options.candidateEmbedding;
+  }
+  const comparison = window.VoiceSimilarity.compare(reference, candidate);
+  const segmentText = getSongVoiceSegmentText(comparison.worstSegment, pitchReview?.worstSegment || null);
+  const neuralEvidence = getSongNeuralEvidenceText(comparison);
+  const signedError = pitchReview?.meanSignedError || 0;
+  const localizedPitchProblem = pitchReview?.p90AbsError > pitchScoreHitToleranceCents * 1.8;
+  const primaryProblem = candidate.primaryProblem?.type;
+  const largestFields = (comparison.largestDifferences || []).map((item) => item.field);
+  const problemId = window.VoiceProblemMap?.inferProblemId?.({
+    pitchReview,
+    primaryProblem,
+    largestFields,
+    localizedPitchProblem,
+    goodToleranceCents: pitchScoreGoodToleranceCents,
+  });
+  const teachingAction = window.VoiceTeachingActions?.build?.(problemId, {
+    segmentText,
+    similarity: comparison.similarity,
+  });
+  if (teachingAction) {
+    if (neuralEvidence) {
+      teachingAction.neuralEvidence = neuralEvidence;
+      teachingAction.reason = `${teachingAction.reason} ${neuralEvidence}`;
+      teachingAction.summary = `${teachingAction.summary} ${neuralEvidence}`;
+    }
+    return {
+      reference,
+      candidate,
+      comparison,
+      problemId,
+      report: teachingAction,
+    };
+  }
+
+  let badge = '声音差异';
+  let issue = '这一遍和目标的差异主要集中在这一句。';
+  let nextStep = '下一遍只练这个片段 3 次，先慢一点，再回到原速。';
+  let reason = `表征相似度 ${Math.round(comparison.similarity * 100)}%，最大差异在 ${segmentText}。${neuralEvidence ? ` ${neuralEvidence}` : ''}`;
+
+  if (pitchReview?.coverage < 35 || primaryProblem === 'discontinuity') {
+    badge = '先连起来';
+    issue = '你的有效旋律有点断，系统听到的连续歌声不够。';
+    nextStep = '下一遍先不追求音准细节，只唱这一句并保持不断线。';
+  } else if (Math.abs(signedError) > pitchScoreGoodToleranceCents) {
+    const isHigh = signedError > 0;
+    badge = isHigh ? '整体偏高' : '整体偏低';
+    issue = isHigh ? '这一遍的音高重心比目标高。' : '这一遍的音高重心比目标低。';
+    nextStep = isHigh
+      ? '下一遍先把音量放轻一点，找到目标线后再带歌词。'
+      : '下一遍先哼到目标音上方一点，再带歌词进入。';
+  } else if (primaryProblem === 'tail_drop' || largestFields.includes('tailDrop')) {
+    badge = '尾音保持';
+    issue = '这句最明显的差异是尾音容易掉或收得太快。';
+    nextStep = '下一遍只练句尾，多撑 0.5 秒，音量不要突然收掉。';
+  } else if (localizedPitchProblem || largestFields.includes('pitchStd') || largestFields.includes('pitchRange')) {
+    badge = '片段音准';
+    issue = '整段不是完全跑偏，主要是这一小段音高摆动更大。';
+    nextStep = '下一遍只练这个片段 3 次，前两次用 hum，第三次再带歌词。';
+  } else if (primaryProblem === 'pressedness') {
+    badge = '放轻一点';
+    issue = '你的录音里有一点用力或起音偏硬的迹象。';
+    nextStep = '下一遍把音量降一点，用 mum 轻声唱同一句，再回到歌词。';
+  } else if (primaryProblem === 'breathiness') {
+    badge = '声音集中';
+    issue = '你的录音里有一点声音变散或气声偏多的迹象。';
+    nextStep = '下一遍先 hum 一次，再打开到元音，保持声音不断。';
+  }
+
+  return {
+    reference,
+    candidate,
+    comparison,
+    problemId: problemId || 'general_difference',
+    report: {
+      badge,
+      segmentText,
+      issue,
+      reason,
+      summary: `${issue} ${reason}`,
+      neuralEvidence,
+      nextStep,
+      listenStep: `先回放 ${segmentText}，只听你和目标的差异，不评价整首。`,
+      practiceStep: nextStep,
+      returnStep: '这个片段稳定后，再回到整段跟唱，检查差异有没有缩小。',
+    },
+  };
+}
+
+function getSongPracticeMemoryProblemId(review, fallback = 'general_difference') {
+  if (review?.voiceDifference?.problemId) {
+    return review.voiceDifference.problemId;
+  }
+  const pitch = review?.pitch || {};
+  if (pitch.coverage < 35) return 'discontinuity';
+  if (Math.abs(pitch.meanSignedError || 0) > pitchScoreGoodToleranceCents) {
+    return pitch.meanSignedError > 0 ? 'pitch_high' : 'pitch_low';
+  }
+  if ((pitch.p90AbsError || 0) > pitchScoreHitToleranceCents * 1.8) {
+    return 'pitch_instability';
+  }
+  return fallback;
+}
+
+function recordSongPracticeMemory(review, options = {}) {
+  if (!review || typeof window.VoiceLearningMemory?.recordTrainingResult !== 'function') {
+    return null;
+  }
+  const problemId = options.problemId || getSongPracticeMemoryProblemId(review);
+  const report = options.report || review.voiceDifference?.report || null;
+  const drill = options.drill || buildSongPracticeDrill(review);
+  const afterScore = Number.isFinite(options.afterScore)
+    ? options.afterScore
+    : Number.isFinite(review.combinedScore)
+      ? review.combinedScore / 100
+      : null;
+  const beforeScore = Number.isFinite(options.beforeScore) ? options.beforeScore : null;
+  const delta = Number.isFinite(options.delta)
+    ? options.delta
+    : Number.isFinite(beforeScore) && Number.isFinite(afterScore)
+      ? afterScore - beforeScore
+      : 0;
+  const status = options.status || (options.observedOnly ? 'observed' : delta >= 0.06 ? 'improved' : 'no_clear_change');
+  const actionLabel = options.actionLabel || report?.nextStep || drill?.slow || drill?.advice || problemId;
+  const segmentText = options.segmentText || report?.segmentText || drill?.segmentText || '';
+
+  return window.VoiceLearningMemory.recordTrainingResult({
+    context: options.context || 'song-practice-review',
+    problemId,
+    actionId: problemId,
+    actionLabel,
+    beforeMetric: Number.isFinite(beforeScore) ? 1 - beforeScore : null,
+    afterMetric: Number.isFinite(afterScore) ? 1 - afterScore : null,
+    beforeScore,
+    afterScore,
+    delta,
+    neuralSimilarity: Number.isFinite(options.neuralSimilarity)
+      ? options.neuralSimilarity
+      : review.voiceDifference?.comparison?.neural?.similarity ?? null,
+    neuralDelta: Number.isFinite(options.neuralDelta) ? options.neuralDelta : null,
+    improved: options.improved ?? status === 'improved',
+    status,
+    observedOnly: options.observedOnly || status === 'observed',
+    songTitle: getSongPracticeTitle(),
+    segmentText,
+    summary: options.summary || report?.summary || drill?.reason || '',
+  });
+}
+
+function recordSongPracticeReviewMemory(review) {
+  if (!review || review.memoryRecorded) {
+    return null;
+  }
+  const memory = recordSongPracticeMemory(review, {
+    context: 'song-practice-review',
+    status: 'observed',
+    observedOnly: true,
+    afterScore: Number.isFinite(review.combinedScore) ? review.combinedScore / 100 : null,
+  });
+  review.memoryRecorded = Boolean(memory);
+  return memory;
+}
+
 function renderSongPracticeReview(review = songPracticeLastReview) {
   if (!songPracticeReviewPanel) {
     return;
@@ -368,6 +641,8 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
 
   const coach = buildSongPracticeCoachAdvice(review);
   const drill = buildSongPracticeDrill(review, coach, songPracticeNavigation.drillIndex);
+  const voiceReport = review.voiceDifference?.report || null;
+  const memoryHint = window.VoiceLearningMemory?.getCurrentMemoryHint?.(getSongPracticeMemoryProblemId(review)) || '';
   const rhythmText = review.rhythm?.total
     ? `${review.rhythm.score}% / 命中 ${review.rhythm.hitRate}%`
     : '未记录';
@@ -378,7 +653,7 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
     songPracticeReviewTitle.textContent = coach.title;
   }
   if (songPracticeReviewBadge) {
-    songPracticeReviewBadge.textContent = coach.badge || review.pitch.label;
+    songPracticeReviewBadge.textContent = voiceReport?.badge || coach.badge || review.pitch.label;
   }
   if (songPracticeReviewScore) {
     songPracticeReviewScore.textContent = `${review.combinedScore}%`;
@@ -393,21 +668,22 @@ function renderSongPracticeReview(review = songPracticeLastReview) {
     songPracticeReviewCoverage.textContent = `${review.pitch.coverage}%`;
   }
   if (songPracticeReviewSummary) {
-    songPracticeReviewSummary.textContent = coach.summary;
+    songPracticeReviewSummary.textContent = voiceReport?.summary || coach.summary;
   }
   if (songPracticeReviewNextStep) {
-    songPracticeReviewNextStep.textContent = coach.nextStep;
+    const nextStep = voiceReport?.nextStep || coach.nextStep;
+    songPracticeReviewNextStep.textContent = memoryHint ? `${nextStep} ${memoryHint}` : nextStep;
   }
   if (songPracticeDrillCard) {
     songPracticeDrillCard.hidden = true;
   }
   if (drill) {
-    if (songPracticeDrillSegment) songPracticeDrillSegment.textContent = drill.segmentText;
-    if (songPracticeDrillBadge) songPracticeDrillBadge.textContent = drill.badge;
-    if (songPracticeDrillReason) songPracticeDrillReason.textContent = drill.reason;
-    if (songPracticeDrillStepListen) songPracticeDrillStepListen.textContent = drill.listen;
-    if (songPracticeDrillStepSlow) songPracticeDrillStepSlow.textContent = drill.slow;
-    if (songPracticeDrillStepReturn) songPracticeDrillStepReturn.textContent = drill.returnStep;
+    if (songPracticeDrillSegment) songPracticeDrillSegment.textContent = voiceReport?.segmentText || drill.segmentText;
+    if (songPracticeDrillBadge) songPracticeDrillBadge.textContent = voiceReport?.badge || drill.badge;
+    if (songPracticeDrillReason) songPracticeDrillReason.textContent = voiceReport?.reason || drill.reason;
+    if (songPracticeDrillStepListen) songPracticeDrillStepListen.textContent = voiceReport?.listenStep || drill.listen;
+    if (songPracticeDrillStepSlow) songPracticeDrillStepSlow.textContent = voiceReport?.practiceStep || drill.slow;
+    if (songPracticeDrillStepReturn) songPracticeDrillStepReturn.textContent = voiceReport?.returnStep || drill.returnStep;
   }
   if (songPracticeReplaySegmentButton) {
     songPracticeReplaySegmentButton.disabled = !lastRecordingBlob || !drill?.window;
@@ -451,9 +727,13 @@ function resetSongPracticeNavigation() {
     drillIndex: 0,
     drill: null,
     baselineScore: null,
+    baselineNeuralSimilarity: null,
     previousScore: null,
+    previousNeuralSimilarity: null,
     lastScore: null,
     lastImprovement: null,
+    lastNeuralSimilarity: null,
+    lastNeuralImprovement: null,
     mode: 'overview',
   };
 }
@@ -501,9 +781,13 @@ function renderSongPracticeNavigation(review = songPracticeLastReview) {
 
   if (songPracticeNavigation.baselineScore === null || songPracticeNavigation.mode === 'overview') {
     songPracticeNavigation.baselineScore = getSongPracticeDrillBaselineScore(review, drill);
+    songPracticeNavigation.baselineNeuralSimilarity = review.voiceDifference?.comparison?.neural?.similarity ?? null;
     songPracticeNavigation.previousScore = songPracticeNavigation.baselineScore;
+    songPracticeNavigation.previousNeuralSimilarity = songPracticeNavigation.baselineNeuralSimilarity;
     songPracticeNavigation.lastScore = null;
     songPracticeNavigation.lastImprovement = null;
+    songPracticeNavigation.lastNeuralSimilarity = null;
+    songPracticeNavigation.lastNeuralImprovement = null;
   }
 
   const hasWindow = Boolean(drill.window);
@@ -527,6 +811,8 @@ function renderSongPracticeNavigation(review = songPracticeLastReview) {
       songPracticeNavigationProgress.textContent = '正在录这一句，唱完 Mira 会自动对比。';
     } else if (hasProgress && songPracticeNavigation.lastImprovement > 0) {
       songPracticeNavigationProgress.textContent = `进步了 ${songPracticeNavigation.lastImprovement} 分，保留这个动作。`;
+    } else if (Number.isFinite(songPracticeNavigation.lastNeuralImprovement) && songPracticeNavigation.lastNeuralImprovement > 0.03) {
+      songPracticeNavigationProgress.textContent = `分数变化不大，但声像更接近目标了 ${Math.round(songPracticeNavigation.lastNeuralImprovement * 100)}%。`;
     } else if (hasProgress) {
       songPracticeNavigationProgress.textContent = '这次还没变好，继续练当前片段。';
     } else {
@@ -634,14 +920,56 @@ async function analyzeSongPracticeSegmentRecording() {
     songPracticeNavigation.lastImprovement = improvement;
     songPracticeNavigation.previousScore = result.score;
     songPracticeNavigation.mode = 'loop';
-    setSongTrainingResult(
-      improvement > 0
-        ? `这一句进步 ${improvement} 分`
-        : `这一句 ${result.score}%，继续练当前片段`,
-      improvement > 0 ? 'good' : 'warn'
-    );
+    const referenceBuffer = await getSongPracticeReferenceBuffer();
+    const referenceSegmentBuffer = sliceAudioBuffer(referenceBuffer, window.startMs, window.endMs);
+    const [referenceEmbedding, candidateEmbedding] = await Promise.all([
+      encodeSongVoiceEmbedding(referenceSegmentBuffer, { label: 'song-segment-target' }),
+      encodeSongVoiceEmbedding(vocalBuffer, { label: 'song-segment-user' }),
+    ]);
+    const segmentVoiceDifference = buildSongVoiceDifferenceReport(referenceTrack, vocalTrack, result, {
+      referenceEmbedding,
+      candidateEmbedding,
+    });
+    const neuralSimilarity = segmentVoiceDifference?.comparison?.neural?.similarity ?? null;
+    const previousNeuralSimilarity = Number.isFinite(songPracticeNavigation.previousNeuralSimilarity)
+      ? songPracticeNavigation.previousNeuralSimilarity
+      : null;
+    const neuralDelta = Number.isFinite(neuralSimilarity) && Number.isFinite(previousNeuralSimilarity)
+      ? neuralSimilarity - previousNeuralSimilarity
+      : null;
+    songPracticeNavigation.lastNeuralSimilarity = neuralSimilarity;
+    songPracticeNavigation.lastNeuralImprovement = neuralDelta;
+    if (Number.isFinite(neuralSimilarity)) {
+      songPracticeNavigation.previousNeuralSimilarity = neuralSimilarity;
+    }
+    const neuralImproved = Number.isFinite(neuralDelta) && neuralDelta > 0.03;
+    const segmentImproved = improvement > 0 || neuralImproved;
+    recordSongPracticeMemory(songPracticeLastReview, {
+      context: 'song-practice-segment',
+      problemId: segmentVoiceDifference?.problemId || getSongPracticeMemoryProblemId(songPracticeLastReview),
+      report: segmentVoiceDifference?.report || songPracticeLastReview?.voiceDifference?.report || null,
+      beforeScore: Number.isFinite(previous) ? previous / 100 : null,
+      afterScore: result.score / 100,
+      delta: Number.isFinite(previous) ? (result.score - previous) / 100 : 0,
+      neuralSimilarity,
+      neuralDelta,
+      improved: segmentImproved,
+      status: segmentImproved ? 'improved' : 'no_clear_change',
+      segmentText: segmentVoiceDifference?.report?.segmentText || songPracticeNavigation.drill?.segmentText || '',
+      summary: segmentImproved
+        ? `重点片段进步 ${improvement} 分，神经声像变化 ${
+            Number.isFinite(neuralDelta) ? Math.round(neuralDelta * 100) : 0
+          }%。`
+        : `重点片段 ${result.score}%，还需要继续验证当前动作。`,
+    });
+    const segmentResultText = improvement > 0
+      ? `这一句进步 ${improvement} 分`
+      : neuralImproved
+        ? `这一句声像更接近目标 ${Math.round(neuralDelta * 100)}%`
+        : `这一句 ${result.score}%，继续练当前片段`;
+    setSongTrainingResult(segmentResultText, segmentImproved ? 'good' : 'warn');
     renderSongPracticeNavigation();
-    updateSongPracticeFlow(improvement > 0 ? '这一句进步了' : '继续练这一句');
+    updateSongPracticeFlow(segmentImproved ? '这一句进步了' : '继续练这一句');
   } catch (error) {
     console.error(error);
     setSongTrainingResult('这一句对比失败，请再录一次。', 'bad');
@@ -1000,11 +1328,13 @@ async function runPitchAccuracyAnalysis() {
   }
 
   let referenceTrack = null;
+  let referenceBuffer = null;
   if (songPitchTrack.length) {
     referenceTrack = songPitchTrack.map((point) => point.pitch);
+    referenceBuffer = await getSongPracticeReferenceBuffer();
   } else {
     try {
-      const referenceBuffer = await decodeAudioFile(accompanimentFile);
+      referenceBuffer = await decodeAudioFile(accompanimentFile);
       referenceTrack = extractPitchTrack(referenceBuffer);
     } catch (error) {
       console.error(error);
@@ -1037,17 +1367,31 @@ async function runPitchAccuracyAnalysis() {
   const rhythmResultText = rhythmStats?.total
     ? ` · 节奏 ${rhythmStats.score}% · 节奏命中 ${rhythmStats.hitRate}%`
     : '';
+  const [referenceEmbedding, candidateEmbedding] = await Promise.all([
+    encodeSongVoiceEmbedding(referenceBuffer, { label: 'song-target' }),
+    encodeSongVoiceEmbedding(vocalBuffer, { label: 'song-user' }),
+  ]);
+  const voiceDifference = buildSongVoiceDifferenceReport(referenceTrack, vocalTrack, result, {
+    referenceEmbedding,
+    candidateEmbedding,
+  });
   songPracticeLastReview = {
     combinedScore,
     pitch: result,
     rhythm: rhythmStats,
+    voiceDifference,
   };
   const coach = buildSongPracticeCoachAdvice(songPracticeLastReview);
+  const voiceReport = voiceDifference?.report || null;
+  const neuralResultText = voiceDifference?.comparison?.neural
+    ? ` · 声像 ${Math.round(voiceDifference.comparison.neural.similarity * 100)}%`
+    : '';
+  recordSongPracticeReviewMemory(songPracticeLastReview);
 
   setPitchAccuracyResult(
     `${result.label} 综合 ${combinedScore}% · 音准 ${result.score}% · 命中 ${result.hitRate}%${rhythmResultText} · P90 ${result.p90AbsError.toFixed(
       1
-    )} cents · 覆盖 ${result.coverage}%${worstSegmentText}`,
+    )} cents · 覆盖 ${result.coverage}%${neuralResultText}${worstSegmentText}`,
     result.tone
   );
   setSongTrainingResult(
@@ -1060,9 +1404,9 @@ async function runPitchAccuracyAnalysis() {
   );
   if (songPitchTrack.length) {
     setTrainingFeedback(
-      coach.title,
-      `${coach.summary} ${coach.nextStep}`,
-      coach.badge || '评估',
+      voiceReport?.badge || coach.title,
+      voiceReport ? `${voiceReport.summary} ${voiceReport.nextStep}` : `${coach.summary} ${coach.nextStep}`,
+      voiceReport?.badge || coach.badge || '评估',
       coach.tone === 'bad' ? 'warn' : coach.tone
     );
   }

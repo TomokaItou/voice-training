@@ -1,4 +1,4 @@
-// Recording timeline and playback helpers. This file is loaded before app.js and uses app-level state.
+﻿// Recording timeline and playback helpers. This file is loaded before app.js and uses app-level state.
 
 function setTimelineStatus(text) {
   if (recordingTimelineStatus) {
@@ -67,97 +67,9 @@ function updateAccompanimentLibraryStatus() {
     accompanimentLibraryEntryStatus.textContent = text;
   }
 }
-function openRecordingLibraryDb() {
-  if (!window.indexedDB) {
-    return Promise.resolve(null);
-  }
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('voice-training-recordings', 3);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains('recordings')) {
-        request.result.createObjectStore('recordings', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('accompaniments')) {
-        request.result.createObjectStore('accompaniments', { keyPath: 'id' });
-      }
-      if (!request.result.objectStoreNames.contains('successSamples')) {
-        request.result.createObjectStore('successSamples', { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function saveRecordingLibraryItem(recording) {
-  const db = await openRecordingLibraryDb();
-  if (!db) {
-    return;
-  }
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction('recordings', 'readwrite');
-    transaction.objectStore('recordings').put(recording);
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error);
-  });
-  db.close();
-}
-
-async function deleteRecordingLibraryItem(id) {
-  const db = await openRecordingLibraryDb();
-  if (!db) {
-    return;
-  }
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction('recordings', 'readwrite');
-    transaction.objectStore('recordings').delete(id);
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error);
-  });
-  db.close();
-}
-
-async function saveAccompanimentLibraryItem(item) {
-  const db = await openRecordingLibraryDb();
-  if (!db) {
-    return;
-  }
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction('accompaniments', 'readwrite');
-    transaction.objectStore('accompaniments').put(item);
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error);
-  });
-  db.close();
-}
-
-async function deleteAccompanimentLibraryItem(id) {
-  const db = await openRecordingLibraryDb();
-  if (!db) {
-    return;
-  }
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction('accompaniments', 'readwrite');
-    transaction.objectStore('accompaniments').delete(id);
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error);
-  });
-  db.close();
-}
-
 async function loadRecordingLibrary() {
   try {
-    const db = await openRecordingLibraryDb();
-    if (!db) {
-      renderRecordingLibrary();
-      return;
-    }
-    recordingLibrary = await new Promise((resolve, reject) => {
-      const request = db.transaction('recordings', 'readonly').objectStore('recordings').getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    });
-    db.close();
+    recordingLibrary = await loadRecordingLibraryItems();
     recordingLibrary = recordingLibrary
       .map((recording) => ({
         ...recording,
@@ -175,17 +87,7 @@ async function loadRecordingLibrary() {
 
 async function loadAccompanimentLibrary() {
   try {
-    const db = await openRecordingLibraryDb();
-    if (!db) {
-      renderAccompanimentLibrary();
-      return;
-    }
-    accompanimentLibrary = await new Promise((resolve, reject) => {
-      const request = db.transaction('accompaniments', 'readonly').objectStore('accompaniments').getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    });
-    db.close();
+    accompanimentLibrary = await loadAccompanimentLibraryItems();
     accompanimentLibrary = accompanimentLibrary
       .map((item) => ({
         ...item,
@@ -576,6 +478,19 @@ function addRecordingToLibrary(blob) {
     return null;
   }
   const id = `recording-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const frames = recordingTimelineFrames.map((frame) => ({
+    ...frame,
+    samples: Array.isArray(frame.samples) ? [...frame.samples] : [],
+  }));
+  const voiceRepresentation = typeof createVoiceRepresentation === 'function'
+    ? createVoiceRepresentation(frames, {
+        id: `${id}-voice`,
+        sourceType: 'user',
+        label: 'recording-library',
+        durationMs: getRecordingDurationMs(),
+        metadata: { recordingId: id },
+      })
+    : null;
   const recording = {
     id,
     name: `录音 ${recordingLibrary.length + 1}`,
@@ -583,10 +498,8 @@ function addRecordingToLibrary(blob) {
     blob,
     mimeType: blob.type || 'audio/webm',
     durationMs: getRecordingDurationMs(),
-    frames: recordingTimelineFrames.map((frame) => ({
-      ...frame,
-      samples: Array.isArray(frame.samples) ? [...frame.samples] : [],
-    })),
+    frames,
+    voiceRepresentation,
     createdAt: new Date(),
   };
   recordingLibrary.unshift(recording);
@@ -943,125 +856,6 @@ function findNearestRecordingPitchPoint(timeMs) {
   }, null);
 }
 
-function drawRecordingTimeline() {
-  if (!recordingTimelineCtx || !recordingTimelineCanvas) {
-    return;
-  }
-  const width = recordingTimelineCanvas.width;
-  const height = recordingTimelineCanvas.height;
-  const paddingX = 12;
-  const centerY = Math.round(height * 0.48);
-  const durationMs = getRecordingDurationMs();
-  const frames = recordingTimelineFrames;
-
-  recordingTimelineCtx.clearRect(0, 0, width, height);
-  recordingTimelineCtx.fillStyle = '#ffffff';
-  recordingTimelineCtx.fillRect(0, 0, width, height);
-
-  recordingTimelineCtx.strokeStyle = '#d9ded6';
-  recordingTimelineCtx.lineWidth = 1;
-  recordingTimelineCtx.beginPath();
-  recordingTimelineCtx.moveTo(paddingX, centerY);
-  recordingTimelineCtx.lineTo(width - paddingX, centerY);
-  recordingTimelineCtx.stroke();
-
-  if (frames.length) {
-    recordingTimelineCtx.strokeStyle = '#0f766e';
-    recordingTimelineCtx.lineWidth = 2;
-    recordingTimelineCtx.beginPath();
-    frames.forEach((frame) => {
-      const x = paddingX + (frame.timeMs / durationMs) * (width - paddingX * 2);
-      const amp = Math.max(2, Math.min(34, (frame.rms || 0) * 360));
-      recordingTimelineCtx.moveTo(x, centerY - amp);
-      recordingTimelineCtx.lineTo(x, centerY + amp);
-    });
-    recordingTimelineCtx.stroke();
-
-    recordingTimelineCtx.strokeStyle = 'rgba(15, 118, 110, 0.45)';
-    recordingTimelineCtx.lineWidth = 1.5;
-    recordingTimelineCtx.beginPath();
-    let hasPitchPath = false;
-    frames.forEach((frame) => {
-      if (!frame.pitch) {
-        hasPitchPath = false;
-        return;
-      }
-      const x = paddingX + (frame.timeMs / durationMs) * (width - paddingX * 2);
-      const y = height - 16 - Math.min(34, frame.pitch / 24);
-      if (!hasPitchPath) {
-        recordingTimelineCtx.moveTo(x, y);
-        hasPitchPath = true;
-      } else {
-        recordingTimelineCtx.lineTo(x, y);
-      }
-    });
-    recordingTimelineCtx.stroke();
-
-    recordingTimelineCtx.fillStyle = '#0b5d56';
-    frames.forEach((frame) => {
-      if (!frame.pitch) {
-        return;
-      }
-      const x = paddingX + (frame.timeMs / durationMs) * (width - paddingX * 2);
-      recordingTimelineCtx.beginPath();
-      recordingTimelineCtx.arc(x, centerY, 2.4, 0, Math.PI * 2);
-      recordingTimelineCtx.fill();
-    });
-  }
-
-  const selectedX = paddingX + (recordingSelectedTimeMs / durationMs) * (width - paddingX * 2);
-  recordingTimelineCtx.strokeStyle = '#ff7a59';
-  recordingTimelineCtx.lineWidth = 2;
-  recordingTimelineCtx.beginPath();
-  recordingTimelineCtx.moveTo(selectedX, 8);
-  recordingTimelineCtx.lineTo(selectedX, height - 8);
-  recordingTimelineCtx.stroke();
-
-  recordingTimelineCtx.fillStyle = '#697167';
-  recordingTimelineCtx.font = '12px sans-serif';
-  recordingTimelineCtx.textBaseline = 'top';
-  recordingTimelineCtx.fillText('0.00s', paddingX, height - 16);
-  recordingTimelineCtx.textAlign = 'right';
-  recordingTimelineCtx.fillText(formatTimeSeconds(durationMs), width - paddingX, height - 16);
-  recordingTimelineCtx.textAlign = 'left';
-}
-
-function drawWaveformPreview(frame) {
-  if (!waveformPreviewCtx || !waveformPreviewCanvas) {
-    return;
-  }
-  const width = waveformPreviewCanvas.width;
-  const height = waveformPreviewCanvas.height;
-  const centerY = height / 2;
-  waveformPreviewCtx.clearRect(0, 0, width, height);
-  waveformPreviewCtx.fillStyle = '#ffffff';
-  waveformPreviewCtx.fillRect(0, 0, width, height);
-  waveformPreviewCtx.strokeStyle = '#eef1ed';
-  waveformPreviewCtx.lineWidth = 1;
-  waveformPreviewCtx.beginPath();
-  waveformPreviewCtx.moveTo(0, centerY);
-  waveformPreviewCtx.lineTo(width, centerY);
-  waveformPreviewCtx.stroke();
-
-  if (!frame?.samples?.length) {
-    waveformPreviewCtx.fillStyle = '#8c9589';
-    waveformPreviewCtx.font = '13px sans-serif';
-    waveformPreviewCtx.textAlign = 'center';
-    waveformPreviewCtx.textBaseline = 'middle';
-    waveformPreviewCtx.fillText('点击录音时间轴查看当时波形', width / 2, centerY);
-    waveformPreviewCtx.textAlign = 'left';
-    return;
-  }
-
-  const barWidth = width / frame.samples.length;
-  waveformPreviewCtx.fillStyle = '#0f766e';
-  frame.samples.forEach((value, index) => {
-    const barHeight = Math.max(2, value * (height - 24));
-    const x = index * barWidth;
-    waveformPreviewCtx.fillRect(x, centerY - barHeight / 2, Math.max(1, barWidth - 1), barHeight);
-  });
-}
-
 function selectRecordingTime(timeMs, shouldPlay = false) {
   const durationMs = getRecordingDurationMs();
   recordingSelectedTimeMs = Math.max(0, Math.min(durationMs, timeMs));
@@ -1081,65 +875,6 @@ function selectRecordingTime(timeMs, shouldPlay = false) {
   if (shouldPlay) {
     startRecordingPlayback(recordingSelectedTimeMs);
   }
-}
-
-function prepareRecordingPlayback(blob) {
-  if (!blob) {
-    return;
-  }
-  if (recordingPlaybackUrl) {
-    URL.revokeObjectURL(recordingPlaybackUrl);
-  }
-  recordingPlaybackUrl = URL.createObjectURL(blob);
-  recordingPlaybackAudio = new Audio(recordingPlaybackUrl);
-  recordingPlaybackAudio.addEventListener('ended', () => {
-    stopRecordingPlayback();
-    selectRecordingTime(getRecordingDurationMs(), false);
-    renderRecordingLibrary();
-  });
-  if (timelinePlayPauseButton) {
-    timelinePlayPauseButton.disabled = false;
-  }
-}
-
-function startRecordingPlayback(timeMs = recordingSelectedTimeMs) {
-  if (!recordingPlaybackAudio) {
-    return;
-  }
-  recordingPlaybackAudio.currentTime = Math.max(0, timeMs / 1000);
-  recordingPlaybackAudio.play().then(() => {
-    if (timelinePlayPauseButton) {
-      timelinePlayPauseButton.textContent = '暂停';
-    }
-    renderRecordingLibrary();
-    updateRecordingPlaybackProgress();
-  }).catch((error) => {
-    console.error(error);
-    setTimelineStatus('无法播放录音，请重新录制后再试');
-  });
-}
-
-function stopRecordingPlayback(resetButton = true) {
-  if (recordingPlaybackRaf) {
-    cancelAnimationFrame(recordingPlaybackRaf);
-    recordingPlaybackRaf = null;
-  }
-  if (recordingPlaybackAudio && !recordingPlaybackAudio.paused) {
-    recordingPlaybackAudio.pause();
-  }
-  if (resetButton && timelinePlayPauseButton) {
-    timelinePlayPauseButton.textContent = '播放';
-  }
-  renderRecordingLibrary();
-}
-
-function updateRecordingPlaybackProgress() {
-  if (!recordingPlaybackAudio || recordingPlaybackAudio.paused) {
-    return;
-  }
-  const timeMs = recordingPlaybackAudio.currentTime * 1000;
-  selectRecordingTime(timeMs, false);
-  recordingPlaybackRaf = requestAnimationFrame(updateRecordingPlaybackProgress);
 }
 
 function frequencyToCentsError(frequency, targetFrequency) {
@@ -1343,3 +1078,4 @@ function setPitchScoreTone(tone) {
   pitchScoreDashboard.dataset.tone = tone;
   pitchScoreLastTone = tone;
 }
+

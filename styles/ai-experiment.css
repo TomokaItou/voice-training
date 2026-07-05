@@ -1,0 +1,150 @@
+.ai-experiment-page {
+  width: min(860px, calc(100vw - 32px));
+  margin: 24px auto 48px;
+  color: #1f2933;
+}
+
+.ai-experiment-header,
+.ai-experiment-card,
+.ai-experiment-output,
+.ai-experiment-details {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(116, 124, 145, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(26, 35, 55, 0.08);
+}
+
+.ai-experiment-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+}
+
+.ai-experiment-header h1,
+.ai-experiment-card h2,
+.ai-experiment-output h2 {
+  margin: 6px 0 8px;
+  letter-spacing: 0;
+}
+
+.ai-experiment-header p,
+.ai-experiment-card p,
+.ai-experiment-output p {
+  margin: 0;
+  color: #607083;
+  line-height: 1.55;
+}
+
+.ai-experiment-layout {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.ai-experiment-card {
+  padding: 22px;
+}
+
+.ai-experiment-card h2 {
+  font-size: 30px;
+}
+
+.ai-experiment-primary-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.ai-experiment-status {
+  margin-top: 12px !important;
+  font-weight: 800;
+}
+
+.ai-experiment-output,
+.ai-experiment-details {
+  padding: 16px;
+}
+
+.ai-experiment-output p + p {
+  margin-top: 8px;
+}
+
+.ai-experiment-feedback-block {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(116, 124, 145, 0.14);
+}
+
+.ai-experiment-feedback-block:first-of-type {
+  border-top: 0;
+}
+
+.ai-experiment-feedback-block strong {
+  color: #1f2933;
+}
+
+.ai-experiment-feedback-block ul,
+.ai-experiment-why ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #425466;
+  line-height: 1.6;
+  font-weight: 800;
+}
+
+.ai-experiment-feedback-block p {
+  color: #425466;
+  font-weight: 800;
+}
+
+.ai-experiment-why {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.ai-experiment-why summary {
+  cursor: pointer;
+  color: #2753a7;
+  font-weight: 900;
+}
+
+.ai-experiment-why ul {
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.ai-experiment-output ol {
+  margin: 10px 0 0;
+  padding-left: 22px;
+  color: #425466;
+  line-height: 1.65;
+  font-weight: 800;
+}
+
+.ai-experiment-details summary {
+  cursor: pointer;
+  color: #2753a7;
+  font-weight: 900;
+}
+
+.ai-experiment-details pre {
+  overflow: auto;
+  max-height: 320px;
+  margin: 12px 0 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #111827;
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .ai-experiment-header {
+    display: grid;
+  }
+}
