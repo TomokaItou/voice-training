@@ -523,6 +523,233 @@ header h1 {
   z-index: 3;
 }
 
+.tools-workbench {
+  display: grid;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.mira-practice-flow .route-workspace {
+  display: block;
+}
+
+.mira-voice-stage {
+  display: grid;
+  grid-template-columns: 94px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid rgba(134, 106, 210, 0.2);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 72px 56px, rgba(174, 136, 255, 0.22), transparent 46px),
+    rgba(255, 255, 255, 0.66);
+}
+
+.mira-voice-avatar {
+  position: relative;
+  width: 82px;
+  height: 82px;
+}
+
+.mira-voice-avatar img {
+  width: 82px;
+  height: 82px;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 50%;
+  background: rgba(246, 241, 255, 0.9);
+  border: 1px solid rgba(134, 106, 210, 0.26);
+}
+
+.mira-voice-avatar span {
+  position: absolute;
+  right: 2px;
+  bottom: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #8f62e8;
+  box-shadow: 0 0 0 8px rgba(143, 98, 232, 0.14);
+}
+
+.mira-voice-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.mira-voice-copy span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.mira-voice-copy p {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(25px, 4.2vw, 46px);
+  font-weight: 850;
+  line-height: 1.14;
+}
+
+.mira-voice-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.mira-voice-mute {
+  min-width: 76px;
+  padding: 9px 12px;
+}
+
+.mira-flow-panel {
+  display: grid;
+  gap: 18px;
+  min-height: 240px;
+}
+
+.mira-flow-panel[hidden] {
+  display: none;
+}
+
+.mira-flow-panel.is-active {
+  animation: miraFlowIn 180ms ease-out;
+}
+
+.mira-flow-dialogue,
+.mira-feedback-summary,
+.mira-auto-route-card {
+  display: grid;
+  gap: 8px;
+}
+
+.mira-flow-dialogue h2,
+.mira-feedback-summary h2,
+.mira-flow-auto h2 {
+  margin: 0;
+  font-size: clamp(22px, 3.4vw, 34px);
+  line-height: 1.08;
+}
+
+.mira-flow-dialogue p,
+.mira-feedback-summary p,
+.mira-flow-auto p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.mira-flow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.mira-flow-actions button {
+  min-width: 150px;
+}
+
+.mira-auto-route-card {
+  padding: 16px;
+  border: 1px solid rgba(134, 106, 210, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.mira-auto-route-card strong {
+  color: var(--text);
+  font-size: 17px;
+}
+
+.mira-auto-route-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mira-flow-steps li.is-active {
+  color: var(--accent);
+}
+
+.lab-intro {
+  margin: 10px 0 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(134, 106, 210, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.lab-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.lab-tool-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@keyframes miraFlowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .mira-voice-stage {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+
+  .mira-voice-avatar,
+  .mira-voice-avatar img {
+    width: 58px;
+    height: 58px;
+  }
+
+  .mira-voice-mute {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .mira-flow-actions button {
+    width: 100%;
+  }
+}
+
+.tool-section {
+  display: grid;
+  gap: 8px;
+}
+
+.tool-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 22px;
+}
+
+.tool-section-header span {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.tool-section-header small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .launcher-secondary h2 {
   margin: 0 0 6px;
   font-size: 18px;
@@ -539,15 +766,44 @@ header h1 {
   gap: 10px;
 }
 
+.tool-grid-practice {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tool-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .compact-tool {
-  min-height: 92px;
-  padding: 14px;
+  min-height: 74px;
+  padding: 12px;
   position: relative;
   z-index: 4;
 }
 
 .compact-tool .mode-title {
-  font-size: 16px;
+  font-size: 15px;
+}
+
+.tool-list .compact-tool {
+  min-height: 58px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: none;
+}
+
+.tool-list .compact-tool::after {
+  display: none;
+}
+
+.tool-list .compact-tool .mode-title {
+  font-size: 14px;
+}
+
+.tool-list .compact-tool .mode-desc {
+  font-size: 12px;
 }
 
 .mode-grid {
@@ -592,6 +848,30 @@ header h1 {
 .mode-button .mode-desc {
   position: relative;
   max-width: 28ch;
+}
+
+.mode-button.compact-tool {
+  min-height: 74px;
+  padding: 12px;
+  align-content: start;
+}
+
+.tool-list .mode-button.compact-tool {
+  min-height: 58px;
+  padding: 10px 12px;
+}
+
+.mode-button.compact-tool .mode-title {
+  font-size: 15px;
+}
+
+.tool-list .mode-button.compact-tool .mode-title {
+  font-size: 14px;
+}
+
+.mode-button.compact-tool .mode-desc {
+  font-size: 12px;
+  max-width: 100%;
 }
 
 .mode-button.secondary-mode {
@@ -1072,6 +1352,11 @@ canvas {
   .practice-grid,
   .training-entry,
   .tool-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-grid-practice,
+  .tool-list {
     grid-template-columns: 1fr;
   }
 

@@ -412,8 +412,8 @@
       <section class="song-target-panel is-collapsed" id="songTargetPanel">
         <div class="song-target-header">
           <div>
-            <h2>当前歌曲</h2>
-            <p>按顺序完成一遍：准备歌曲、跟唱录音、自动复盘、只修一个重点。</p>
+            <h2>Mira 带练</h2>
+            <p>老师示范一句，你唱一句，她只反馈下一句最该注意的事。</p>
           </div>
           <button
             id="songTargetCollapseButton"
@@ -429,8 +429,8 @@
           <div class="practice-flow" id="songPracticeFlow">
             <div class="practice-flow-header">
               <div>
-                <h3 id="songPracticeSongTitle">还没有选择歌曲</h3>
-                <p id="songPracticeFlowHint">选好歌曲后就可以开始唱。</p>
+                <h3 id="songPracticeSongTitle">先完成歌曲准备</h3>
+                <p id="songPracticeFlowHint">上传歌曲或从录音库选择，Mira 会先生成练习片段。</p>
               </div>
               <span id="songPracticeFlowState" class="practice-flow-state">等待歌曲</span>
             </div>
@@ -441,27 +441,27 @@
             <ol class="practice-flow-steps" aria-label="跟唱流程">
               <li id="songPracticeStepSong">
                 <span>1</span>
-                <strong>准备歌曲</strong>
+                <strong>歌曲准备</strong>
               </li>
               <li id="songPracticeStepTarget">
                 <span>2</span>
-                <strong>生成目标</strong>
+                <strong>Mira 示范</strong>
               </li>
               <li id="songPracticeStepRecord">
                 <span>3</span>
-                <strong>跟唱录音</strong>
+                <strong>你唱一句</strong>
               </li>
               <li id="songPracticeStepReview">
                 <span>4</span>
-                <strong>复盘下一遍</strong>
+                <strong>Mira 反馈</strong>
               </li>
             </ol>
             <div class="practice-flow-actions">
-              <button id="songPracticeChooseButton" class="secondary" type="button">选择歌曲</button>
-              <button id="songPracticeStartButton" type="button" disabled>开始跟唱</button>
+              <button id="songPracticeChooseButton" class="secondary" type="button">歌曲准备</button>
+              <button id="songPracticeStartButton" type="button" disabled>开始唱这一句</button>
             </div>
             <div class="song-chart-placeholder" id="songChartPlaceholder" hidden>
-              录音后将在这里显示你的音高曲线和目标曲线
+              唱完后 Mira 会在这里标出这一句最值得修的地方
             </div>
           </div>
 
@@ -1014,6 +1014,7 @@
           <button id="startButton" data-task-control="curve classic score breath range spectrogram volume formants memory rhythm action">开始练习</button>
           <button id="pauseButton" class="secondary" data-task-control="curve classic score breath range spectrogram volume formants memory rhythm action" disabled>暂停</button>
           <button id="stopButton" data-task-control="curve classic score breath range spectrogram volume formants memory rhythm action" disabled>停止</button>
+          <button id="miraTrainingVoiceToggleButton" class="secondary" type="button" data-mira-voice-toggle aria-pressed="false">语音开</button>
           <button id="recordButton" class="secondary" hidden aria-hidden="true">开始录音</button>
           <button id="stopRecordButton" class="secondary" hidden aria-hidden="true" disabled>停止录音</button>
           <button id="breathCalibrateButton" class="secondary breath-control" data-task-control="breath" hidden>校准环境</button>

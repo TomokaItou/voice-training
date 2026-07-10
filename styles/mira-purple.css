@@ -20,6 +20,24 @@
   --shadow-soft: 0 10px 28px rgba(79, 82, 152, 0.09);
 }
 
+#modeLauncher[data-home-tab='today'] .mira-classroom {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: none;
+  display: block;
+  grid-template-columns: none;
+  padding-block: 0;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-classroom .classroom-scene {
+  width: 100%;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-classroom .mira-character {
+  width: 100%;
+  max-height: none;
+}
+
 html {
   background: #f4f5ff;
 }
@@ -413,19 +431,19 @@ input[type='checkbox']:checked {
 
 #modeLauncher[data-home-tab='today'] .mira-dialogue {
   align-self: center;
-  max-width: 560px;
+  max-width: 600px;
 }
 
 #modeLauncher[data-home-tab='today'] .mira-dialogue h1 {
   max-width: 10em;
   margin-bottom: 10px;
-  font-size: clamp(52px, 7vw, 88px);
-  line-height: 0.96;
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.04;
 }
 
 #modeLauncher[data-home-tab='today'] .mira-dialogue p {
   max-width: 24em;
-  font-size: clamp(17px, 2vw, 22px);
+  font-size: clamp(15px, 1.7vw, 18px);
 }
 
 #modeLauncher[data-home-tab='today'] .mira-actions {
@@ -763,4 +781,22 @@ input[type='checkbox']:checked {
   .teacher-tools-grid {
     grid-template-columns: 1fr;
   }
+}
+
+#modeLauncher[data-home-tab='today'] .mira-classroom {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: none;
+  display: block;
+  grid-template-columns: none;
+  padding-block: 0;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-classroom .classroom-scene {
+  width: 100%;
+}
+
+#modeLauncher[data-home-tab='today'] .mira-classroom .mira-character {
+  width: 100%;
+  max-height: none;
 }

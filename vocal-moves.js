@@ -8,6 +8,10 @@ let pendingVocalMoveSampleId = null;
 let vocalMovePracticeRemainingSeconds = VOCAL_MOVE_PRACTICE_SECONDS;
 let vocalMovePracticeTimerId = null;
 
+function getOptionalVocalMoveElement(id) {
+  return document.getElementById(id);
+}
+
 function getVocalMoves() {
   return Array.isArray(window.VOCAL_MOVES) ? window.VOCAL_MOVES : [];
 }
@@ -121,13 +125,16 @@ function renderVocalMoveGrid() {
 
 function renderTodayVocalMove() {
   const move = getTodayMove();
-  const panel = document.getElementById('todayVocalMoveCard');
+  const panel = getOptionalVocalMoveElement('todayVocalMoveCard');
   if (!move || !panel) {
     return;
   }
-  document.getElementById('todayVocalMoveName').textContent = move.name;
-  document.getElementById('todayVocalMoveGoal').textContent = `目标：${move.practiceGoal}`;
-  document.getElementById('todayVocalMoveDescription').textContent = move.description;
+  const name = getOptionalVocalMoveElement('todayVocalMoveName');
+  const goal = getOptionalVocalMoveElement('todayVocalMoveGoal');
+  const description = getOptionalVocalMoveElement('todayVocalMoveDescription');
+  if (name) name.textContent = move.name;
+  if (goal) goal.textContent = `目标：${move.practiceGoal}`;
+  if (description) description.textContent = move.description;
   panel.dataset.moveId = move.id;
 }
 
@@ -338,14 +345,14 @@ function saveVocalMoveSample() {
 
 function bindVocalMoveEvents() {
   document.getElementById('openVocalMoveLibraryButton')?.addEventListener('click', () => showVocalMoveLibrary());
-  document.getElementById('todayVocalMoveStartButton')?.addEventListener('click', () => {
+  getOptionalVocalMoveElement('todayVocalMoveStartButton')?.addEventListener('click', () => {
     showVocalMoveLibrary(getTodayMove()?.id);
     startVocalMovePractice(getTodayMove()?.id);
   });
-  document.getElementById('todayVocalMoveShuffleButton')?.addEventListener('click', () => {
+  getOptionalVocalMoveElement('todayVocalMoveShuffleButton')?.addEventListener('click', () => {
     setTodayMoveIndex(getTodayMoveIndex() + 1);
   });
-  document.getElementById('todayVocalMoveLibraryButton')?.addEventListener('click', () => showVocalMoveLibrary());
+  getOptionalVocalMoveElement('todayVocalMoveLibraryButton')?.addEventListener('click', () => showVocalMoveLibrary());
   document.getElementById('vocalMoveBackHomeButton')?.addEventListener('click', () => {
     hideVocalMoveLibrary();
     if (typeof showLauncherView === 'function') {

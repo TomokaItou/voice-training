@@ -1,0 +1,121 @@
+{
+  "expectations": {
+    "minDetectionRate": 0.7,
+    "maxAvgAbsCents": 55,
+    "maxFalsePositiveRate": 0.15
+  },
+  "samples": [
+    {
+      "id": "singer-01-a3-sustain",
+      "description": "Comfortable low sustained vowel, trimmed to a stable center",
+      "file": "singer-01-a3-sustain.wav",
+      "tags": ["sustain", "low"],
+      "singer": {
+        "id": "singer-01",
+        "range": "lower"
+      },
+      "recording": {
+        "mic": "fill-in",
+        "distanceCm": 20,
+        "room": "quiet-dry"
+      },
+      "segments": [
+        { "start": 0.2, "end": 1.8, "expectedHz": 220 }
+      ],
+      "expectations": {
+        "minDetectionRate": 0.75,
+        "maxAvgAbsCents": 55,
+        "maxFalsePositiveRate": 0.1
+      }
+    },
+    {
+      "id": "singer-01-a3-a4-slide",
+      "description": "Slow siren or slide from A3 to A4",
+      "file": "singer-01-a3-a4-slide.wav",
+      "tags": ["slide"],
+      "singer": {
+        "id": "singer-01",
+        "range": "lower"
+      },
+      "recording": {
+        "mic": "fill-in",
+        "distanceCm": 20,
+        "room": "quiet-dry"
+      },
+      "segments": [
+        { "start": 0.25, "end": 2.0, "expectedHz": [220, 440] }
+      ],
+      "expectations": {
+        "minDetectionRate": 0.65,
+        "maxAvgAbsCents": 80,
+        "maxFalsePositiveRate": 0.12
+      }
+    },
+    {
+      "id": "singer-02-e4-quiet",
+      "description": "Quiet onset sustained vowel, useful for sensitivity checks",
+      "file": "singer-02-e4-quiet.wav",
+      "tags": ["sustain", "quiet", "high"],
+      "singer": {
+        "id": "singer-02",
+        "range": "higher"
+      },
+      "recording": {
+        "mic": "fill-in",
+        "distanceCm": 20,
+        "room": "quiet-dry"
+      },
+      "segments": [
+        { "start": 0.0, "end": 0.25, "expectedHz": null },
+        { "start": 0.25, "end": 1.8, "expectedHz": 329.628 }
+      ],
+      "expectations": {
+        "minDetectionRate": 0.55,
+        "maxAvgAbsCents": 70,
+        "maxFalsePositiveRate": 0.12
+      }
+    },
+    {
+      "id": "singer-02-a4-vibrato",
+      "description": "Moderate vibrato on a sustained A4",
+      "file": "singer-02-a4-vibrato.wav",
+      "tags": ["vibrato", "high"],
+      "singer": {
+        "id": "singer-02",
+        "range": "higher"
+      },
+      "recording": {
+        "mic": "fill-in",
+        "distanceCm": 20,
+        "room": "quiet-dry"
+      },
+      "segments": [
+        { "start": 0.25, "end": 2.0, "expectedHz": 440 }
+      ],
+      "expectations": {
+        "minDetectionRate": 0.7,
+        "maxAvgAbsCents": 85,
+        "maxFalsePositiveRate": 0.12
+      }
+    },
+    {
+      "id": "room-silence-01",
+      "description": "Room tone and breath/noise-only control sample",
+      "file": "room-silence-01.wav",
+      "tags": ["unvoiced", "noise"],
+      "recording": {
+        "mic": "fill-in",
+        "distanceCm": 20,
+        "room": "quiet-dry"
+      },
+      "segments": [
+        { "start": 0.0, "end": 1.5, "expectedHz": null, "voiced": false }
+      ],
+      "expectations": {
+        "minDetectionRate": 0,
+        "maxAvgAbsCents": null,
+        "maxFalsePositiveRate": 0.12
+      }
+    }
+  ]
+}

@@ -185,6 +185,7 @@ function addSuccessSample(sample) {
   successLibraryStats = getSuccessStats();
   saveSuccessLibraryItem(normalized).catch((error) => console.error(error));
   renderSuccessLibrary();
+  window.MiraVoiceCoach?.speakById?.('mira.save_success');
   return normalized;
 }
 

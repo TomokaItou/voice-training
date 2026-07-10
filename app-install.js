@@ -25,6 +25,22 @@
       return;
     }
 
+    if (['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)) {
+      try {
+        localStorage.removeItem('mira.speech.settings.v1');
+        localStorage.removeItem('mira.voiceCoach.settings.v1');
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+        if (window.caches?.keys) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+      } catch (error) {
+        console.warn('Local service worker cleanup failed:', error);
+      }
+      return;
+    }
+
     try {
       await navigator.serviceWorker.register('./service-worker.js');
     } catch (error) {

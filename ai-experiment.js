@@ -386,7 +386,7 @@ function hideAiExperimentPage() {
 }
 
 function bindAiExperimentEvents() {
-  document.getElementById('openAiExperimentButton')?.addEventListener('click', showAiExperimentPage);
+  document.querySelector('[data-open-ai-experiment]')?.addEventListener('click', showAiExperimentPage);
   document.getElementById('aiExperimentBackButton')?.addEventListener('click', () => {
     hideAiExperimentPage();
     if (typeof showLauncherView === 'function') showLauncherView();

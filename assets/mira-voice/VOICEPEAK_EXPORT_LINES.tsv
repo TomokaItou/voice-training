@@ -1,0 +1,11 @@
+﻿speech_id	zh_subtitle	voicepeak_ja_text	emotion	target_file
+mira.welcome	你回来啦！	おかえり！	happy	happy/welcome_back.wav
+mira.lesson_start	今天我们只练一个小地方。	今日は小さなところをひとつだけ練習しよう。	gentle	gentle/lesson_start.wav
+mira.listen	好，唱给我听吧。	よし、歌って聴かせて。	happy	happy/listen.wav
+mira.thinking	嗯……让我听一下。	うん……ちょっと聴かせてね。	thinking	thinking/thinking.wav
+mira.retry	已经很接近了，我们再来一次。	もうかなり近いよ。もう一回いこう。	gentle	gentle/retry.wav
+mira.softer	这一次试着再轻一点。	今度はもう少し軽くしてみよう。	gentle	gentle/softer.wav
+mira.less_air	试着少送一点气。	息を少しだけ減らしてみよう。	gentle	gentle/less_air.wav
+mira.success	等等，就是刚才这一句！	待って、今のそれ！	excited	excited/success.wav
+mira.save_success	我把它保存下来啦。	今の、保存しておくね。	happy	happy/save_success.wav
+mira.finish	今天练到这里就很好，下次我们从这一句继续。	今日はここまでで十分いいよ。次はこのフレーズから続けよう。	gentle	gentle/finish.wav

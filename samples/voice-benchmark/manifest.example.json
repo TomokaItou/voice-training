@@ -9,6 +9,16 @@
       "id": "voice-a4-sustain",
       "description": "Sustained sung A4 vowel, manually trimmed to one stable note",
       "file": "voice-a4-sustain.wav",
+      "tags": ["sustain", "mid"],
+      "singer": {
+        "id": "singer-01",
+        "range": "higher"
+      },
+      "recording": {
+        "mic": "phone-or-usb-mic",
+        "distanceCm": 20,
+        "room": "quiet-dry"
+      },
       "segments": [
         { "start": 0.0, "end": 0.25, "expectedHz": null },
         { "start": 0.25, "end": 1.8, "expectedHz": 440 },
@@ -24,6 +34,16 @@
       "id": "voice-slide-a3-a4",
       "description": "Sung slide from A3 to A4",
       "file": "voice-slide-a3-a4.wav",
+      "tags": ["slide", "mid"],
+      "singer": {
+        "id": "singer-01",
+        "range": "higher"
+      },
+      "recording": {
+        "mic": "phone-or-usb-mic",
+        "distanceCm": 20,
+        "room": "quiet-dry"
+      },
       "segments": [
         { "start": 0.2, "end": 1.6, "expectedHz": [220, 440] }
       ],

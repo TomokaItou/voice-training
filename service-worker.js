@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'voice-training-pwa-v42';
+const CACHE_VERSION = 'voice-training-pwa-v43-voicepeak';
 const APP_SHELL = [
   './',
   './index.html',
@@ -24,6 +24,9 @@ const APP_SHELL = [
   './app-state.js',
   './game-state.js',
   './mira-feedback.js',
+  './mira-speech-service.js',
+  './mira-voice-coach.js',
+  './mira-voice-lab.js',
   './beginner-practice.js',
   './app-shell.js',
   './assets/vendor/tf.min.js',
@@ -107,6 +110,17 @@ const APP_SHELL = [
   './app-install.js',
   './manifest.webmanifest',
   './assets/miras-practice-room.mp3',
+  './assets/mira-voice/manifest.json',
+  './assets/mira-voice/happy/welcome_back.wav',
+  './assets/mira-voice/gentle/lesson_start.wav',
+  './assets/mira-voice/happy/listen.wav',
+  './assets/mira-voice/thinking/thinking.wav',
+  './assets/mira-voice/gentle/retry.wav',
+  './assets/mira-voice/gentle/softer.wav',
+  './assets/mira-voice/gentle/less_air.wav',
+  './assets/mira-voice/excited/success.wav',
+  './assets/mira-voice/happy/save_success.wav',
+  './assets/mira-voice/gentle/finish.wav',
   './icons/icon.svg',
   './icons/maskable-icon.svg',
   './icons/apple-touch-icon.svg'
