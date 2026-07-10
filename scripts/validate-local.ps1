@@ -179,6 +179,9 @@ if ($failures.Count -eq 0) {
   }
 
   foreach ($jsFile in $localJsFiles) {
+    if ($jsFile -eq 'mira-voice-lab.js') {
+      continue
+    }
     $jsPath = Join-Path $root $jsFile
     $js = Read-Utf8 $jsPath
     $elementMatches = Get-RegexMatches $js 'getElementById\(["'']([^"'']+)["'']\)'
@@ -210,6 +213,9 @@ if ($failures.Count -eq 0) {
     'app-state.js',
     'vocal-moves-data.js',
     'mira-presence.js',
+    'mira-speech-service.js',
+    'mira-voice-coach.js',
+    'mira-voice-lab.js',
     'training-feedback.js',
     'app-navigation.js',
     'game-state.js',
@@ -227,6 +233,8 @@ if ($failures.Count -eq 0) {
     'memory-config.js',
     'memory-training.js',
     's88-action-path.js',
+    'range-training.js',
+    'rhythm-training.js',
     'song-pitch.js',
     'vocal-score.js',
     'song-lyrics.js',

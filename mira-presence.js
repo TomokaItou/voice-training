@@ -2,22 +2,34 @@ function setMiraPresenceState(state = 'idle', message) {
   if (!miraHero) {
     return;
   }
-  const nextState = ['idle', 'listening', 'thinking', 'success'].includes(state) ? state : 'idle';
-  miraHero.classList.remove('mira-state-idle', 'mira-state-listening', 'mira-state-thinking', 'mira-state-success');
+  const aliases = { success: 'celebrating' };
+  const requestedState = aliases[state] || state;
+  const nextState = ['idle', 'speaking', 'listening', 'thinking', 'celebrating'].includes(requestedState)
+    ? requestedState
+    : 'idle';
+  miraHero.classList.remove(
+    'mira-state-idle',
+    'mira-state-speaking',
+    'mira-state-listening',
+    'mira-state-thinking',
+    'mira-state-success',
+    'mira-state-celebrating'
+  );
   miraHero.classList.add(`mira-state-${nextState}`);
   if (miraStateBubble) {
     const stateCopy = {
-      idle: '我在等你',
-      listening: '我在听',
-      thinking: '我在找重点',
-      success: '找到今天最值得修的一点了',
+      idle: '我在等你。',
+      speaking: 'Mira 正在说话。',
+      listening: '我在听。',
+      thinking: '嗯……让我听一下。',
+      celebrating: '等等，就是刚才这一句！',
     };
     miraStateBubble.textContent = message || stateCopy[nextState] || stateCopy.idle;
   }
 }
 
 function pulseMiraSuccess(message) {
-  setMiraPresenceState('success', message);
+  setMiraPresenceState('celebrating', message);
   window.clearTimeout(miraSuccessTimer);
   miraSuccessTimer = window.setTimeout(() => {
     setMiraPresenceState('idle');

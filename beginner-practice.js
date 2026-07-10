@@ -245,17 +245,13 @@ function renderBeginnerPracticePreview(task = pickBeginnerTaskForToday()) {
   }
   const homeTitle = document.querySelector('#modeLauncher .mira-dialogue h1');
   const homeSubtitle = document.querySelector('#modeLauncher .mira-dialogue p');
-  const startButton = document.getElementById('startTodayTrainingButton');
   if (homeTitle) {
-    homeTitle.textContent = beginnerPracticeState.daily.completed ? '今天已完成 1 次' : '今天练 30 秒';
+    homeTitle.textContent = beginnerPracticeState.daily.completed ? '今天已完成 1 次' : '今天只练这一句';
   }
   if (homeSubtitle) {
     homeSubtitle.textContent = beginnerPracticeState.daily.completed
       ? '要不要再练 30 秒？'
-      : '不用想太多，先完成一个小动作。';
-  }
-  if (startButton) {
-    startButton.textContent = beginnerPracticeState.daily.completed ? '继续下一步' : '开始今天训练';
+      : '不用先想唱什么，Mira 已经帮你选好今天的任务。';
   }
 }
 

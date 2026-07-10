@@ -131,6 +131,12 @@ $env:WHISPER_MODEL = "large-v3"
 Copy-Item .\samples\voice-benchmark\manifest.example.json .\samples\voice-benchmark\manifest.json
 ```
 
+如果要直接按第一批真实人声覆盖矩阵开始，可以复制模板：
+
+```powershell
+Copy-Item .\samples\voice-benchmark\manifest.template.json .\samples\voice-benchmark\manifest.json
+```
+
 也可以把本地录制的 `wav` 人声样本放入同一目录后自动生成草稿：
 
 ```powershell
@@ -141,6 +147,12 @@ Copy-Item .\samples\voice-benchmark\manifest.example.json .\samples\voice-benchm
 
 ```powershell
 .\scripts\voice-manifest.cmd --validate
+```
+
+要把低音、滑音、颤音、轻声、高音和无声控制样本的覆盖不足当成失败，可以加严格覆盖检查：
+
+```powershell
+.\scripts\voice-manifest.cmd --validate --strict-coverage
 ```
 
 然后运行：

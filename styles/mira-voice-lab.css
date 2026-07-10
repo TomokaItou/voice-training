@@ -1,0 +1,94 @@
+.mira-voice-lab {
+  width: min(1100px, 100%);
+  margin: 18px auto;
+  padding: 18px;
+  border: 1px solid rgba(55, 65, 81, 0.14);
+  border-radius: 8px;
+  background: #fffaf2;
+  color: #28231c;
+}
+
+.mira-voice-lab-header,
+.mira-voice-lab-actions,
+.mira-voice-lab-readout {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.mira-voice-lab-header h2 {
+  margin: 4px 0;
+  font-size: 1.25rem;
+}
+
+.mira-voice-lab-header p,
+.mira-voice-lab-readout p {
+  margin: 0;
+}
+
+.mira-voice-lab-status {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+
+.mira-voice-lab-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.mira-voice-lab-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #5f574b;
+}
+
+.mira-voice-lab-grid select,
+.mira-voice-lab-grid input {
+  min-height: 38px;
+}
+
+.mira-voice-lab-readout {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(55, 65, 81, 0.12);
+}
+
+.mira-voice-lab-readout small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.mira-voice-lab-missing {
+  margin-top: 12px;
+}
+
+.mira-voice-lab-missing pre {
+  max-height: 220px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: #201f1d;
+  color: #f8f3ea;
+}
+
+@media (max-width: 840px) {
+  .mira-voice-lab-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .mira-voice-lab-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mira-voice-lab-status {
+    text-align: left;
+  }
+}

@@ -23,6 +23,8 @@ async function startVoiceRecording() {
     return false;
   }
   try {
+    window.MiraSpeechService?.stop?.();
+    window.MiraVoiceCoach?.stopLiveCues?.();
     if (typeof setBgmDucking === 'function') {
       setBgmDucking('recording', true);
     }
@@ -56,6 +58,7 @@ async function startVoiceRecording() {
       if (typeof setMiraPresenceState === 'function') {
         setMiraPresenceState('thinking');
       }
+      window.MiraVoiceCoach?.speakById?.('mira.thinking', { interrupt: true, afterState: 'thinking' });
       const blob = new Blob(recordedChunks, { type: recorder.mimeType });
       lastRecordingBlob = blob.size > 0 ? blob : null;
       recordedChunks = [];

@@ -1,0 +1,62 @@
+{
+  "mira.welcome": {
+    "text": "你回来啦！",
+    "voicepeakText": "おかえり！",
+    "emotion": "happy",
+    "file": "happy/welcome_back.wav"
+  },
+  "mira.lesson_start": {
+    "text": "今天我们只练一个小地方。",
+    "voicepeakText": "今日は小さなところをひとつだけ練習しよう。",
+    "emotion": "gentle",
+    "file": "gentle/lesson_start.wav"
+  },
+  "mira.listen": {
+    "text": "好，唱给我听吧。",
+    "voicepeakText": "よし、歌って聴かせて。",
+    "emotion": "happy",
+    "file": "happy/listen.wav"
+  },
+  "mira.thinking": {
+    "text": "嗯……让我听一下。",
+    "voicepeakText": "うん……ちょっと聴かせてね。",
+    "emotion": "thinking",
+    "file": "thinking/thinking.wav"
+  },
+  "mira.retry": {
+    "text": "已经很接近了，我们再来一次。",
+    "voicepeakText": "もうかなり近いよ。もう一回いこう。",
+    "emotion": "gentle",
+    "file": "gentle/retry.wav"
+  },
+  "mira.softer": {
+    "text": "这一次试着再轻一点。",
+    "voicepeakText": "今度はもう少し軽くしてみよう。",
+    "emotion": "gentle",
+    "file": "gentle/softer.wav"
+  },
+  "mira.less_air": {
+    "text": "试着少送一点气。",
+    "voicepeakText": "息を少しだけ減らしてみよう。",
+    "emotion": "gentle",
+    "file": "gentle/less_air.wav"
+  },
+  "mira.success": {
+    "text": "等等，就是刚才这一句！",
+    "voicepeakText": "待って、今のそれ！",
+    "emotion": "excited",
+    "file": "excited/success.wav"
+  },
+  "mira.save_success": {
+    "text": "我把它保存下来啦。",
+    "voicepeakText": "今の、保存しておくね。",
+    "emotion": "happy",
+    "file": "happy/save_success.wav"
+  },
+  "mira.finish": {
+    "text": "今天练到这里就很好，下次我们从这一句继续。",
+    "voicepeakText": "今日はここまでで十分いいよ。次はこのフレーズから続けよう。",
+    "emotion": "gentle",
+    "file": "gentle/finish.wav"
+  }
+}

@@ -123,7 +123,7 @@ function setPracticeStepState(step, state) {
 function getSongPracticeTitle() {
   const raw = songPitchFileName || songSeparationSourceFile?.name || accompanimentFile?.name || '';
   const clean = raw.replace(/\.[^.]+$/, '').trim();
-  return clean || '还没有选择歌曲';
+  return clean || '先完成歌曲准备';
 }
 
 function getSongPracticeDirection(review) {
@@ -1053,10 +1053,10 @@ function updateSongPracticeFlow(status = null) {
   }
   if (songPracticeTargetStatus) {
     songPracticeTargetStatus.textContent = hasTarget
-      ? '目标曲线：已生成'
+      ? '练习片段：已生成'
       : songPitchAnalysisInProgress
-        ? '目标曲线：生成中'
-        : '目标曲线：未生成';
+        ? '练习片段：生成中'
+        : '练习片段：未生成';
   }
   if (songPracticeAccompanimentStatus) {
     songPracticeAccompanimentStatus.textContent = songPitchAudio || accompanimentFile ? '伴奏：可用' : '伴奏：未选择';
@@ -1066,8 +1066,8 @@ function updateSongPracticeFlow(status = null) {
     songPracticeStartButton.textContent = isRecording
       ? '结束并评估'
       : songPitchAnalysisInProgress
-        ? '正在生成目标...'
-        : '开始跟唱';
+        ? 'Mira 正在准备...'
+        : '开始唱这一句';
   }
   if (songPracticeStopReviewButton) {
     songPracticeStopReviewButton.disabled = !canReview;
@@ -1077,35 +1077,35 @@ function updateSongPracticeFlow(status = null) {
     if (status) {
       songPracticeFlowState.textContent = status;
     } else if (isRecording) {
-      songPracticeFlowState.textContent = '跟唱录音中';
+      songPracticeFlowState.textContent = '你正在唱';
     } else if (hasReview) {
-      songPracticeFlowState.textContent = '复盘完成';
+      songPracticeFlowState.textContent = 'Mira 已反馈';
     } else if (hasRecording && hasTarget) {
-      songPracticeFlowState.textContent = '可评估';
+      songPracticeFlowState.textContent = '等待 Mira 反馈';
     } else if (hasTarget) {
-      songPracticeFlowState.textContent = '可以开始';
+      songPracticeFlowState.textContent = 'Mira 已示范';
     } else if (hasSong || songPitchAnalysisInProgress) {
-      songPracticeFlowState.textContent = '生成目标中';
+      songPracticeFlowState.textContent = 'Mira 准备中';
     } else {
-      songPracticeFlowState.textContent = '先选歌';
+      songPracticeFlowState.textContent = '先准备歌曲';
     }
   }
 
   if (songPracticeFlowHint) {
     if (isRecording) {
-      songPracticeFlowHint.textContent = '正在录音。唱完这一遍后点击“结束并评估”，系统会自动生成复盘。';
+      songPracticeFlowHint.textContent = '正在听你唱这一句。唱完后点击“结束并评估”，Mira 会只挑一个重点说。';
     } else if (hasReview) {
-      songPracticeFlowHint.textContent = '这一遍已经完成，先回放重点片段，再按下一步动作重唱。';
+      songPracticeFlowHint.textContent = '这一句已经完成。带着 Mira 的一个提醒，再唱下一遍。';
     } else if (hasRecording && hasTarget) {
-      songPracticeFlowHint.textContent = '已经有一段录音，可以评估这一遍，也可以重新唱。';
+      songPracticeFlowHint.textContent = '已经有一段录音，可以让 Mira 反馈，也可以重新唱这一句。';
     } else if (hasTarget) {
-      songPracticeFlowHint.textContent = '目标曲线已准备好。戴上耳机，点“开始跟唱”，唱完整一遍。';
+      songPracticeFlowHint.textContent = 'Mira 已准备好第一句。戴上耳机，只唱这 15 秒就好。';
     } else if (songPitchAnalysisInProgress) {
-      songPracticeFlowHint.textContent = '正在从歌曲里提取目标曲线，完成后就能开始跟唱。';
+      songPracticeFlowHint.textContent = 'Mira 正在从歌曲里挑出今天最适合练的一句。';
     } else if (hasSong) {
-      songPracticeFlowHint.textContent = '歌曲已载入，等待目标曲线生成完成。';
+      songPracticeFlowHint.textContent = '歌曲已载入，Mira 正在准备第一句练习。';
     } else {
-      songPracticeFlowHint.textContent = '先点“选择歌曲”，上传本地音频或从录音库选择已有歌曲。';
+      songPracticeFlowHint.textContent = '先完成歌曲准备：上传歌曲或从录音库选择，分析完成后会自动进入第一句练习。';
     }
   }
   if (trainingMode === 'curve') {
@@ -1424,6 +1424,17 @@ async function runPitchAccuracyAnalysis() {
     });
   }
   updateSongPracticeFlow('评估完成');
+  if (window.MiraVoiceCoach) {
+    const dynamicFeedbackText = `${voiceReport?.summary || ''} ${voiceReport?.nextStep || ''} ${coach.summary || ''} ${coach.nextStep || ''}`;
+    const speechId = /breath|air|leak|气|息|漏/i.test(dynamicFeedbackText)
+      ? 'mira.less_air'
+      : combinedScore < 58
+        ? 'mira.retry'
+        : combinedScore >= 78
+          ? 'mira.success'
+          : 'mira.softer';
+    window.MiraVoiceCoach.speakById(speechId);
+  }
 }
 
 async function playSongPitchReference() {
@@ -1431,6 +1442,7 @@ async function playSongPitchReference() {
     return false;
   }
   try {
+    window.MiraVoiceCoach?.speakById?.('mira.listen');
     if (accompanimentAudio && !accompanimentAudio.paused) {
       accompanimentAudio.pause();
       setAccompanimentStatus('已暂停');
@@ -1456,8 +1468,12 @@ async function playSongPitchReference() {
 
 async function startSongPracticeFlow() {
   if (!songPitchTrack.length) {
-    showLibraryPage('recordings');
-    updateSongPracticeFlow('请先准备歌曲');
+    if (typeof window.showSongAnalysisPage === 'function') {
+      window.showSongAnalysisPage({ autoContinueToPractice: true });
+    } else {
+      showLibraryPage('recordings');
+    }
+    updateSongPracticeFlow('请先完成歌曲准备');
     return;
   }
   setSongTargetCollapsed(false);
@@ -1468,12 +1484,13 @@ async function startSongPracticeFlow() {
   renderSongPracticeReview();
   const recordingStarted = await startVoiceRecording();
   if (recordingStarted) {
+    window.MiraVoiceCoach?.speakById?.('mira.listen');
     const playbackStarted = await playSongPitchReference();
     if (shouldUseSongRhythm()) {
       syncRhythmToSongPractice(performance.now());
     }
     setSongTrainingResult('正在跟唱，结束后会自动评估。');
-    updateSongPracticeFlow(playbackStarted ? '跟唱录音中' : '录音中');
+    updateSongPracticeFlow(playbackStarted ? '你正在唱' : '录音中');
   }
 }
 

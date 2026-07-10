@@ -513,7 +513,7 @@ function saveActiveSearchBestSample() {
 }
 
 function bindActiveSearchEvents() {
-  document.getElementById('openActiveSearchButton')?.addEventListener('click', showActiveVoiceSearch);
+  document.querySelector('[data-open-active-search]')?.addEventListener('click', showActiveVoiceSearch);
   document.getElementById('activeSearchBackHomeButton')?.addEventListener('click', () => {
     hideActiveVoiceSearch();
     if (typeof showLauncherView === 'function') showLauncherView();

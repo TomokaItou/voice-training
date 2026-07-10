@@ -23,6 +23,11 @@ async function recordAiTeacherAttempt() {
   const task = aiTeacherActiveTask();
   if (!task) return;
   try {
+    window.MiraSpeechService?.stop?.();
+    window.MiraVoiceCoach?.stopLiveCues?.();
+    if (typeof setMiraPresenceState === 'function') {
+      setMiraPresenceState('listening', '好，唱给我听吧。');
+    }
     const stream = await aiTeacherEnsureStream();
     aiTeacherState.chunks = [];
     const recorder = new MediaRecorder(stream);
@@ -48,6 +53,7 @@ function stopAiTeacherRecording() {
     aiTeacherState.timer = null;
   }
   if (aiTeacherState.recorder && aiTeacherState.recorder.state !== 'inactive') {
+    window.MiraVoiceCoach?.speakById?.('mira.thinking', { interrupt: true, afterState: 'thinking' });
     aiTeacherState.recorder.stop();
   }
 }

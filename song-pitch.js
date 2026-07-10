@@ -583,6 +583,8 @@ async function analyzeSongPitchFile(file) {
   }
 }
 
+window.analyzeSongPitchFile = analyzeSongPitchFile;
+
 function clearSongPitchTrack() {
   clearSongPitchPlayback();
   resetSongLyrics();

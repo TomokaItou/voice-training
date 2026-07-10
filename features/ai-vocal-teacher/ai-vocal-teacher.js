@@ -1205,7 +1205,7 @@ function renderAiTeacherFeedback() {
 }
 
 function bindAiTeacherEvents() {
-  document.getElementById('openAiVocalTeacherButton')?.addEventListener('click', showAiVocalTeacher);
+  document.querySelector('[data-open-ai-vocal-teacher]')?.addEventListener('click', showAiVocalTeacher);
   document.getElementById('aiTeacherBackHomeButton')?.addEventListener('click', () => {
     hideAiVocalTeacher();
     if (typeof showLauncherView === 'function') showLauncherView();

@@ -12,7 +12,8 @@
 @import url("styles/ai-course.css");
 @import url("styles/vocal-state-kit.css");
 @import url("styles/song-analysis.css");
+@import url("styles/mira-voice-lab.css");
 @import url("styles/sidebar.css");
 @import url("styles/theme-responsive.css");
-@import url("styles/game.css");
-@import url("styles/mira-purple.css");
+@import url("styles/game.css?v=classroom-room-3");
+@import url("styles/mira-purple.css?v=classroom-room-3");

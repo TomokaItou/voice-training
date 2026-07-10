@@ -429,7 +429,7 @@ function hideVocalStateKitPage() {
 }
 
 function bindVocalStateKitEvents() {
-  document.getElementById('openVocalStateKitButton')?.addEventListener('click', showVocalStateKitPage);
+  document.querySelector('[data-open-vocal-state-kit]')?.addEventListener('click', showVocalStateKitPage);
   document.getElementById('vocalStateBackButton')?.addEventListener('click', () => {
     hideVocalStateKitPage();
     if (typeof showLauncherView === 'function') showLauncherView();

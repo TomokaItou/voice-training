@@ -4,6 +4,26 @@
 
 当前 Node 基准脚本支持 PCM / Float WAV。建议使用单人声、短片段、尽量少混响的录音，每个文件控制在 1 到 8 秒内。
 
+## 第一批样本
+
+先录一组小而稳定的样本，不要一开始追求覆盖完整歌曲。第一批建议至少包含：
+
+| 文件名 | 目的 | 标签 |
+| --- | --- | --- |
+| `singer-01-a3-sustain.wav` | 低声区持续音，检查低频/泛音锁定 | `sustain`, `low` |
+| `singer-01-a3-a4-slide.wav` | 慢滑音，检查连续跟踪 | `slide` |
+| `singer-02-e4-quiet.wav` | 轻声起音，检查弱声灵敏度 | `sustain`, `quiet`, `high` |
+| `singer-02-a4-vibrato.wav` | 颤音，检查真实声乐波动 | `vibrato`, `high` |
+| `room-silence-01.wav` | 房间底噪/吸气控制样本，检查误检 | `unvoiced`, `noise` |
+
+仓库里提供了 `manifest.template.json`。复制成 `manifest.json` 后，把真实录音文件放到同一目录，再按实际时长微调每段 `start` / `end`：
+
+```powershell
+Copy-Item .\samples\voice-benchmark\manifest.template.json .\samples\voice-benchmark\manifest.json
+```
+
+`manifest.json` 和音频文件会被 Git 忽略，避免把本机录音或隐私数据提交进仓库。
+
 生成草稿 manifest：
 
 ```powershell
@@ -34,12 +54,21 @@
 - 滑音：写 `[startHz, endHz]`，脚本会在片段内线性插值。
 - 静音、吸气、明显无声段：写 `expectedHz: null` 或 `voiced: false`。
 - 先从 A3、C4、E4、A4 等容易确认的音开始，后面再加入轻声、高音、颤音和真实歌曲片段。
+- `tags` 用于覆盖率统计，推荐使用：`sustain`、`slide`、`vibrato`、`quiet`、`low`、`high`、`breathy`、`noise`、`unvoiced`。
+- `singer.id` 用匿名编号，例如 `singer-01`，不要写真实姓名。
+- `recording` 只记录影响可重复性的环境信息，例如麦克风、距离和房间类型。
 
 运行：
 
 ```powershell
 .\scripts\voice-manifest.cmd --validate
 .\scripts\pitch-benchmark.cmd --full --voice
+```
+
+如果要把“缺关键覆盖”当成失败，而不是只显示 warning：
+
+```powershell
+.\scripts\voice-manifest.cmd --validate --strict-coverage
 ```
 
 只跑人声里的某个样本：

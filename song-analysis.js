@@ -1167,12 +1167,27 @@ function setSongAnalysisPracticeTask(task, result = songAnalysisState.result) {
   });
 }
 
-function setSongAnalysisPracticeSegment(segment) {
-  songAnalysisState.selectedSegment = segment;
-  const status = document.getElementById('songAnalysisStatus');
-  if (status) {
-    status.textContent = `已设为练习片段：${songAnalysisFormatTime(segment.start_time)}-${songAnalysisFormatTime(segment.end_time)}。可以进入 AI 声乐老师做 song-first 闭环。`;
+function getSongAnalysisFirstPracticeTask(result = songAnalysisState.result) {
+  const requirement = result?.song_requirement || songAnalysisState.requirement;
+  const todayTasks = requirement ? getSongRequirementTodayTasks(requirement) : [];
+  if (todayTasks[0]) {
+    return todayTasks[0];
   }
+  const topSegment = result ? getSongAnalysisTopSegments(result)[0] : null;
+  if (!topSegment) return null;
+  return {
+    task_id: `segment-${topSegment.id}`,
+    segment_id: topSegment.id,
+    start_time: topSegment.start_time,
+    end_time: topSegment.end_time,
+    required_skill: getSongAnalysisSegmentCoreTags(topSegment),
+    diagnostic_focus: getSongAnalysisDiagnosticFocus(getSongAnalysisSegmentCoreTags(topSegment), topSegment),
+    practice_instruction: '先听目标，再录一次这一句。',
+  };
+}
+
+function setSongAnalysisPracticeSegmentState(segment) {
+  songAnalysisState.selectedSegment = segment;
   window.currentSongPracticeSegment = {
     ...segment,
     source: 'song-analysis',
@@ -1182,6 +1197,15 @@ function setSongAnalysisPracticeSegment(segment) {
     diagnosticFocus: segment.diagnostic_focus || segment.primitiveTask?.diagnostic_focus || '',
     practiceInstruction: segment.practice_instruction || segment.primitiveTask?.practice_instruction || '',
   };
+  return window.currentSongPracticeSegment;
+}
+
+function setSongAnalysisPracticeSegment(segment) {
+  const status = document.getElementById('songAnalysisStatus');
+  if (status) {
+    status.textContent = `已设为练习片段：${songAnalysisFormatTime(segment.start_time)}-${songAnalysisFormatTime(segment.end_time)}。可以进入 AI 声乐老师做 song-first 闭环。`;
+  }
+  setSongAnalysisPracticeSegmentState(segment);
   if (typeof showAiVocalTeacher === 'function') {
     hideSongAnalysisPage();
     showAiVocalTeacher().then(() => {
@@ -1190,6 +1214,61 @@ function setSongAnalysisPracticeSegment(segment) {
         startAiTeacherSongFirstFromSegment(window.currentSongPracticeSegment);
       }
     });
+  }
+}
+
+function setSongAnalysisPracticeTaskState(task, result = songAnalysisState.result) {
+  if (!task || !result) return null;
+  const segment = result.segments.find((item) => item.id === task.segment_id) || {
+    id: task.segment_id,
+    start_time: task.start_time,
+    end_time: task.end_time,
+    duration: task.end_time - task.start_time,
+  };
+  return setSongAnalysisPracticeSegmentState({
+    ...segment,
+    primitiveTask: task,
+    required_skill: task.required_skill,
+    diagnostic_focus: task.diagnostic_focus,
+    practice_instruction: task.practice_instruction,
+  });
+}
+
+async function continueSongAnalysisToPractice(file, result) {
+  const status = document.getElementById('songAnalysisStatus');
+  const firstTask = getSongAnalysisFirstPracticeTask(result);
+  const practiceSegment = firstTask
+    ? setSongAnalysisPracticeTaskState(firstTask, result)
+    : null;
+  const segmentCount = result?.segments?.length || 0;
+
+  if (status) {
+    status.textContent = `歌曲已分析完成，共生成 ${segmentCount} 个练习片段。正在生成跟唱目标...`;
+  }
+
+  if (file && typeof window.analyzeSongPitchFile === 'function') {
+    await window.analyzeSongPitchFile(file);
+  }
+
+  if (typeof songPitchTrack !== 'undefined' && !songPitchTrack.length) {
+    if (status) {
+      status.textContent = `歌曲分析完成，共生成 ${segmentCount} 个练习片段，但目标曲线生成失败。请换一个更清晰的音频再试。`;
+    }
+    return;
+  }
+
+  hideSongAnalysisPage();
+  if (typeof window.showTrainingView === 'function') {
+    window.showTrainingView('curve');
+  }
+  if (typeof updateSongPracticeFlow === 'function') {
+    const label = practiceSegment
+      ? `歌曲已分析完成，共生成 ${segmentCount} 个练习片段。现在开始第一句练习。`
+      : `歌曲已分析完成，共生成 ${segmentCount} 个练习片段。现在开始跟唱练习。`;
+    updateSongPracticeFlow(label);
+  }
+  if (typeof setSongTrainingResult === 'function') {
+    setSongTrainingResult('先听目标，再录一次这一句。完成后 Mira 会自动复盘。');
   }
 }
 
@@ -1269,6 +1348,9 @@ async function analyzeSongAnalysisFile(file, loadingText = '正在分析歌曲..
     cacheSongRequirement(result);
     renderSongAnalysisResult(result);
     if (status) status.textContent = `分析完成，${result.segments.length} 个可练片段。`;
+    if (songAnalysisState.autoContinueToPractice !== false) {
+      await continueSongAnalysisToPractice(file, result);
+    }
   } catch (error) {
     console.error(error);
     if (status) status.textContent = '分析失败。可以换一个 mp3 / wav / m4a 再试。';
@@ -1297,7 +1379,8 @@ async function handleSongAnalysisLibraryLoad() {
   songAnalysisState.sourceRecordingId = item.id;
   await analyzeSongAnalysisFile(file, `正在分析录音库歌曲：${getRecordingLibraryName(item)}...`);
 }
-function showSongAnalysisPage() {
+function showSongAnalysisPage(options = {}) {
+  songAnalysisState.autoContinueToPractice = options.autoContinueToPractice !== false;
   document.getElementById('modeLauncher')?.setAttribute('hidden', '');
   document.getElementById('libraryPage')?.setAttribute('hidden', '');
   document.getElementById('appWindow')?.setAttribute('hidden', '');
@@ -1318,7 +1401,7 @@ function hideSongAnalysisPage() {
 }
 
 function bindSongAnalysisEvents() {
-  document.getElementById('openSongAnalysisButton')?.addEventListener('click', showSongAnalysisPage);
+  document.getElementById('openSongAnalysisButton')?.addEventListener('click', () => showSongAnalysisPage());
   document.getElementById('songAnalysisBackButton')?.addEventListener('click', () => {
     hideSongAnalysisPage();
     if (typeof showLauncherView === 'function') showLauncherView();

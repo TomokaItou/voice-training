@@ -9,6 +9,18 @@ const defaultExpectations = {
   maxAvgAbsCents: 55,
   maxFalsePositiveRate: 0.15,
 };
+const recommendedTags = [
+  'sustain',
+  'slide',
+  'vibrato',
+  'quiet',
+  'low',
+  'high',
+  'breathy',
+  'noise',
+  'unvoiced',
+];
+const defaultRequiredTags = ['sustain', 'slide', 'vibrato', 'quiet', 'low', 'high', 'unvoiced'];
 const noteOffsets = {
   c: -9,
   'c#': -8,
@@ -36,6 +48,8 @@ function parseArgs(argv) {
     manifestPath: defaultManifestPath,
     overwrite: false,
     quiet: false,
+    strictCoverage: false,
+    requiredTags: [...defaultRequiredTags],
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -56,6 +70,19 @@ function parseArgs(argv) {
       options.overwrite = true;
     } else if (arg === '--quiet') {
       options.quiet = true;
+    } else if (arg === '--strict-coverage') {
+      options.strictCoverage = true;
+    } else if (arg === '--required-tags') {
+      options.requiredTags = requireValue(argv, (i += 1), '--required-tags')
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+    } else if (arg.startsWith('--required-tags=')) {
+      options.requiredTags = arg
+        .slice('--required-tags='.length)
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else {
@@ -78,11 +105,12 @@ function requireValue(argv, index, name) {
 }
 
 function printUsage() {
-  console.log('Usage: voice-manifest.cmd --generate|--validate [--samples-dir path] [--manifest path] [--overwrite]');
+  console.log('Usage: voice-manifest.cmd --generate|--validate [--samples-dir path] [--manifest path] [--overwrite] [--strict-coverage]');
   console.log('');
   console.log('Examples:');
   console.log('  .\\scripts\\voice-manifest.cmd --generate');
   console.log('  .\\scripts\\voice-manifest.cmd --validate');
+  console.log('  .\\scripts\\voice-manifest.cmd --validate --strict-coverage');
   console.log('  .\\scripts\\voice-manifest.cmd --validate --manifest .\\samples\\voice-benchmark\\manifest.json');
 }
 
@@ -208,9 +236,24 @@ function createSample(fileName, info) {
       ? `Voice sample ${path.basename(fileName)}; fill expectedHz before benchmark use`
       : `Voice sample ${path.basename(fileName)}`,
     file: fileName,
+    tags: inferTags(fileName, expectedHz),
     segments: [segment],
     expectations: { ...defaultExpectations },
   };
+}
+
+function inferTags(fileName, expectedHz) {
+  const base = path.basename(fileName, path.extname(fileName)).toLowerCase();
+  const tags = new Set();
+  if (Array.isArray(expectedHz) || /(slide|siren|glide|滑|hua)/i.test(base)) tags.add('slide');
+  if (/(vibrato|颤|chan)/i.test(base)) tags.add('vibrato');
+  if (/(quiet|soft|pp|轻|qing)/i.test(base)) tags.add('quiet');
+  if (/(breath|breathy|air|气|qi)/i.test(base)) tags.add('breathy');
+  if (/(noise|silence|unvoiced|rest|静|jing)/i.test(base) || expectedHz === null) tags.add('unvoiced');
+  if (/(low|bass|male|低|di)/i.test(base)) tags.add('low');
+  if (/(high|head|falsetto|高|gao)/i.test(base)) tags.add('high');
+  if (!tags.size && Number.isFinite(expectedHz)) tags.add('sustain');
+  return [...tags].sort();
 }
 
 function listWavFiles(samplesDir) {
@@ -300,6 +343,71 @@ function validateExpectedHz(expectedHz, label, issues) {
   }
 }
 
+function normalizeTags(tags, label, issues) {
+  if (tags === undefined) {
+    return [];
+  }
+  if (!Array.isArray(tags)) {
+    issues.push(`${label}.tags must be an array of lowercase strings`);
+    return [];
+  }
+  const normalized = [];
+  tags.forEach((tag, index) => {
+    if (typeof tag !== 'string' || !/^[a-z0-9-]+$/.test(tag)) {
+      issues.push(`${label}.tags[${index}] must be a lowercase tag using a-z, 0-9, or hyphen`);
+    } else {
+      normalized.push(tag);
+    }
+  });
+  return normalized;
+}
+
+function validateCoverage(samples, options, warnings, issues) {
+  const tagCounts = new Map();
+  const singerIds = new Set();
+  let voicedSamples = 0;
+  let unvoicedSamples = 0;
+
+  samples.forEach((sample) => {
+    if (!sample || typeof sample !== 'object') {
+      return;
+    }
+    normalizeTags(sample.tags, `sample '${sample.id || sample.file || 'unknown'}'`, issues)
+      .forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1));
+    if (sample.singer?.id) singerIds.add(sample.singer.id);
+    const hasVoiced = (sample.segments || []).some(
+      (segment) => segment.expectedHz !== null && segment.voiced !== false
+    );
+    if (hasVoiced) voicedSamples += 1;
+    else unvoicedSamples += 1;
+  });
+
+  const missingTags = options.requiredTags.filter((tag) => !tagCounts.has(tag));
+  const coverageLines = [
+    `coverage.samples=${samples.length}`,
+    `coverage.voiced=${voicedSamples}`,
+    `coverage.unvoiced=${unvoicedSamples}`,
+    `coverage.singers=${singerIds.size}`,
+    `coverage.tags=${[...tagCounts.entries()].map(([tag, count]) => `${tag}:${count}`).join(', ') || 'none'}`,
+  ];
+
+  if (!samples.length) {
+    warnings.push('manifest has no samples yet; add local wav files and run --generate');
+  }
+  if (missingTags.length) {
+    const message = `coverage missing recommended tag(s): ${missingTags.join(', ')}. Recommended tags: ${recommendedTags.join(', ')}`;
+    if (options.strictCoverage) issues.push(message);
+    else warnings.push(message);
+  }
+  if (voicedSamples > 0 && singerIds.size < 2) {
+    const message = 'coverage has fewer than 2 singer ids; add at least one lower and one higher voice when possible';
+    if (options.strictCoverage) issues.push(message);
+    else warnings.push(message);
+  }
+
+  return coverageLines;
+}
+
 function validateManifest(options) {
   if (!fs.existsSync(options.manifestPath)) {
     throw new Error(`Manifest not found: ${options.manifestPath}`);
@@ -336,6 +444,7 @@ function validateManifest(options) {
     if (!Array.isArray(sample.segments) || !sample.segments.length) {
       issues.push(`${label}.segments must be a non-empty array`);
     }
+    normalizeTags(sample.tags, label, issues);
     validateExpectations(sample.expectations, label, issues);
 
     let wavInfo = null;
@@ -378,6 +487,8 @@ function validateManifest(options) {
     }
   });
 
+  const coverageLines = validateCoverage(samples || [], options, warnings, issues);
+
   if (issues.length) {
     console.log('Voice manifest validation failed.');
     issues.forEach((issue) => console.log(`  - ${issue}`));
@@ -392,6 +503,7 @@ function validateManifest(options) {
   if (!options.quiet) {
     console.log(`Voice manifest validation passed: ${options.manifestPath}`);
     console.log(`Samples: ${(samples || []).length}`);
+    coverageLines.forEach((line) => console.log(line));
     if (warnings.length) {
       console.log('');
       console.log('Warnings:');
