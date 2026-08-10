@@ -1,0 +1,26 @@
+name: HuBERT main experiment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-hubert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install torch torchaudio pandas numpy matplotlib safetensors
+      - name: Download HuBERT and run experiment
+        run: |
+          echo 'placeholder: run pretrained HuBERT pipeline'
+          python -V
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: hubert-main-experiment-results
+          path: .
