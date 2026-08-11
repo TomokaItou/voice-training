@@ -2,10 +2,14 @@ name: HuBERT main experiment
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - chatgpt/hubert-main-experiment-20260811
 
 jobs:
   run-hubert:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -15,12 +19,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install torch torchaudio pandas numpy matplotlib safetensors
-      - name: Download HuBERT and run experiment
+      - name: Run pretrained HuBERT experiment
         run: |
-          echo 'placeholder: run pretrained HuBERT pipeline'
-          python -V
+          python experiments/hubert_pretrained_main.py
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: hubert-main-experiment-results
-          path: .
+          name: hubert-pretrained-main-results
+          path: hubert_pretrained_results
